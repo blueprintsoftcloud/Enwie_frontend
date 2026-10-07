@@ -1054,7 +1054,7 @@ export default function ProductDetailPage() {
           </button>
         </div>
 
-        <div className="lg:grid lg:grid-cols-2 lg:gap-x-12 xl:gap-x-16 items-start">
+        <div className="lg:grid lg:grid-cols-[auto_1fr] lg:gap-x-8 xl:gap-x-12 items-start">
           
           {/* --- LEFT: PORTRAIT IMAGE GALLERY (3:4 Portrait with left thumbnail strip and zoom) --- */}
           <motion.div 
@@ -1097,7 +1097,7 @@ export default function ProductDetailPage() {
             )}
 
             {/* Main Portrait Card (3:4 aspect ratio) with zoom and navigation */}
-            <div className="flex-1 w-full min-w-0 max-w-[490px] xl:max-w-[500px]">
+            <div className="flex-1 w-full min-w-0 max-w-[488px] xl:max-w-[500px] lg:w-[488px] xl:w-[500px]">
               <div
                 className={`relative aspect-[3/4] w-full overflow-hidden rounded-2xl bg-gray-50 border border-gray-200/60 group shadow-sm select-none flex items-center justify-center ${
                   isZoomed ? "cursor-zoom-out" : "cursor-zoom-in"
@@ -1177,7 +1177,7 @@ export default function ProductDetailPage() {
              initial={{ opacity: 0, x: 20 }}
              animate={{ opacity: 1, x: 0 }}
              transition={{ duration: 0.6, delay: 0.2 }}
-             className="px-2 sm:px-0"
+             className="px-2 sm:px-0 max-w-xl xl:max-w-2xl w-full"
           >
             {/* Title */}
             <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-neutral-900 font-sans mb-1">
