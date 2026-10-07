@@ -1041,7 +1041,7 @@ export default function ProductDetailPage() {
           { name: product.name, path: `/products/${product.id}` },
         ]}
       />
-      <main className="max-w-7xl mx-auto px-4 pt-8 pb-16 sm:px-6 lg:px-8 mt-(--app-header-h)">
+      <main className="w-full max-w-[1440px] xl:max-w-[1536px] mx-auto px-4 pt-8 pb-16 sm:px-6 lg:px-8 xl:px-10 mt-(--app-header-h)">
 
         {/* --- BREADCRUMB / BACK --- */}
         <div className="mb-6 pt-4">
@@ -1054,7 +1054,7 @@ export default function ProductDetailPage() {
           </button>
         </div>
 
-        <div className="lg:grid lg:grid-cols-2 lg:gap-x-12 items-start">
+        <div className="lg:grid lg:grid-cols-2 lg:gap-x-12 xl:gap-x-16 items-start">
           
           {/* --- LEFT: PORTRAIT IMAGE GALLERY (3:4 Portrait with left thumbnail strip and zoom) --- */}
           <motion.div 
@@ -1064,7 +1064,7 @@ export default function ProductDetailPage() {
             className="flex flex-col-reverse lg:flex-row gap-3 sm:gap-4 mb-8 lg:mb-0 lg:sticky lg:top-24 items-start"
           >
             {/* Vertical Thumbnail Strip on Desktop, Horizontal on Mobile */}
-            {galleryImages.length > 1 ? (
+            {galleryImages.length > 1 && (
               <div className="flex lg:flex-col gap-2.5 overflow-x-auto lg:overflow-y-auto lg:max-h-[640px] lg:w-20 shrink-0 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden py-1 lg:py-0 w-full lg:w-auto">
                 {galleryImages.map((img, i) => (
                   <button
@@ -1094,13 +1094,10 @@ export default function ProductDetailPage() {
                   </button>
                 ))}
               </div>
-            ) : (
-              /* Invisible spacer on desktop to lock main image to the exact same size when only 1 image exists */
-              <div className="hidden lg:block lg:w-20 shrink-0" aria-hidden="true" />
             )}
 
             {/* Main Portrait Card (3:4 aspect ratio) with zoom and navigation */}
-            <div className="flex-1 w-full min-w-0">
+            <div className="flex-1 w-full min-w-0 max-w-[490px] xl:max-w-[500px]">
               <div
                 className={`relative aspect-[3/4] w-full overflow-hidden rounded-2xl bg-gray-50 border border-gray-200/60 group shadow-sm select-none flex items-center justify-center ${
                   isZoomed ? "cursor-zoom-out" : "cursor-zoom-in"
