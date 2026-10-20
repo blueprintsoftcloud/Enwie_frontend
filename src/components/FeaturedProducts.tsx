@@ -16,7 +16,7 @@ import { resolveAssetUrl } from "../utils/category";
 import { calculateDiscountedPrice } from "../utils/product";
 import api from "../utils/api";
 
-interface Product {
+export interface Product {
   id: string;
   name: string;
   price: number;
@@ -25,12 +25,13 @@ interface Product {
   discount?: number;
 }
 
-interface FeaturedProductsProps {
+export interface FeaturedProductsProps {
   featuredProducts: Product[];
   productsLoading: boolean;
   productsError: string | null;
   sectionTitle?: string;
   sectionSubtitle?: string;
+  viewAllLink?: string;
 }
 
 const getImageUrl = (imagePath?: string): string => {
@@ -38,12 +39,68 @@ const getImageUrl = (imagePath?: string): string => {
   return resolveAssetUrl(imagePath) ?? "https://via.placeholder.com/300?text=No+Image";
 };
 
+// Shared section header — centered heading with classic old UI "See All" link
+const SectionHeader = ({
+  sectionTitle = "Featured Collections",
+  sectionSubtitle,
+  showSeeAll,
+  viewAllLink,
+}: {
+  sectionTitle?: string;
+  sectionSubtitle?: string;
+  showSeeAll: boolean;
+  viewAllLink?: string;
+}) => (
+  <div className="relative mb-10 sm:mb-14">
+    <div className="text-center max-w-4xl mx-auto px-4">
+      <motion.h2
+        initial={{ opacity: 0, y: 15 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true }}
+        transition={{ duration: 0.5 }}
+        className="text-2xl sm:text-4xl font-serif font-bold text-gray-900 leading-tight"
+      >
+        {sectionTitle}
+      </motion.h2>
+      {sectionSubtitle && (
+        <p className="text-gray-500 text-xs sm:text-sm mt-3 tracking-wide font-sans max-w-xl mx-auto">
+          {sectionSubtitle}
+        </p>
+      )}
+      {showSeeAll && (
+        <div className="mt-3 flex justify-center md:hidden">
+          <Link
+            to={viewAllLink || "/products"}
+            className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-widest text-gray-500 hover:text-[var(--theme-primary)] transition-colors group"
+          >
+            <span>See All</span>
+            <ArrowUpRight className="w-3.5 h-3.5 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+          </Link>
+        </div>
+      )}
+    </div>
+
+    {showSeeAll && (
+      <div className="hidden md:flex absolute right-0 bottom-1 items-center">
+        <Link
+          to={viewAllLink || "/products"}
+          className="flex items-center gap-2 text-sm font-semibold uppercase tracking-widest text-gray-500 hover:text-[var(--theme-primary)] transition-colors group shrink-0 whitespace-nowrap"
+        >
+          <span>See All</span>
+          <ArrowUpRight className="w-4 h-4 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+        </Link>
+      </div>
+    )}
+  </div>
+);
+
 const Template1 = ({
   featuredProducts,
   productsLoading,
   productsError,
   sectionTitle = "Featured Collections",
   sectionSubtitle,
+  viewAllLink,
 }: FeaturedProductsProps) => {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [isScrollable, setIsScrollable] = useState(false);
@@ -105,33 +162,12 @@ const Template1 = ({
 
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 relative z-10">
         {/* --- Header Section --- */}
-        <div className="flex flex-col md:flex-row md:items-end justify-between mb-12">
-          <div className="text-center md:text-left w-full md:w-auto">
-            <motion.h2
-              initial={{ opacity: 0, x: -20 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true }}
-              className="text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl"
-            >
-              {sectionTitle}
-            </motion.h2>
-            {sectionSubtitle && (
-              <p className="text-gray-500 text-sm mt-2">{sectionSubtitle}</p>
-            )}
-            <div className="h-1 w-20 bg-[var(--theme-primary)] mt-4 mx-auto md:mx-0 rounded-full" />
-          </div>
-
-          {/* "See All" Link */}
-          {!productsLoading && !productsError && featuredProducts.length > 0 && (
-            <Link
-              to="/products"
-              className="hidden md:flex items-center gap-2 text-sm font-semibold uppercase tracking-widest text-gray-500 hover:text-[var(--theme-primary)] transition-colors group shrink-0 whitespace-nowrap"
-            >
-              See All
-              <ArrowUpRight className="w-4 h-4 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
-            </Link>
-          )}
-        </div>
+        <SectionHeader
+          sectionTitle={sectionTitle}
+          sectionSubtitle={sectionSubtitle}
+          showSeeAll={!productsLoading && !productsError && featuredProducts.length > 0}
+          viewAllLink={viewAllLink}
+        />
 
         {/* --- Loading State --- */}
         {/* ================= CONTENT STATES ================= */}
@@ -214,19 +250,19 @@ const Template1 = ({
                         <div className="flex items-center gap-1.5">
                           {product.discount && product.discount > 0 ? (
                             <>
-                              <span className="text-sm font-bold text-gray-900">
-                                ₹{calculateDiscountedPrice(product.price, product.discount).toFixed(0)}
+                              <span className="text-sm font-black text-emerald-700 tracking-tight">
+                                ₹{Math.round(calculateDiscountedPrice(product.price, product.discount)).toLocaleString("en-IN")}
                               </span>
-                              <span className="text-xs text-gray-400 line-through">
-                                ₹{product.price.toFixed(0)}
+                              <span className="text-xs text-gray-400 line-through font-normal">
+                                ₹{Math.round(Number(product.price)).toLocaleString("en-IN")}
                               </span>
-                              <span className="text-[10px] text-green-600 font-bold bg-green-50 px-1 rounded">
-                                -{product.discount}%
+                              <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 border border-emerald-200/60 px-1 rounded">
+                                -{Math.round(Number(product.discount))}%
                               </span>
                             </>
                           ) : (
-                            <span className="text-sm font-bold text-gray-900">
-                              ₹{product.price.toFixed(0)}
+                            <span className="text-sm font-black text-emerald-700 tracking-tight">
+                              ₹{Math.round(Number(product.price)).toLocaleString("en-IN")}
                             </span>
                           )}
                         </div>
@@ -254,62 +290,37 @@ const Template1 = ({
   );
 };
 
-// Shared section header — every template below renders the identical title/subtitle/
-// underline/"See All" block, only the product layout underneath differs.
-const SectionHeader = ({
-  sectionTitle = "Featured Collections",
-  sectionSubtitle,
-  showSeeAll,
-}: {
-  sectionTitle?: string;
-  sectionSubtitle?: string;
-  showSeeAll: boolean;
-}) => (
-  <div className="flex flex-col md:flex-row md:items-end justify-between mb-12">
-    <div className="text-center md:text-left w-full md:w-auto">
-      <motion.h2
-        initial={{ opacity: 0, x: -20 }}
-        whileInView={{ opacity: 1, x: 0 }}
-        viewport={{ once: true }}
-        className="text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl"
-      >
-        {sectionTitle}
-      </motion.h2>
-      {sectionSubtitle && <p className="text-gray-500 text-sm mt-2">{sectionSubtitle}</p>}
-      <div className="h-1 w-20 bg-[var(--theme-primary)] mt-4 mx-auto md:mx-0 rounded-full" />
-    </div>
-    {showSeeAll && (
-      <Link
-        to="/products"
-        className="hidden md:flex items-center gap-2 text-sm font-semibold uppercase tracking-widest text-gray-500 hover:text-[var(--theme-primary)] transition-colors group shrink-0 whitespace-nowrap"
-      >
-        See All
-        <ArrowUpRight className="w-4 h-4 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
-      </Link>
-    )}
-  </div>
-);
+
 
 const ProductPrice = ({ product }: { product: Product }) =>
   product.discount && product.discount > 0 ? (
     <>
-      <span className="text-sm font-bold text-gray-900">
-        ₹{calculateDiscountedPrice(product.price, product.discount).toFixed(0)}
+      <span className="text-sm font-black text-emerald-700 tracking-tight">
+        ₹{Math.round(calculateDiscountedPrice(product.price, product.discount)).toLocaleString("en-IN")}
       </span>
-      <span className="text-xs text-gray-400 line-through">₹{product.price.toFixed(0)}</span>
-      <span className="text-[10px] text-green-600 font-bold bg-green-50 px-1 rounded">-{product.discount}%</span>
+      <span className="text-xs text-gray-400 line-through font-normal">
+        ₹{Math.round(Number(product.price)).toLocaleString("en-IN")}
+      </span>
+      <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 border border-emerald-200/60 px-1 rounded">
+        -{Math.round(Number(product.discount))}%
+      </span>
     </>
   ) : (
-    <span className="text-sm font-bold text-gray-900">₹{product.price.toFixed(0)}</span>
+    <span className="text-sm font-black text-emerald-700 tracking-tight">
+      ₹{Math.round(Number(product.price)).toLocaleString("en-IN")}
+    </span>
   );
 
 // ─── Template 2: Static Grid ────────────────────────────────────────────────────
 // A calm responsive grid instead of a horizontal scroll — every product visible at
 // once, no scroll interaction needed.
-const Template2 = ({ featuredProducts, productsLoading, productsError, sectionTitle, sectionSubtitle }: FeaturedProductsProps) => (
+// ─── Template 2: Static Grid ────────────────────────────────────────────────────
+// A calm responsive grid instead of a horizontal scroll — every product visible at
+// once, no scroll interaction needed.
+const Template2 = ({ featuredProducts, productsLoading, productsError, sectionTitle, sectionSubtitle, viewAllLink }: FeaturedProductsProps) => (
   <section className="bg-white py-20">
     <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-      <SectionHeader sectionTitle={sectionTitle} sectionSubtitle={sectionSubtitle} showSeeAll={!productsLoading && !productsError && featuredProducts.length > 0} />
+      <SectionHeader sectionTitle={sectionTitle} sectionSubtitle={sectionSubtitle} showSeeAll={!productsLoading && !productsError && featuredProducts.length > 0} viewAllLink={viewAllLink} />
       {productsLoading ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-10">
           {[...Array(8)].map((_, i) => (
@@ -349,14 +360,14 @@ const Template2 = ({ featuredProducts, productsLoading, productsError, sectionTi
 // ─── Template 3: Spotlight Carousel ─────────────────────────────────────────────
 // One large product at a time with a thumbnail rail below to jump between them — a
 // "product of the moment" treatment rather than a browse-everything grid/scroll.
-const Template3 = ({ featuredProducts, productsLoading, productsError, sectionTitle, sectionSubtitle }: FeaturedProductsProps) => {
+const Template3 = ({ featuredProducts, productsLoading, productsError, sectionTitle, sectionSubtitle, viewAllLink }: FeaturedProductsProps) => {
   const [index, setIndex] = useState(0);
   const active = featuredProducts[index];
 
   return (
     <section className="bg-white py-20">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <SectionHeader sectionTitle={sectionTitle} sectionSubtitle={sectionSubtitle} showSeeAll={!productsLoading && !productsError && featuredProducts.length > 0} />
+        <SectionHeader sectionTitle={sectionTitle} sectionSubtitle={sectionSubtitle} showSeeAll={!productsLoading && !productsError && featuredProducts.length > 0} viewAllLink={viewAllLink} />
         {productsLoading ? (
           <div className="w-full aspect-[16/8] bg-gray-200 rounded-2xl animate-pulse" />
         ) : productsError ? (
@@ -399,10 +410,10 @@ const Template3 = ({ featuredProducts, productsLoading, productsError, sectionTi
 // ─── Template 4: Editorial List ─────────────────────────────────────────────────
 // Vertical stacked rows with a large image and more room for product info — a
 // magazine-style treatment rather than a compact grid/scroll of small cards.
-const Template4 = ({ featuredProducts, productsLoading, productsError, sectionTitle, sectionSubtitle }: FeaturedProductsProps) => (
+const Template4 = ({ featuredProducts, productsLoading, productsError, sectionTitle, sectionSubtitle, viewAllLink }: FeaturedProductsProps) => (
   <section className="bg-white py-20">
     <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
-      <SectionHeader sectionTitle={sectionTitle} sectionSubtitle={sectionSubtitle} showSeeAll={!productsLoading && !productsError && featuredProducts.length > 0} />
+      <SectionHeader sectionTitle={sectionTitle} sectionSubtitle={sectionSubtitle} showSeeAll={!productsLoading && !productsError && featuredProducts.length > 0} viewAllLink={viewAllLink} />
       {productsLoading ? (
         <div className="space-y-6">
           {[...Array(3)].map((_, i) => (

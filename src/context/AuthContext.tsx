@@ -40,7 +40,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<AuthUser>({
     role: cachedRole,
     isAuthenticated: cachedLoggedIn,
-    isInitialLoad: true,
+    isInitialLoad: !cachedLoggedIn,
   });
 
   const checkAuthStatus = async (isInitial: boolean = false) => {
@@ -65,7 +65,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       } else {
         localStorage.removeItem("isLoggedIn");
         localStorage.removeItem("userRole");
-        setUser({ role: null, isAuthenticated: false, isInitialLoad: isInitial ? true : false });
+        setUser({ role: null, isAuthenticated: false, isInitialLoad: false });
       }
     } catch (err: unknown) {
       const status = (err as any)?.response?.status;
@@ -75,10 +75,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (status === 401 || status === 403) {
         localStorage.removeItem("isLoggedIn");
         localStorage.removeItem("userRole");
-        setUser({ role: null, isAuthenticated: false, isInitialLoad: isInitial ? true : false });
+        setUser({ role: null, isAuthenticated: false, isInitialLoad: false });
       } else {
         // Transient error (slow network): keep existing cached auth state, just clear isInitialLoad
-        setUser((prev) => ({ ...prev, isInitialLoad: isInitial ? true : false }));
+        setUser((prev) => ({ ...prev, isInitialLoad: false }));
       }
     }
   };
@@ -91,8 +91,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     // and the call would always fail, producing a noisy network error.
     const isLoginPage = window.location.pathname === "/login";
     const init = async () => {
-      const startTime = Date.now();
-
       let refreshedRole: string | null = null;
       let refreshSucceeded = false;
 
@@ -120,19 +118,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setUser({
           role: refreshedRole ?? localStorage.getItem("userRole") ?? null,
           isAuthenticated: true,
-          isInitialLoad: true,  // Will be set to false after the min-duration below
+          isInitialLoad: false,
         });
       } else {
         // No refresh was attempted or it failed — fall back to checking status.
-        await checkAuthStatus(true);
-      }
-
-      // Enforce a minimum 800ms loader playtime to guarantee the PropagateLoader
-      // animates fully and gracefully, preventing "flickering" or "stuck" frames.
-      const elapsed = Date.now() - startTime;
-      const minDuration = 800;
-      if (elapsed < minDuration) {
-        await new Promise((resolve) => setTimeout(resolve, minDuration - elapsed));
+        await checkAuthStatus(false);
       }
 
       // Finish loading state to mount the app

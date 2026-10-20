@@ -138,22 +138,22 @@ const ModernProductCard = React.memo(function ModernProductCard({ product }: { p
                   .join(" · ")}
               </span>
             )}
-            <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
+            <div className="mt-0.5 flex flex-wrap items-baseline gap-1.5">
               {product.discount && product.discount > 0 ? (
                 <>
-                  <span className="text-sm font-extrabold text-gray-900">
-                    ₹{calculateDiscountedPrice(product.price, product.discount).toFixed(0)}
+                  <span className="text-sm font-black text-emerald-700 tracking-tight">
+                    ₹{Math.round(calculateDiscountedPrice(product.price, product.discount)).toLocaleString("en-IN")}
                   </span>
-                  <span className="text-[10px] text-gray-400 line-through">
-                    ₹{product.price?.toFixed(0)}
+                  <span className="text-[10px] text-gray-400 line-through font-normal">
+                    ₹{Math.round(Number(product.price)).toLocaleString("en-IN")}
                   </span>
-                  <span className="text-[9px] text-emerald-700 font-bold bg-emerald-50 border border-emerald-200/60 px-1 rounded">
-                    {product.discount}% OFF
+                  <span className="text-[9px] text-emerald-700 font-bold bg-emerald-50 border border-emerald-200/60 px-1.5 py-0.5 rounded-md leading-none shadow-2xs">
+                    {Math.round(Number(product.discount))}% OFF
                   </span>
                 </>
               ) : (
-                <span className="text-sm font-extrabold text-gray-900">
-                  ₹{product.price?.toFixed(0)}
+                <span className="text-sm font-black text-emerald-700 tracking-tight">
+                  ₹{Math.round(Number(product.price)).toLocaleString("en-IN")}
                 </span>
               )}
             </div>
@@ -665,17 +665,8 @@ export default function AllProducts() {
           </div>
         )}
 
-        {/* Results Counter */}
-        {(loading || items.length > 0) && (
-          <div className="mb-6 text-xs text-gray-500 text-right">
-             {!loading && (
-               <>Showing {items.length ? Math.min((filters.page - 1) * filters.limit + 1, total) : 0} – {Math.min(filters.page * filters.limit, total)} of {total} products</>
-             )}
-          </div>
-        )}
-
         {/* PRODUCT GRID LAYOUT */}
-        <div className="grid grid-cols-1 gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-4 xl:gap-x-8">
+        <div className="pt-6 grid grid-cols-1 gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-4 xl:gap-x-8">
           {loading && items.length === 0
             ? Array.from({ length: 8 }).map((_, i) => (
                 <SkeletonCard key={i} />

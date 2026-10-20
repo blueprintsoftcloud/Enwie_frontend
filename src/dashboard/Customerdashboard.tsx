@@ -13,6 +13,7 @@ import toast, { Toaster } from "react-hot-toast";
 import api from "../utils/api";
 import CuratedLooksGallery from "../components/CuratedLooksGallery";
 import DiscountPage from "../components/DiscountPage";
+import AlternatingShowcase from "../components/AlternatingShowcase";
 import { normalizeProduct } from "../utils/product";
 import { isStorefrontPreview } from "../utils/preview";
 import PageSeo from "../components/seo/PageSeo";
@@ -281,14 +282,16 @@ const Customerdashboard = () => {
           <div id="carousel">
             <CuratedLooksGallery />
           </div>
-          <div id="featured">
-            <FeaturedProducts
-              featuredProducts={featuredProducts}
-              productsLoading={productsLoading}
-              productsError={productsError}
-              sectionTitle={featuredSection.title}
-              sectionSubtitle={featuredSection.subtitle || undefined}
-            />
+          <div id="featured" className="w-full">
+            <div id="pre-footer" className="w-full">
+              <AlternatingShowcase
+                handpickedProducts={featuredProducts}
+                productsLoading={productsLoading}
+                productsError={productsError}
+                sectionTitle={featuredSection.title}
+                sectionSubtitle={featuredSection.subtitle || undefined}
+              />
+            </div>
           </div>
           <div id="footer">
             <FooterSection />

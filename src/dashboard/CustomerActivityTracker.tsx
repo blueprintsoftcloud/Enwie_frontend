@@ -291,9 +291,9 @@ const DetailDialog = ({
                     <p className="font-semibold text-gray-900 text-sm truncate">{item.name}</p>
                     <p className="text-xs text-gray-400">{item.category?.name ?? ""} · {item.code}</p>
                     <div className="flex items-center gap-2 mt-0.5">
-                      <span className="text-sm font-bold text-gray-900">₹{discountedPrice.toFixed(0)}</span>
+                      <span className="text-sm font-extrabold text-emerald-700 tracking-tight">₹{Math.round(discountedPrice).toLocaleString("en-IN")}</span>
                       {discount > 0 && (
-                        <span className="text-xs text-green-600 font-semibold bg-green-50 px-1.5 py-0.5 rounded-full">-{discount}%</span>
+                        <span className="text-xs text-emerald-700 font-semibold bg-emerald-50 border border-emerald-200/60 px-1.5 py-0.5 rounded-full">-{Math.round(discount)}%</span>
                       )}
                     </div>
                     {tab === "cart" && item.quantity && (

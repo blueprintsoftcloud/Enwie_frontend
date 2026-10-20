@@ -168,17 +168,17 @@ const ModernProductCard = React.memo(function ModernProductCard({ product }: { p
               </span>
             ) : null}
 
-            <div className="flex items-center gap-2 mt-1">
-              <span className="text-xs sm:text-sm font-extrabold text-gray-900">
-                ₹{finalPrice.toFixed(0)}
+            <div className="flex items-baseline gap-1.5 sm:gap-2 mt-1 flex-wrap">
+              <span className="text-xs sm:text-sm font-black text-emerald-700 tracking-tight">
+                ₹{Math.round(finalPrice).toLocaleString("en-IN")}
               </span>
               {(product.discount ?? 0) > 0 && (
                 <>
-                  <span className="text-[10px] sm:text-xs text-gray-400 line-through">
-                    ₹{product.price?.toFixed(0)}
+                  <span className="text-[10px] sm:text-xs text-gray-400 line-through font-normal">
+                    ₹{Math.round(Number(product.price)).toLocaleString("en-IN")}
                   </span>
-                  <span className="text-[9px] sm:text-[10px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-full">
-                    {product.discount}% OFF
+                  <span className="text-[9px] sm:text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200/80 px-1.5 py-0.5 rounded-md leading-none">
+                    {Math.round(Number(product.discount))}% OFF
                   </span>
                 </>
               )}

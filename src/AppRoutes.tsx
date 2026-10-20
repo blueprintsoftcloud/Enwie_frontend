@@ -17,6 +17,7 @@ import PageSeo from "./components/seo/PageSeo";
 /* ==================== GLOBAL COMPONENTS ==================== */
 // Kept eager: needed immediately for every customer route, and small.
 import Navbar from "./components/Navbar";
+import FestiveAmbientOverlay from "./components/FestiveAmbientOverlay";
 
 /* ==================== AUTH ==================== */
 // Kept eager: tiny, and Login is the very first thing an unauthenticated visit needs.
@@ -105,14 +106,11 @@ const ContactPage = lazy(() => import("./pages/static/ContactPage"));
 const Home = lazy(() => import("./home/Home"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
-/* Shown while a lazy route chunk is downloading — mirrors the loading state
- * every dashboard already renders during its own initial data fetch, so a
- * chunk-load and a data-load look the same to the user. */
+/* Top progress indicator while a lazy route chunk is resolving — prevents
+ * jarring full-screen white flashes ("blinking") during navigation and reloads. */
 const RouteFallback = () => (
-  <div className="flex h-screen w-screen items-center justify-center bg-white">
-    <p className="text-sm uppercase font-bold tracking-widest text-slate-400 font-mono text-center select-none">
-      Loading...
-    </p>
+  <div className="fixed inset-x-0 top-0 z-[9999] h-1 w-full overflow-hidden bg-slate-100">
+    <div className="h-full w-full bg-indigo-600 origin-left animate-pulse" />
   </div>
 );
 
@@ -176,6 +174,7 @@ const CustomerLayout = () => {
         cartItemCount={user.isAuthenticated ? cartItems.length : 0}
         handleLogout={logout}
       />
+      <FestiveAmbientOverlay />
 
       {/* Locked inside-scroll wrapper container under the fixed Navbar */}
       <div ref={scrollContainerRef} className="h-screen overflow-y-auto w-full select-text scrollbar-thin">

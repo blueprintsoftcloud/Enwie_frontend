@@ -153,6 +153,10 @@ const DEFAULT_CONFIG: HeroConfig = {
       ],
     },
     "9": {
+      title: "",
+      subtitle: "",
+      ctaText: "",
+      ctaLink: "",
       images: [
         "https://images.unsplash.com/photo-1490481651871-ab68de25d43d?auto=format&fit=crop&q=85&w=1920",
         "https://images.unsplash.com/photo-1469334031218-e382a71b716b?auto=format&fit=crop&q=85&w=1920",

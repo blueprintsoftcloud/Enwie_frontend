@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, Suspense } from "react";
 import { useBodyScrollLock } from "../hooks/useBodyScrollLock";
 import { createPortal } from "react-dom";
 import { Link, Outlet, useNavigate } from "react-router-dom";
@@ -424,8 +424,14 @@ const NavLink = ({
 export default function Admindashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [openMenu, setOpenMenu] = useState("");
-  const [adminInfo, setAdminInfo] = useState<AdminInfo | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [adminInfo, setAdminInfo] = useState<AdminInfo | null>(() => {
+    try {
+      const cached = localStorage.getItem("crm_admin_profile");
+      return cached ? JSON.parse(cached) : null;
+    } catch {
+      return null;
+    }
+  });
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(
     () => localStorage.getItem("adminSidebarCollapsed") === "true",
@@ -477,6 +483,9 @@ export default function Admindashboard() {
 
   const handleLogout = () => {
     setAdminInfo(null);
+    try {
+      localStorage.removeItem("crm_admin_profile");
+    } catch {}
     logout();
   };
 
@@ -484,23 +493,24 @@ export default function Admindashboard() {
   // FETCH ADMIN PROFILE
   // =========================
   const fetchAdminProfile = async () => {
-    setIsLoading(true);
     try {
       const res = await api.get("/admin/adminProfile");
       const data = res.data.adminData;
-      setAdminInfo({
+      const profile = {
         name: data.username || data.name || "Administrator",
         role: data.role || "Admin",
         avatar: data.avatar || "",
-      });
+      };
+      setAdminInfo(profile);
+      try {
+        localStorage.setItem("crm_admin_profile", JSON.stringify(profile));
+      } catch {}
     } catch (err) {
       const status = (err as any)?.response?.status;
       console.error("Auth failed:", err);
       if (status === 404 || status === 401 || status === 403) {
         logout();
       }
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -590,15 +600,7 @@ export default function Admindashboard() {
     </>
   );
 
-  if (isLoading) {
-    return (
-      <div className="flex h-screen w-screen flex-col items-center justify-center bg-slate-50 font-sans">
-        <p className="text-sm uppercase font-bold tracking-widest text-slate-400 font-mono text-center select-none">
-          Loading...
-        </p>
-      </div>
-    );
-  }
+
 
   // =========================
   // RENDER (UI UNCHANGED)
@@ -769,7 +771,20 @@ export default function Admindashboard() {
           {/* Main Content */}
           <main>
             <div>
-              <Outlet />
+              <Suspense
+                fallback={
+                  <div className="flex items-center justify-center py-20 min-h-[350px]">
+                    <div className="flex flex-col items-center gap-3">
+                      <div className="h-6 w-6 animate-spin rounded-full border-2 border-indigo-600 border-t-transparent" />
+                      <p className="text-xs font-semibold tracking-wider uppercase text-slate-400 font-mono select-none">
+                        Loading...
+                      </p>
+                    </div>
+                  </div>
+                }
+              >
+                <Outlet />
+              </Suspense>
             </div>
           </main>
         </div>

@@ -33,9 +33,26 @@ import {
   ExclamationTriangleIcon,
   ArrowRightIcon,
   BuildingStorefrontIcon,
+  ClockIcon,
 } from "@heroicons/react/24/outline";
 import { CheckCircleIcon as CheckCircleSolid } from "@heroicons/react/24/solid";
 import ShipOrderModal, { ShipOrderPayload } from "./ShipOrderModal";
+
+interface RecentOrderInfo {
+  id: string;
+  shortId: string;
+  createdAt: string;
+  formattedTime: string;
+  relativeTime: string;
+  finalAmount: number;
+  totalAmount?: number;
+  orderStatus: string;
+  paymentMethod: string;
+  placedByAdmin: boolean;
+  itemsCount: number;
+  itemsSummary: string;
+  customerName: string;
+}
 
 interface Customer {
   id: string;
@@ -338,6 +355,12 @@ export default function AdminOrderPage() {
   const [inlineMatchedCustomer, setInlineMatchedCustomer] = useState<Customer | null>(null);
   const checkNewCustomerDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // ── 24-hour recent order detection state ──
+  const [recentOrderWarning, setRecentOrderWarning] = useState<RecentOrderInfo | null>(null);
+  const [recentOrderModalOpen, setRecentOrderModalOpen] = useState(false);
+  const [recentOrderChecking, setRecentOrderChecking] = useState(false);
+  const [bypassRecentOrder, setBypassRecentOrder] = useState(false);
+
   // ── Products state ──
   const [productSearch, setProductSearch] = useState("");
   const [products, setProducts] = useState<Product[]>([]);
@@ -518,6 +541,36 @@ export default function AdminOrderPage() {
   }, [selectedCustomer, newCustomer.phone, newCustomer.email]);
 
   useEffect(() => {
+    setBypassRecentOrder(false);
+    setRecentOrderWarning(null);
+  }, [selectedCustomer?.id, newCustomer.phone, newCustomer.email]);
+
+  useEffect(() => {
+    if (currentStep !== "confirm" || bypassRecentOrder) return;
+    const params: Record<string, string> = {};
+    if (selectedCustomer?.id) {
+      params.customerId = selectedCustomer.id;
+    } else if (newCustomer.phone.trim()) {
+      params.phone = newCustomer.phone.trim();
+    } else if (newCustomer.email.trim()) {
+      params.email = newCustomer.email.trim();
+    }
+    if (Object.keys(params).length === 0) return;
+
+    api.get("/order/admin-order/check-recent-order", { params })
+      .then(({ data }) => {
+        if (data && data.hasRecentOrder && data.order) {
+          setRecentOrderWarning(data.order);
+        } else {
+          setRecentOrderWarning(null);
+        }
+      })
+      .catch(() => {
+        // silent
+      });
+  }, [currentStep, selectedCustomer?.id, newCustomer.phone, newCustomer.email, bypassRecentOrder]);
+
+  useEffect(() => {
     const onClickOutside = (e: MouseEvent) => {
       if (stateDropdownRef.current && !stateDropdownRef.current.contains(e.target as Node)) {
         setStateDropdownOpen(false);
@@ -679,7 +732,41 @@ export default function AdminOrderPage() {
   };
 
   // ─── Place order ──────────────────────────────────────────────────────────
-  const handlePlaceOrder = async () => {
+  const handlePlaceOrder = async (bypassWarning = false) => {
+    // If not bypassing, check if customer already placed an order in last 24h
+    if (!bypassWarning && !bypassRecentOrder) {
+      if (recentOrderWarning) {
+        setRecentOrderModalOpen(true);
+        return;
+      }
+
+      setRecentOrderChecking(true);
+      try {
+        const params: Record<string, string> = {};
+        if (selectedCustomer?.id) {
+          params.customerId = selectedCustomer.id;
+        } else if (newCustomer.phone.trim()) {
+          params.phone = newCustomer.phone.trim();
+        } else if (newCustomer.email.trim()) {
+          params.email = newCustomer.email.trim();
+        }
+
+        if (Object.keys(params).length > 0) {
+          const { data } = await api.get("/order/admin-order/check-recent-order", { params });
+          if (data && data.hasRecentOrder && data.order) {
+            setRecentOrderWarning(data.order);
+            setRecentOrderModalOpen(true);
+            setRecentOrderChecking(false);
+            return;
+          }
+        }
+      } catch (checkErr) {
+        console.warn("Recent order pre-check failed, fallback to place check", checkErr);
+      } finally {
+        setRecentOrderChecking(false);
+      }
+    }
+
     setPlacing(true);
     try {
       const body: Record<string, unknown> = {
@@ -688,6 +775,7 @@ export default function AdminOrderPage() {
         paymentMethod,
         ...(paymentNote.trim() ? { paymentNote: paymentNote.trim() } : {}),
         ...(appliedCoupon ? { couponId: appliedCoupon.couponId } : {}),
+        ...(bypassWarning || bypassRecentOrder ? { bypassRecentOrderWarning: true } : {}),
       };
       if (selectedCustomer) {
         body.customerId = selectedCustomer.id;
@@ -702,8 +790,19 @@ export default function AdminOrderPage() {
       toast.success("Order placed successfully!");
       setConflictModalOpen(false);
       setConflictCustomer(null);
+      setRecentOrderModalOpen(false);
+      setRecentOrderWarning(null);
+      setBypassRecentOrder(false);
       setPlacedOrder({ id: data.order?.id ?? data.orderId ?? "—" });
     } catch (err: any) {
+      if (
+        err?.response?.data?.code === "RECENT_ORDER_EXISTS_24H" &&
+        err?.response?.data?.recentOrder
+      ) {
+        setRecentOrderWarning(err.response.data.recentOrder);
+        setRecentOrderModalOpen(true);
+        return;
+      }
       if (
         (err?.response?.data?.code === "CUSTOMER_ALREADY_EXISTS" || err?.response?.status === 409) &&
         err?.response?.data?.existingCustomer
@@ -746,13 +845,26 @@ export default function AdminOrderPage() {
         paymentMethod,
         ...(paymentNote.trim() ? { paymentNote: paymentNote.trim() } : {}),
         ...(appliedCoupon ? { couponId: appliedCoupon.couponId } : {}),
+        ...(bypassRecentOrder ? { bypassRecentOrderWarning: true } : {}),
       };
       const { data } = await api.post("/order/admin-order/place", body);
       toast.success(`Order placed successfully for ${conflictCustomer.username}!`);
       setConflictModalOpen(false);
       setConflictCustomer(null);
+      setRecentOrderModalOpen(false);
+      setRecentOrderWarning(null);
+      setBypassRecentOrder(false);
       setPlacedOrder({ id: data.order?.id ?? data.orderId ?? "—" });
     } catch (err: any) {
+      if (
+        err?.response?.data?.code === "RECENT_ORDER_EXISTS_24H" &&
+        err?.response?.data?.recentOrder
+      ) {
+        setConflictModalOpen(false);
+        setRecentOrderWarning(err.response.data.recentOrder);
+        setRecentOrderModalOpen(true);
+        return;
+      }
       toast.error(err?.response?.data?.message ?? "Failed to place order");
     } finally {
       setConflictSubmitting(false);
@@ -848,6 +960,10 @@ export default function AdminOrderPage() {
               setAddress({ fullAddress: "", city: "", state: "", zipCode: "", country: "India" });
               setPaymentMethod("POD");
               setPaymentNote("");
+              setRecentOrderWarning(null);
+              setRecentOrderModalOpen(false);
+              setRecentOrderChecking(false);
+              setBypassRecentOrder(false);
             }}
             className="inline-flex items-center gap-2 bg-indigo-600 text-white px-6 py-2.5 rounded-xl font-semibold hover:bg-indigo-700 transition-colors"
           >
@@ -1736,6 +1852,40 @@ export default function AdminOrderPage() {
         {/* ── STEP 5: Confirm ── */}
         {currentStep === "confirm" && (
           <div className="space-y-4">
+            {recentOrderWarning && (
+              <div className="bg-amber-50/90 border border-amber-300 rounded-2xl p-4 sm:p-5 flex items-start justify-between gap-4 shadow-sm animate-fadeIn">
+                <div className="flex items-start gap-3.5">
+                  <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-md shadow-amber-500/20">
+                    <ClockIcon className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h4 className="text-sm font-bold text-amber-950">
+                        Notice: Previous Order Placed in Last 24 Hours
+                      </h4>
+                      <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-200 text-amber-900 font-mono">
+                        {recentOrderWarning.relativeTime}
+                      </span>
+                    </div>
+                    <p className="text-xs text-amber-800 mt-1 leading-relaxed">
+                      This customer placed an order on{" "}
+                      <strong className="text-amber-950 underline decoration-amber-400">
+                        {recentOrderWarning.formattedTime}
+                      </strong>{" "}
+                      ({recentOrderWarning.relativeTime}) for ₹{recentOrderWarning.finalAmount.toLocaleString("en-IN")}.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setRecentOrderModalOpen(true)}
+                  className="shrink-0 px-3 py-1.5 bg-white hover:bg-amber-100 text-amber-900 border border-amber-300 rounded-xl text-xs font-bold transition shadow-2xs cursor-pointer"
+                >
+                  View Details
+                </button>
+              </div>
+            )}
+
             {/* Customer summary */}
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
               <h3 className="text-sm font-bold text-gray-700 mb-3 uppercase tracking-wide">Customer</h3>
@@ -1865,14 +2015,19 @@ export default function AdminOrderPage() {
           ) : (
             <button
               type="button"
-              onClick={handlePlaceOrder}
-              disabled={placing}
-              className="flex items-center gap-2 px-7 py-2.5 text-sm font-bold text-white bg-green-600 rounded-xl hover:bg-green-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+              onClick={() => handlePlaceOrder(false)}
+              disabled={placing || recentOrderChecking}
+              className="flex items-center gap-2 px-7 py-2.5 text-sm font-bold text-white bg-green-600 rounded-xl hover:bg-green-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors cursor-pointer"
             >
-              {placing ? (
-                <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Placing…</>
+              {placing || recentOrderChecking ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  {recentOrderChecking ? "Checking…" : "Placing…"}
+                </>
               ) : (
-                <><CheckCircleIcon className="w-4 h-4" /> Place Order</>
+                <>
+                  <CheckCircleIcon className="w-4 h-4" /> Place Order
+                </>
               )}
             </button>
           )}
@@ -1958,7 +2113,6 @@ export default function AdminOrderPage() {
                   onClick={() => {
                     setConflictModalOpen(false);
                     setCurrentStep("customer");
-                    setCustomerMode("new");
                   }}
                   disabled={conflictSubmitting}
                   className="flex-1 px-4 py-2.5 rounded-xl border border-gray-300 text-gray-700 font-semibold text-sm hover:bg-gray-50 transition text-center disabled:opacity-50"
@@ -1984,6 +2138,169 @@ export default function AdminOrderPage() {
                     <>
                       <CheckCircleIcon className="w-4 h-4" />
                       Select & Place Order
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── 24-Hour Recent Order Warning Modal ── */}
+      {recentOrderModalOpen && recentOrderWarning && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/60 px-4 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-white rounded-2xl shadow-2xl shadow-gray-900/30 max-w-lg w-full overflow-hidden border border-amber-200/90 flex flex-col animate-scaleUp">
+            {/* Modal Header */}
+            <div className="flex items-start justify-between px-6 pt-6 pb-5 bg-gradient-to-br from-amber-50 via-amber-50/40 to-white border-b border-amber-100 shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-500 to-amber-600 text-white shadow-lg shadow-amber-500/25">
+                  <ClockIcon className="h-6 w-6 stroke-[2]" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-black text-gray-950 tracking-tight">Recent Order Detected</h2>
+                  <span className="inline-block mt-0.5 text-[11px] font-bold text-amber-800 bg-amber-100 border border-amber-200 px-2.5 py-0.5 rounded-full">
+                    Placed within last 24 hours
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setRecentOrderModalOpen(false)}
+                className="text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg p-1.5 transition cursor-pointer"
+              >
+                <XMarkIcon className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="px-6 py-5 space-y-4">
+              <div className="p-3.5 bg-amber-50/90 border border-amber-200 rounded-xl">
+                <p className="text-sm font-semibold text-amber-950 leading-relaxed">
+                  ⚠️ This customer has already placed an order in the last 24 hours.
+                </p>
+                <p className="text-xs text-amber-800 mt-1">
+                  Please verify the previous order placement time and order summary below before proceeding to avoid unintentional duplicate orders.
+                </p>
+              </div>
+
+              {/* Order Highlight Card */}
+              <div className="rounded-2xl border border-gray-200 bg-gray-50/80 p-4 space-y-3 shadow-2xs">
+                {/* Header row */}
+                <div className="flex items-center justify-between border-b border-gray-200/80 pb-2.5">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-gray-700">Previous Order</span>
+                    <span className="font-mono text-xs font-bold text-indigo-600 bg-indigo-50 border border-indigo-200/60 px-2 py-0.5 rounded-md">
+                      #{recentOrderWarning.shortId}
+                    </span>
+                  </div>
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                    recentOrderWarning.orderStatus === "DELIVERED"
+                      ? "bg-green-100 text-green-800"
+                      : recentOrderWarning.orderStatus === "SHIPPED"
+                      ? "bg-blue-100 text-blue-800"
+                      : "bg-amber-100 text-amber-800"
+                  }`}>
+                    {recentOrderWarning.orderStatus}
+                  </span>
+                </div>
+
+                {/* Key detail: Explicit Order Placement Time */}
+                <div className="bg-white rounded-xl border border-amber-200/90 p-3 shadow-2xs space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-amber-800 flex items-center gap-1.5">
+                      <ClockIcon className="w-3.5 h-3.5 text-amber-600" />
+                      Order Placement Time
+                    </span>
+                    <span className="text-xs font-extrabold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-md">
+                      {recentOrderWarning.relativeTime}
+                    </span>
+                  </div>
+                  <p className="text-base font-extrabold text-gray-900 tracking-tight">
+                    {recentOrderWarning.formattedTime}
+                  </p>
+                </div>
+
+                {/* Customer & Amount details */}
+                <div className="grid grid-cols-2 gap-3 pt-1">
+                  <div className="bg-white rounded-xl border border-gray-200/70 p-2.5">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 block mb-0.5">
+                      Customer
+                    </span>
+                    <p className="text-xs font-bold text-gray-800 truncate">
+                      {recentOrderWarning.customerName || selectedCustomer?.username || newCustomer.username || "Customer"}
+                    </p>
+                  </div>
+
+                  <div className="bg-white rounded-xl border border-gray-200/70 p-2.5">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 block mb-0.5">
+                      Order Amount
+                    </span>
+                    <p className="text-xs font-extrabold text-gray-900">
+                      ₹{recentOrderWarning.finalAmount.toLocaleString("en-IN")}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Items Summary */}
+                {recentOrderWarning.itemsSummary && (
+                  <div className="bg-white rounded-xl border border-gray-200/70 p-2.5">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 block mb-1">
+                      Items Ordered ({recentOrderWarning.itemsCount})
+                    </span>
+                    <p className="text-xs text-gray-700 font-medium line-clamp-2">
+                      {recentOrderWarning.itemsSummary}
+                    </p>
+                  </div>
+                )}
+
+                {/* Channel & Invoice link */}
+                <div className="flex items-center justify-between text-xs text-gray-500 pt-1">
+                  <span>
+                    Channel:{" "}
+                    <strong className="text-gray-700">
+                      {recentOrderWarning.placedByAdmin ? "Admin (Counter Sale)" : "Online Store"}
+                    </strong>
+                  </span>
+                  <a
+                    href={`/invoice/${recentOrderWarning.id}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-indigo-600 hover:text-indigo-800 font-semibold"
+                  >
+                    <DocumentTextIcon className="w-3.5 h-3.5" /> View Invoice
+                  </a>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center gap-3 pt-3">
+                <button
+                  type="button"
+                  onClick={() => setRecentOrderModalOpen(false)}
+                  className="flex-1 px-4 py-2.5 rounded-xl border border-gray-300 text-gray-700 font-semibold text-sm hover:bg-gray-50 transition text-center cursor-pointer"
+                >
+                  Cancel / Review
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRecentOrderModalOpen(false);
+                    setBypassRecentOrder(true);
+                    handlePlaceOrder(true);
+                  }}
+                  disabled={placing}
+                  className="flex-1 inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-sm shadow-md shadow-amber-600/25 transition disabled:opacity-60 cursor-pointer"
+                >
+                  {placing ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      Placing…
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircleIcon className="w-4 h-4" />
+                      Place Order Anyway
                     </>
                   )}
                 </button>

@@ -849,10 +849,10 @@ const AdminProfile = () => {
                       <div className="flex items-center justify-between p-4 bg-slate-50 border border-slate-200/80 rounded-2xl">
                         <div className="space-y-0.5">
                           <label htmlFor="showCompanyNameToggle" className="text-xs font-bold text-slate-900 cursor-pointer block">
-                            Display Company Name in Navbar
+                            Display Company Name Next to Logo
                           </label>
                           <p className="text-[11px] text-slate-500 font-medium">
-                            Display company name text next to logo in header.
+                            Display text brand name next to logo in header &amp; footer. Turn OFF if your logo already includes your brand name.
                           </p>
                         </div>
                         <input

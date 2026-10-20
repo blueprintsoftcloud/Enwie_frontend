@@ -36,6 +36,8 @@ import toast from "react-hot-toast";
 import api from "../utils/api";
 import { domainUrl } from "../utils/constant";
 import { getCustomerNotificationTarget } from "../utils/notificationRoute";
+import FestiveNavbarHangingMotif from "./festive/FestiveNavbarHangingMotif";
+import { useTheme } from "../context/ThemeContext";
 
 interface NavbarConfig {
   activeTemplate: 1 | 2 | 3 | 4 | 5 | 6;
@@ -77,6 +79,8 @@ const Navbar = ({
     clearAllNotifications: clearAllUserNotifications,
   } = useUserNotifications();
   const { unreadCount: adminUnreadCount } = useNotifications();
+  const { activeOccasion } = useTheme();
+  const isDiwali = activeOccasion?.id === "diwali";
 
   const isAdmin = role === "ADMIN" || role === "SUPER_ADMIN";
   const adminDashboardPath =
@@ -483,7 +487,7 @@ const Navbar = ({
 
   // --- TEMPLATE VARIANT STYLING COMPUTATIONS (Pairs 1-to-1 with Footer 1-6) ---
   const isDark = activeTemplate === 1 || activeTemplate === 3;
-  const isThemeBand = activeTemplate === 5;
+  const isThemeBand = false;
 
   const getNavContainerClass = () => {
     switch (activeTemplate) {
@@ -507,10 +511,10 @@ const Navbar = ({
           ? "bg-white/95 backdrop-blur-2xl shadow-xs py-3 sm:py-3.5 lg:py-4 min-h-[62px] sm:min-h-[68px] lg:min-h-[76px] border-b border-gray-100"
           : "bg-white/90 backdrop-blur-xl border-b border-gray-100 py-4 sm:py-5 lg:py-6 min-h-[72px] sm:min-h-[80px] lg:min-h-[90px]";
 
-      case 5: // Festive Accent Band (Matches Footer 5)
+      case 5: // Sleek Boutique Slim (Reference: Pearls & Pastels ultra-slim single row)
         return scrolled
-          ? "bg-[var(--theme-primary)] text-[var(--theme-primary-ink)] shadow-xl shadow-[var(--theme-primary)]/25 py-3 sm:py-3.5 lg:py-4 min-h-[62px] sm:min-h-[68px] lg:min-h-[76px] border-b border-black/10"
-          : "bg-[var(--theme-primary)] text-[var(--theme-primary-ink)] shadow-md shadow-[var(--theme-primary)]/15 py-4 sm:py-5 lg:py-6 min-h-[72px] sm:min-h-[80px] lg:min-h-[90px] border-b border-black/5";
+          ? "bg-white/98 backdrop-blur-xl shadow-xs py-1.5 sm:py-2 min-h-[50px] sm:min-h-[54px] lg:min-h-[58px] border-b border-gray-200/90 text-gray-900"
+          : "bg-white backdrop-blur-md border-b border-gray-200/70 py-1.5 sm:py-2 lg:py-2.5 min-h-[52px] sm:min-h-[56px] lg:min-h-[60px] text-gray-900";
 
       case 6: // Split Statement / Modern Asymmetric (Matches Footer 6)
       default:
@@ -522,7 +526,7 @@ const Navbar = ({
 
   const getBrandTitleClass = () => {
     if (isDark) return "text-white font-black tracking-wider uppercase";
-    if (isThemeBand) return "text-[var(--theme-primary-ink)] font-black tracking-wider uppercase";
+    if (activeTemplate === 5) return "text-gray-950 font-black tracking-wider uppercase";
     if (activeTemplate === 2) return "text-gray-900 font-serif font-black tracking-wider uppercase";
     if (activeTemplate === 4) return "text-gray-950 font-serif font-black tracking-widest uppercase";
     return "text-gray-950 font-black tracking-tight uppercase";
@@ -530,13 +534,12 @@ const Navbar = ({
 
   const getBrandTaglineClass = () => {
     if (isDark) return "text-zinc-400";
-    if (isThemeBand) return "text-[var(--theme-primary-ink)]/75";
+    if (activeTemplate === 5) return "text-gray-500 font-medium tracking-widest text-[9px] sm:text-[10px]";
     return "text-gray-500";
   };
 
   const getHamburgerClass = () => {
     if (isDark) return "text-zinc-200 hover:text-white hover:bg-white/10";
-    if (isThemeBand) return "text-[var(--theme-primary-ink)] hover:bg-black/10";
     return "text-gray-800 hover:text-black hover:bg-black/5";
   };
 
@@ -552,10 +555,10 @@ const Navbar = ({
         return "w-36 lg:w-44 xl:w-56 focus:w-64 pl-9 pr-8 py-2 bg-white/10 border border-white/20 rounded-full text-xs xl:text-sm text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-[var(--theme-primary)] focus:bg-white/15 transition-all duration-300 ease-out";
 
       case 4: // Minimal Centered
-        return "w-32 lg:w-40 xl:w-52 focus:w-60 pl-8 pr-7 py-1.5 lg:py-2 bg-gray-50/90 hover:bg-gray-100/80 border-0 rounded-full text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-[var(--theme-primary)]/40 focus:bg-white transition-all duration-300";
+        return "w-32 lg:w-44 xl:w-56 focus:w-64 h-9 sm:h-9.5 pl-9 pr-7 border border-gray-200/80 bg-gray-50/70 hover:bg-white hover:border-gray-300 focus:bg-white focus:border-gray-900 focus:ring-2 focus:ring-black/5 rounded-full text-xs text-gray-900 placeholder-gray-400 focus:outline-none transition-all duration-300 shadow-2xs";
 
-      case 5: // Festive Accent Band
-        return "w-36 lg:w-44 xl:w-56 focus:w-64 pl-9 pr-8 py-2 bg-white/20 border border-white/25 rounded-xl text-xs xl:text-sm text-[var(--theme-primary-ink)] placeholder-[var(--theme-primary-ink)]/60 focus:outline-none focus:bg-white focus:text-gray-900 focus:placeholder-gray-400 transition-all duration-300";
+      case 5: // Sleek Boutique Slim
+        return "w-32 lg:w-40 xl:w-52 focus:w-60 h-8 sm:h-8.5 pl-8 pr-7 bg-gray-50/80 hover:bg-white border border-gray-200/90 focus:border-gray-900 rounded-full text-xs text-gray-900 placeholder-gray-400 focus:outline-none transition-all duration-200";
 
       case 6: // Split Statement
       default:
@@ -575,10 +578,10 @@ const Navbar = ({
         return "relative flex items-center justify-center p-2.5 lg:p-3 rounded-full bg-white/10 hover:bg-white/20 text-white hover:shadow-[0_0_12px_rgba(99,102,241,0.5)] hover:scale-105 active:scale-95 transition-all duration-300 group cursor-pointer";
 
       case 4: // Minimal Centered
-        return "relative flex items-center justify-center p-2 sm:p-2.5 lg:p-3 rounded-full hover:bg-gray-100 text-gray-700 hover:text-[var(--theme-primary)] hover:scale-105 active:scale-95 transition-all duration-200 group cursor-pointer";
+        return "relative flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 lg:w-9.5 lg:h-9.5 rounded-full border border-gray-200/80 bg-white hover:border-gray-900 hover:bg-gray-50/80 text-gray-700 hover:text-black shadow-2xs hover:shadow-xs hover:scale-105 active:scale-95 transition-all duration-200 group cursor-pointer shrink-0";
 
-      case 5: // Festive Accent Band
-        return "relative flex items-center justify-center p-2.5 lg:p-3 rounded-full bg-white/15 hover:bg-white hover:text-gray-900 text-[var(--theme-primary-ink)] hover:scale-105 active:scale-95 transition-all duration-200 group cursor-pointer";
+      case 5: // Sleek Boutique Slim
+        return "relative flex items-center justify-center w-8 h-8 sm:w-8.5 sm:h-8.5 rounded-full hover:bg-gray-100 text-gray-700 hover:text-black transition-all duration-200 group cursor-pointer";
 
       case 6: // Split Statement
       default:
@@ -598,10 +601,10 @@ const Navbar = ({
         return "bg-[var(--theme-primary)] hover:bg-[var(--theme-primary-hover)] text-[var(--theme-primary-ink)] rounded-full px-5.5 lg:px-6.5 py-2.5 lg:py-3 text-xs md:text-sm font-bold shadow-lg shadow-[var(--theme-primary)]/30 hover:shadow-[var(--theme-primary)]/50 transition-all duration-300 hover:scale-102 active:scale-95 cursor-pointer";
 
       case 4: // Minimal Centered
-        return "bg-gray-950 hover:bg-[var(--theme-primary)] hover:text-[var(--theme-primary-ink)] text-white rounded-full px-5 lg:px-6 py-2.5 lg:py-3 text-xs lg:text-sm font-semibold tracking-wider transition-all duration-300 hover:shadow-xs active:scale-95 cursor-pointer";
+        return "bg-gray-950 hover:bg-gray-800 text-white rounded-full px-4 sm:px-5 h-9 sm:h-9.5 text-xs font-semibold tracking-wider transition-all duration-300 shadow-2xs hover:shadow-xs active:scale-95 cursor-pointer flex items-center justify-center";
 
-      case 5: // Festive Accent Band
-        return "bg-white text-gray-900 hover:bg-gray-100 rounded-xl px-5 lg:px-6 py-2.5 lg:py-3 font-black text-xs lg:text-sm shadow-md transition-all duration-200 hover:-translate-y-0.5 active:scale-95 cursor-pointer";
+      case 5: // Sleek Boutique Slim
+        return "border border-gray-300 hover:border-black bg-white hover:bg-black hover:text-white text-gray-900 rounded-full px-3.5 py-1.5 text-[11px] font-bold uppercase tracking-wider transition-all duration-200 cursor-pointer flex items-center justify-center";
 
       case 6: // Split Statement
       default:
@@ -614,8 +617,8 @@ const Navbar = ({
     switch (activeTemplate) {
       case 1:
         return active
-          ? "bg-[var(--theme-primary)] text-[var(--theme-primary-ink)] border-[var(--theme-primary)] shadow-lg shadow-[var(--theme-primary)]/20 rounded-xl px-4 py-2"
-          : "border border-white/20 bg-white/10 text-white hover:border-[var(--theme-primary)] hover:text-[var(--theme-primary)] rounded-xl px-4 py-2";
+          ? "bg-white/20 text-white border-white/40 shadow-lg shadow-black/40 rounded-xl px-4 py-2"
+          : "border border-white/20 bg-white/10 text-white hover:border-white/40 hover:bg-white/15 rounded-xl px-4 py-2";
 
       case 2:
         return active
@@ -629,13 +632,13 @@ const Navbar = ({
 
       case 4:
         return active
-          ? "bg-black text-white rounded-full px-3.5 py-1.5"
-          : "border border-gray-200 bg-white hover:border-[var(--theme-primary)] rounded-full px-3.5 py-1.5 text-gray-800";
+          ? "bg-gray-950 text-white border-gray-950 rounded-full px-1.5 sm:px-2.5 lg:px-3 h-8 sm:h-9 lg:h-9.5 shadow-sm shrink-0"
+          : "border border-gray-200/90 bg-white hover:border-gray-900 hover:bg-gray-50/60 rounded-full px-1.5 sm:px-2.5 lg:px-3 h-8 sm:h-9 lg:h-9.5 text-gray-800 shadow-2xs shrink-0";
 
       case 5:
         return active
-          ? "bg-white text-gray-900 shadow-md rounded-xl px-4 py-2"
-          : "bg-white/20 hover:bg-white/30 border border-white/30 text-[var(--theme-primary-ink)] rounded-xl px-4 py-2";
+          ? "bg-gray-100 text-black border-gray-300 rounded-full px-2.5 py-1 text-xs font-semibold"
+          : "border border-gray-200/80 bg-white hover:border-gray-900 rounded-full px-2.5 py-1 text-gray-800 text-xs font-semibold";
 
       case 6:
       default:
@@ -733,38 +736,43 @@ const Navbar = ({
                   <button
                     type="button"
                     onClick={() => setIsCategoriesDropdownOpen((prev) => !prev)}
-                    className={`relative flex items-center gap-1 uppercase tracking-wider text-[10px] lg:text-[11px] xl:text-xs px-2.5 lg:px-3.5 py-1.5 lg:py-2 transition-all duration-300 cursor-pointer whitespace-nowrap shrink-0 ${
+                    className={`relative flex items-center gap-0.5 uppercase tracking-wider text-[9.5px] lg:text-[10px] xl:text-[10.5px] px-1.5 lg:px-2 xl:px-2.5 py-1.5 lg:py-2 transition-all duration-300 cursor-pointer whitespace-nowrap shrink-0 !bg-transparent !shadow-none ${
                       active
-                        ? "text-black font-bold relative after:content-[''] after:absolute after:-bottom-1 after:left-1/2 after:-translate-x-1/2 after:w-1.5 after:h-1.5 after:bg-[var(--theme-primary)] after:rounded-full"
+                        ? "text-black font-bold relative after:content-[''] after:absolute after:-bottom-0.5 after:left-1/2 after:-translate-x-1/2 after:w-1 after:h-1 after:bg-[var(--theme-primary)] after:rounded-full"
                         : "text-gray-400 hover:text-[var(--theme-primary)] font-medium"
                     }`}
                   >
                     <span>{item.name}</span>
                     <ChevronDownIcon
-                      className={`h-3 w-3 transition-transform duration-200 ${
+                      className={`h-2.5 w-2.5 transition-transform duration-200 ${
                         isCategoriesDropdownOpen ? "rotate-180" : ""
                       }`}
                     />
                   </button>
                 );
 
-              case 5:
+              case 5: // Sleek Boutique Slim (Reference: Pearls & Pastels uppercase inline dropdown)
                 return (
                   <button
                     type="button"
                     onClick={() => setIsCategoriesDropdownOpen((prev) => !prev)}
-                    className={`relative flex items-center gap-1.5 text-xs lg:text-sm tracking-tight transition-all duration-200 cursor-pointer whitespace-nowrap shrink-0 ${
+                    className={`relative flex flex-col items-center justify-center uppercase tracking-wider text-[11px] lg:text-[11.5px] xl:text-[12px] px-2.5 xl:px-3.5 py-2 transition-all duration-200 cursor-pointer whitespace-nowrap shrink-0 group ${
                       active
-                        ? "bg-white text-gray-900 font-black shadow-md rounded-xl px-3.5 xl:px-4 py-1.5 lg:py-2 scale-100"
-                        : "text-[var(--theme-primary-ink)]/75 hover:text-[var(--theme-primary-ink)] hover:bg-black/10 px-3 xl:px-3.5 py-1.5 lg:py-2 rounded-xl font-bold"
+                        ? "text-gray-950 font-bold"
+                        : "text-gray-700 hover:text-black hover:text-[var(--theme-primary)] font-semibold"
                     }`}
                   >
-                    <span>{item.name}</span>
-                    <ChevronDownIcon
-                      className={`h-3.5 w-3.5 transition-transform duration-200 ${
-                        isCategoriesDropdownOpen ? "rotate-180" : ""
-                      }`}
-                    />
+                    <div className="flex items-center gap-1">
+                      <span>{item.name}</span>
+                      <ChevronDownIcon
+                        className={`h-2.5 w-2.5 sm:h-3 sm:w-3 text-gray-500 group-hover:text-black transition-transform duration-200 ${
+                          isCategoriesDropdownOpen ? "rotate-180" : ""
+                        }`}
+                      />
+                    </div>
+                    {active && (
+                      <span className="absolute bottom-1 left-1/2 -translate-x-1/2 w-4 sm:w-5 h-[2px] bg-black rounded-full" />
+                    )}
                   </button>
                 );
 
@@ -794,7 +802,9 @@ const Navbar = ({
           {/* Floating Mega Dropdown Panel */}
           {isCategoriesDropdownOpen && topLevelCategories.length > 0 && (
             <div
-              className="absolute left-1/2 -translate-x-1/2 top-full mt-2.5 z-50 transition-all duration-200 animate-in fade-in-50 zoom-in-95 pointer-events-auto"
+              className={`absolute top-full mt-2.5 z-50 transition-all duration-200 animate-in fade-in-50 zoom-in-95 pointer-events-auto before:content-[''] before:absolute before:-top-3 before:left-0 before:right-0 before:h-3 ${
+                activeTemplate === 4 ? "left-0" : "left-1/2 -translate-x-1/2"
+              }`}
               onMouseEnter={cancelCategoriesClose}
               onMouseLeave={scheduleCategoriesClose}
             >
@@ -944,9 +954,9 @@ const Navbar = ({
             key={item.name}
             to={item.href}
             onClick={handleClick}
-            className={`relative flex items-center uppercase tracking-wider text-[10px] lg:text-[11px] xl:text-xs px-2.5 lg:px-3.5 py-1.5 lg:py-2 transition-all duration-300 ease-out cursor-pointer whitespace-nowrap shrink-0 ${
+            className={`relative flex items-center uppercase tracking-wider text-[9.5px] lg:text-[10px] xl:text-[10.5px] px-1.5 lg:px-2 xl:px-2.5 py-1.5 lg:py-2 transition-all duration-300 ease-out cursor-pointer whitespace-nowrap shrink-0 !bg-transparent !shadow-none ${
               active
-                ? "text-black font-bold relative after:content-[''] after:absolute after:-bottom-1 after:left-1/2 after:-translate-x-1/2 after:w-1.5 after:h-1.5 after:bg-[var(--theme-primary)] after:rounded-full"
+                ? "text-black font-bold relative after:content-[''] after:absolute after:-bottom-0.5 after:left-1/2 after:-translate-x-1/2 after:w-1 after:h-1 after:bg-[var(--theme-primary)] after:rounded-full"
                 : "text-gray-400 hover:text-[var(--theme-primary)] font-medium"
             }`}
           >
@@ -954,19 +964,22 @@ const Navbar = ({
           </Link>
         );
 
-      case 5: // Festive Accent Band (Contrast white pill on theme primary)
+      case 5: // Sleek Boutique Slim (Reference: Pearls & Pastels uppercase inline link)
         return (
           <Link
             key={item.name}
             to={item.href}
             onClick={handleClick}
-            className={`relative flex items-center text-xs lg:text-sm tracking-tight transition-all duration-200 cursor-pointer whitespace-nowrap shrink-0 ${
+            className={`relative flex flex-col items-center justify-center uppercase tracking-wider text-[11px] lg:text-[11.5px] xl:text-[12px] px-2.5 xl:px-3.5 py-2 transition-all duration-200 cursor-pointer whitespace-nowrap shrink-0 group ${
               active
-                ? "bg-white text-gray-900 font-black shadow-md rounded-xl px-3.5 xl:px-4 py-1.5 lg:py-2 scale-100"
-                : "text-[var(--theme-primary-ink)]/75 hover:text-[var(--theme-primary-ink)] hover:bg-black/10 px-3 xl:px-3.5 py-1.5 lg:py-2 rounded-xl font-bold"
+                ? "text-gray-950 font-bold"
+                : "text-gray-700 hover:text-black hover:text-[var(--theme-primary)] font-semibold"
             }`}
           >
-            {item.name}
+            <span>{item.name}</span>
+            {active && (
+              <span className="absolute bottom-1 left-1/2 -translate-x-1/2 w-4 sm:w-5 h-[2px] bg-black rounded-full" />
+            )}
           </Link>
         );
 
@@ -989,6 +1002,64 @@ const Navbar = ({
     }
   };
 
+  const renderBrandLogo = (isCentered: boolean = false) => (
+    <Link
+      to="/"
+      className={`flex-shrink-0 flex items-center group cursor-pointer transition-transform duration-300 hover:scale-[1.01] active:scale-[0.99] self-center ${
+        isCentered ? "justify-center" : ""
+      }`}
+    >
+      <div
+        className={`inline-flex items-center justify-center transition-all duration-300 ${
+          isDark
+            ? "bg-white rounded-2xl p-1.5 sm:p-2 shadow-sm ring-1 ring-black/5"
+            : ""
+        }`}
+      >
+        <img
+          src={logoSrc}
+          alt={branding.companyName || "Logo"}
+          className={`${
+            activeTemplate === 5
+              ? "h-6 sm:h-7 md:h-8 lg:h-9 max-w-[100px] sm:max-w-[150px] md:max-w-[190px] lg:max-w-[220px]"
+              : "h-7 sm:h-8 md:h-10 lg:h-12 max-w-[105px] sm:max-w-[150px] md:max-w-[220px] lg:max-w-[260px]"
+          } w-auto object-contain transition-all duration-300 group-hover:scale-102`}
+        />
+      </div>
+      {(branding.showCompanyName || branding.showCompanyTagline) && (
+        <div className="hidden sm:flex items-center pl-1.5 self-center">
+          <div
+            className={`${
+              activeTemplate === 5
+                ? "h-5 sm:h-6 lg:h-6.5 mx-2 sm:mx-2.5"
+                : "h-7 sm:h-8 lg:h-9 mx-2.5 sm:mx-3"
+            } w-[1.5px] transition-colors duration-300 shrink-0 ${
+              isDark
+                ? "bg-white/20"
+                : "bg-slate-300/80"
+            }`}
+          />
+          <div className="flex flex-col justify-center text-left min-w-0">
+            {branding.showCompanyName && branding.companyName && (
+              <span
+                className={`text-xs sm:text-sm lg:text-[15px] font-extrabold tracking-wider uppercase leading-none transition-colors duration-300 truncate ${getBrandTitleClass()}`}
+              >
+                {branding.companyName}
+              </span>
+            )}
+            {branding.showCompanyTagline && branding.companyTagline && (
+              <span
+                className={`text-[9px] sm:text-[10px] lg:text-[11px] tracking-widest uppercase font-semibold leading-tight mt-1 transition-colors duration-300 truncate ${getBrandTaglineClass()}`}
+              >
+                {branding.companyTagline}
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+    </Link>
+  );
+
   return (
     <>
       <header
@@ -1001,80 +1072,96 @@ const Navbar = ({
         <nav
           className={`relative z-20 w-full transition-all duration-500 ${getNavContainerClass()}`}
         >
-          <div className="mx-auto max-w-[1720px] px-4 sm:px-6 lg:px-8 xl:px-12">
-            <div className="flex items-center justify-between min-h-[46px] sm:min-h-[52px] lg:min-h-[58px]">
-              {/* LEFT: Logo & Mobile Menu */}
-              <div className="flex items-center gap-2.5 sm:gap-4 lg:gap-6 flex-shrink-0 my-auto lg:mr-8 xl:mr-12">
-                <button
-                  type="button"
-                  className={`lg:hidden p-2.5 rounded-xl transition-all duration-300 group my-auto cursor-pointer ${getHamburgerClass()}`}
-                  onClick={() => setMobileMenuOpen(true)}
-                >
-                  <Bars3Icon className="h-6 w-6" />
-                </button>
+          {/* 🪔 Festive Hanging Motif (Left Side) — Adaptive for each festive theme */}
+          {activeOccasion && (
+            <FestiveNavbarHangingMotif occasionId={activeOccasion.id} />
+          )}
 
-                {/* Main Logo Brand */}
-                <Link
-                  to="/"
-                  className="flex-shrink-0 flex items-center my-auto group cursor-pointer transition-transform duration-300 hover:scale-[1.01] active:scale-[0.99]"
-                >
+          <div
+            className={`mx-auto ${
+              activeTemplate === 4
+                ? "w-full max-w-[1840px] px-3 sm:px-4 lg:px-6 xl:px-8"
+                : "max-w-[1720px] px-3 sm:px-6 lg:px-8 xl:px-12"
+            }`}
+          >
+            <div
+              className={`relative flex items-center justify-between ${
+                activeTemplate === 5
+                  ? "min-h-[38px] sm:min-h-[42px] lg:min-h-[46px]"
+                  : "min-h-[46px] sm:min-h-[52px] lg:min-h-[58px]"
+              } ${activeTemplate === 4 ? "gap-2 lg:gap-4" : ""}`}
+            >
+              {activeTemplate === 4 ? (
+                <>
+                  {/* LEFT: Mobile Menu (mobile) & Desktop Nav Links (desktop) */}
+                  <div className="flex lg:flex-1 items-center justify-start shrink-0 lg:min-w-0">
+                    <button
+                      type="button"
+                      className={`lg:hidden p-1.5 sm:p-2 rounded-xl transition-all duration-300 group my-auto cursor-pointer shrink-0 ${getHamburgerClass()}`}
+                      onClick={() => setMobileMenuOpen(true)}
+                      aria-label="Open menu"
+                    >
+                      <Bars3Icon className="h-6 w-6" />
+                    </button>
+
+                    <div className="hidden lg:flex items-center gap-0.5 sm:gap-1 xl:gap-1.5 py-1">
+                      {navigation.map((item) => renderDesktopNavLink(item))}
+                    </div>
+                  </div>
+
+                  {/* CENTER: Mobile Logo (flex-1 so it naturally stays balanced between hamburger & right actions with zero overlap) */}
+                  <div className="lg:hidden flex-1 flex items-center justify-center min-w-0 px-1 sm:px-2 z-10 overflow-hidden">
+                    {renderBrandLogo(true)}
+                  </div>
+
+                  {/* CENTER: Desktop Centered Logo (natural flex child, perfectly centered vertically and horizontally) */}
+                  <div className="hidden lg:flex items-center justify-center flex-shrink-0 px-4 xl:px-8 z-10 self-center">
+                    {renderBrandLogo(true)}
+                  </div>
+                </>
+              ) : (
+                <>
+                  {/* LEFT: Logo & Mobile Menu */}
+                  <div className="flex items-center gap-2 sm:gap-4 lg:gap-6 shrink-0 min-w-0 my-auto lg:mr-6 xl:mr-10">
+                    <button
+                      type="button"
+                      className={`lg:hidden p-1.5 sm:p-2 rounded-xl transition-all duration-300 group my-auto cursor-pointer shrink-0 ${getHamburgerClass()}`}
+                      onClick={() => setMobileMenuOpen(true)}
+                      aria-label="Open menu"
+                    >
+                      <Bars3Icon className="h-6 w-6" />
+                    </button>
+                    {renderBrandLogo(false)}
+                  </div>
+
+                  {/* CENTER: Desktop Navigation Links */}
                   <div
-                    className={`inline-flex items-center justify-center transition-all duration-300 ${
-                      isDark || isThemeBand
-                        ? "bg-white rounded-2xl p-1.5 sm:p-2 shadow-sm ring-1 ring-black/5"
-                        : ""
+                    className={`hidden lg:flex items-center ${
+                      activeTemplate === 5
+                        ? "flex-1 justify-center gap-1.5 xl:gap-3 px-2"
+                        : "gap-1.5 xl:gap-3"
                     }`}
                   >
-                    <img
-                      src={logoSrc}
-                      alt={branding.companyName || "Logo"}
-                      className="h-9 sm:h-10 md:h-11 lg:h-12 w-auto max-w-[160px] sm:max-w-[180px] md:max-w-[220px] lg:max-w-[260px] object-contain transition-all duration-300 my-auto group-hover:scale-102"
-                    />
+                    {navigation.map((item) => renderDesktopNavLink(item))}
                   </div>
-                  {(branding.showCompanyName || branding.showCompanyTagline) && (
-                    <div className="hidden sm:flex items-center pl-1.5">
-                      <div
-                        className={`h-7 sm:h-8 lg:h-9 w-[1.5px] mx-2.5 sm:mx-3 transition-colors duration-300 shrink-0 ${
-                          isDark
-                            ? "bg-white/20"
-                            : isThemeBand
-                            ? "bg-white/25"
-                            : "bg-slate-300/80"
-                        }`}
-                      />
-                      <div className="flex flex-col justify-center text-left min-w-0">
-                        {branding.showCompanyName && branding.companyName && (
-                          <span
-                            className={`text-xs sm:text-sm lg:text-[15px] font-extrabold tracking-wider uppercase leading-none transition-colors duration-300 truncate ${getBrandTitleClass()}`}
-                          >
-                            {branding.companyName}
-                          </span>
-                        )}
-                        {branding.showCompanyTagline && branding.companyTagline && (
-                          <span
-                            className={`text-[9px] sm:text-[10px] lg:text-[11px] tracking-widest uppercase font-semibold leading-tight mt-1 transition-colors duration-300 truncate ${getBrandTaglineClass()}`}
-                          >
-                            {branding.companyTagline}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </Link>
-              </div>
-
-              {/* CENTER: Desktop Navigation Links */}
-              <div className="hidden lg:flex items-center gap-1.5 xl:gap-3">
-                {navigation.map((item) => renderDesktopNavLink(item))}
-              </div>
+                </>
+              )}
 
               {/* RIGHT: Search, Actions & Auth */}
-              <div className="flex items-center gap-2 sm:gap-3 xl:gap-4 flex-shrink-0">
+              <div
+                className={
+                  activeTemplate === 4
+                    ? "flex lg:flex-1 items-center justify-end gap-1 sm:gap-2 lg:gap-2.5 shrink-0 z-10"
+                    : activeTemplate === 5
+                    ? "flex items-center gap-1 sm:gap-1.5 lg:gap-2 xl:gap-2.5 shrink-0"
+                    : "flex items-center gap-1 sm:gap-2 lg:gap-3 xl:gap-4 shrink-0"
+                }
+              >
                 {/* Global Search Bar */}
                 <div ref={searchRef} className="relative hidden md:block">
                   <div className="relative flex items-center">
                     <MagnifyingGlassIcon
-                      className={`absolute left-3.5 top-1/2 -translate-y-1/2 h-4.5 w-4.5 pointer-events-none transition-colors duration-300 ${
+                      className={`absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 pointer-events-none transition-colors duration-200 ${
                         isDark ? "text-white/60" : isThemeBand ? "text-[var(--theme-primary-ink)]/70" : "text-gray-400"
                       }`}
                       strokeWidth={2}
@@ -1344,8 +1431,8 @@ const Navbar = ({
                 </div>
 
                 {/* Action Icons & Auth */}
-                <div className="flex items-center gap-1 sm:gap-2 lg:gap-3">
-                  {/* Action Icons — visible only when logged in */}
+                <div className="flex items-center gap-1.5 sm:gap-2">
+                  {/* Wishlist & Cart Icons - Only shown when user is logged in */}
                   {isAuthenticated && (
                     <>
                       {/* Wishlist Icon */}
@@ -1356,24 +1443,19 @@ const Navbar = ({
                       >
                         {isActive("/WishlistPage") || isActive("/wishlist") ? (
                           <HeartSolid
-                            className={`h-5 w-5 lg:h-5.5 lg:w-5.5 transition-colors ${
-                              isDark
-                                ? "text-[var(--theme-primary)]"
-                                : isThemeBand
-                                ? "text-white"
-                                : "text-[var(--theme-primary)]"
-                            }`}
+                            className="h-4.5 w-4.5 sm:h-5 sm:w-5 transition-transform duration-200 group-hover:scale-110 text-rose-500"
                           />
                         ) : (
-                          <HeartOutline className="h-5 w-5 lg:h-5.5 lg:w-5.5 transition-colors" />
+                          <HeartOutline
+                            className="h-4.5 w-4.5 sm:h-5 sm:w-5 transition-all duration-200 group-hover:scale-110 group-hover:text-rose-500"
+                            strokeWidth={1.75}
+                          />
                         )}
                         {showWishlistBadge && (
                           <span
-                            className={`absolute -top-1 -right-1 z-10 min-w-[16px] h-[16px] sm:min-w-[18px] sm:h-[18px] text-[9px] sm:text-[10px] font-bold rounded-full flex items-center justify-center px-1 animate-pulse shadow-xs pointer-events-none ${
-                              isThemeBand
-                                ? "bg-white text-gray-900 shadow-md"
-                                : "bg-[var(--theme-primary)] text-[var(--theme-primary-ink)] shadow-[var(--theme-primary)]/30"
-                            }`}
+                            className={`absolute -top-1 -right-1 z-10 min-w-[17px] h-[17px] text-[9.5px] font-bold rounded-full flex items-center justify-center px-1 ring-2 ${
+                              isDark ? "ring-zinc-900" : "ring-white"
+                            } shadow-xs pointer-events-none transition-transform duration-200 bg-rose-500 text-white`}
                           >
                             {wishlistCount}
                           </span>
@@ -1383,39 +1465,27 @@ const Navbar = ({
                       {/* Cart Icon */}
                       <Link
                         to="/cart"
-                        onClick={(e) => {
-                          if (!isAuthenticated) {
-                            e.preventDefault();
-                            toast.error("Please login to continue", {
-                              id: "Navbar login to continue",
-                            });
-                            return;
-                          }
-                          handleCartClick();
-                        }}
+                        onClick={handleCartClick}
                         className={getActionButtonClass()}
                         aria-label="Cart"
                       >
                         {isActive("/cart") ? (
                           <ShoppingBagSolid
-                            className={`h-5 w-5 lg:h-5.5 lg:w-5.5 transition-colors ${
-                              isDark
-                                ? "text-[var(--theme-primary)]"
-                                : isThemeBand
-                                ? "text-white"
-                                : "text-[var(--theme-primary)]"
+                            className={`h-4.5 w-4.5 sm:h-5 sm:w-5 transition-transform duration-200 group-hover:scale-110 ${
+                              isDark ? "text-white" : "text-gray-900"
                             }`}
                           />
                         ) : (
-                          <ShoppingBagIcon className="h-5 w-5 lg:h-5.5 lg:w-5.5 transition-colors" />
+                          <ShoppingBagIcon
+                            className="h-4.5 w-4.5 sm:h-5 sm:w-5 transition-transform duration-200 group-hover:scale-110"
+                            strokeWidth={1.75}
+                          />
                         )}
                         {showCartBadge && (
                           <span
-                            className={`absolute -top-1 -right-1 z-10 min-w-[16px] h-[16px] sm:min-w-[18px] sm:h-[18px] text-[9px] sm:text-[10px] font-black rounded-full flex items-center justify-center px-1 animate-bounce shadow-xs pointer-events-none ${
-                              isThemeBand
-                                ? "bg-white text-gray-900 shadow-md"
-                                : "bg-[var(--theme-primary)] text-[var(--theme-primary-ink)] shadow-[var(--theme-primary)]/30"
-                            }`}
+                            className={`absolute -top-1 -right-1 z-10 min-w-[17px] h-[17px] text-[9.5px] font-black rounded-full flex items-center justify-center px-1 ring-2 ${
+                              isDark ? "ring-zinc-900" : "ring-white"
+                            } shadow-xs pointer-events-none transition-transform duration-200 bg-gray-950 text-white`}
                           >
                             {cartItemCount}
                           </span>
@@ -1424,9 +1494,9 @@ const Navbar = ({
                     </>
                   )}
 
-                  {/* Bell notification */}
+                  {/* Bell notification - Only shown when user is logged in */}
                   {isAuthenticated && (
-                    <div ref={notifRef} className="relative flex items-center">
+                    <div ref={notifRef} className="relative hidden sm:flex items-center">
                       {isAdmin ? (
                         <button
                           onClick={() =>
@@ -1435,14 +1505,15 @@ const Navbar = ({
                           className={getActionButtonClass()}
                           aria-label="Notifications"
                         >
-                          <BellIcon className="h-5 w-5 lg:h-5.5 lg:w-5.5 transition-colors" />
+                          <BellIcon
+                            className="h-4.5 w-4.5 sm:h-5 sm:w-5 transition-transform duration-200 group-hover:scale-110 group-hover:rotate-12"
+                            strokeWidth={1.75}
+                          />
                           {unreadCount > 0 && (
                             <span
-                              className={`absolute -top-1 -right-1 z-10 min-w-[16px] h-[16px] sm:min-w-[18px] sm:h-[18px] text-[9px] sm:text-[10px] font-bold rounded-full flex items-center justify-center px-0.5 animate-pulse shadow-xs pointer-events-none ${
-                                isThemeBand
-                                  ? "bg-white text-gray-900 font-black"
-                                  : "bg-[var(--theme-primary)] text-[var(--theme-primary-ink)] font-black shadow-[var(--theme-primary)]/30"
-                              }`}
+                              className={`absolute -top-1 -right-1 z-10 min-w-[17px] h-[17px] text-[9.5px] font-bold rounded-full flex items-center justify-center px-1 ring-2 ${
+                                isDark ? "ring-zinc-900" : "ring-white"
+                              } shadow-xs pointer-events-none transition-transform duration-200 bg-rose-500 text-white`}
                             >
                               {unreadCount > 99 ? "99+" : unreadCount}
                             </span>
@@ -1456,17 +1527,22 @@ const Navbar = ({
                             aria-label="Notifications"
                           >
                             {notifOpen ? (
-                              <BellSolid className="h-5 w-5 lg:h-5.5 lg:w-5.5 transition-colors" />
+                              <BellSolid
+                                className={`h-4.5 w-4.5 sm:h-5 sm:w-5 transition-transform duration-200 ${
+                                  isDark ? "text-white" : "text-gray-900"
+                                }`}
+                              />
                             ) : (
-                              <BellIcon className="h-5 w-5 lg:h-5.5 lg:w-5.5 transition-colors" />
+                              <BellIcon
+                                className="h-4.5 w-4.5 sm:h-5 sm:w-5 transition-transform duration-200 group-hover:scale-110 group-hover:rotate-12"
+                                strokeWidth={1.75}
+                              />
                             )}
                             {unreadCount > 0 && (
                               <span
-                                className={`absolute -top-1 -right-1 z-10 min-w-[16px] h-[16px] sm:min-w-[18px] sm:h-[18px] text-[9px] sm:text-[10px] font-bold rounded-full flex items-center justify-center px-0.5 animate-pulse shadow-xs pointer-events-none ${
-                                  isThemeBand
-                                    ? "bg-white text-gray-900 font-black"
-                                    : "bg-[var(--theme-primary)] text-[var(--theme-primary-ink)] font-black shadow-[var(--theme-primary)]/30"
-                                }`}
+                                className={`absolute -top-1 -right-1 z-10 min-w-[17px] h-[17px] text-[9.5px] font-bold rounded-full flex items-center justify-center px-1 ring-2 ${
+                                  isDark ? "ring-zinc-900" : "ring-white"
+                                } shadow-xs pointer-events-none transition-transform duration-200 bg-rose-500 text-white`}
                               >
                                 {unreadCount > 99 ? "99+" : unreadCount}
                               </span>
@@ -1645,10 +1721,19 @@ const Navbar = ({
 
                   {/* Auth Section */}
                   {!isAuthenticated ? (
-                    <div className="hidden md:flex items-center gap-3 ml-2">
+                    <div className="flex items-center gap-1.5 sm:gap-2">
                       <button
+                        type="button"
                         onClick={() => setCustomerAuthOpen(true)}
-                        className={getSignInButtonClass()}
+                        className={`${getActionButtonClass()} md:hidden`}
+                        aria-label="Account"
+                      >
+                        <UserIcon className="h-4.5 w-4.5 sm:h-5 sm:w-5 transition-colors" strokeWidth={1.75} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setCustomerAuthOpen(true)}
+                        className={`hidden md:inline-flex items-center justify-center ${getSignInButtonClass()}`}
                       >
                         Sign In
                       </button>
@@ -1657,26 +1742,46 @@ const Navbar = ({
                     <div className="relative">
                       <button
                         onClick={handleUserIconClick}
-                        className={`hidden md:flex items-center gap-2 ml-1 lg:ml-2 border transition-all duration-300 group cursor-pointer ${getAccountButtonClass()}`}
+                        className={`flex items-center gap-1 sm:gap-1.5 lg:gap-2 border transition-all duration-300 group cursor-pointer ${getAccountButtonClass()}`}
+                        aria-label={isAdmin ? "Admin Account" : "My Account"}
                       >
                         <div
-                          className={`w-7 h-7 rounded-full flex items-center justify-center transition-colors ${
+                          className={`w-5.5 h-5.5 sm:w-6.5 sm:h-6.5 rounded-full flex items-center justify-center transition-all duration-200 ${
                             isDark
                               ? "bg-white/20 text-white"
                               : isThemeBand
                               ? "bg-white text-gray-900"
+                              : activeTemplate === 4
+                              ? isUserDropdownOpen
+                                ? "bg-white text-gray-950"
+                                : "bg-gray-100 text-gray-700 group-hover:bg-gray-900 group-hover:text-white"
                               : "bg-gray-900 text-white"
                           }`}
                         >
-                          <UserIcon className="h-4 w-4" />
+                          <UserIcon className="h-3 w-3 sm:h-3.5 sm:w-3.5" strokeWidth={1.75} />
                         </div>
-                        <span className="text-xs font-bold tracking-tight hidden lg:inline">
+                        <span
+                          className={`text-xs font-semibold tracking-tight hidden lg:inline transition-colors duration-200 ${
+                            isDark
+                              ? "text-white group-hover:text-white"
+                              : activeTemplate === 4 && isUserDropdownOpen
+                              ? "text-white"
+                              : "text-gray-800 group-hover:text-black"
+                          }`}
+                        >
                           {isAdmin ? "Admin" : "Account"}
                         </span>
                         <ChevronDownIcon
-                          className={`h-3.5 w-3.5 transition-transform duration-300 ${
+                          className={`h-3 w-3 sm:h-3.5 sm:w-3.5 transition-all duration-300 ${
                             isUserDropdownOpen ? "rotate-180" : ""
+                          } ${
+                            isDark
+                              ? "text-zinc-300 group-hover:text-white"
+                              : activeTemplate === 4 && isUserDropdownOpen
+                              ? "text-white/80"
+                              : "text-gray-400 group-hover:text-gray-700"
                           }`}
+                          strokeWidth={2}
                         />
                       </button>
 
@@ -2090,6 +2195,64 @@ const Navbar = ({
                       </Link>
                     );
                   })}
+
+                  {/* Wishlist item in mobile drawer - Only shown when logged in */}
+                  {isAuthenticated && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        setMobileMenuOpen(false);
+                        handleWishlistClick(e);
+                      }}
+                      className={`flex items-center justify-between w-full px-3.5 py-3 rounded-xl transition-all duration-200 mx-2 text-xs font-bold cursor-pointer ${
+                        isActive("/WishlistPage") || isActive("/wishlist")
+                          ? "bg-[var(--theme-primary)] text-[var(--theme-primary-ink)] font-bold shadow-md shadow-[var(--theme-primary)]/20"
+                          : isDark
+                          ? "text-zinc-300 hover:text-[var(--theme-primary)] hover:bg-white/10"
+                          : "text-gray-700 hover:text-[var(--theme-primary)] hover:bg-gray-100"
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <HeartOutline className="h-4 w-4 text-gray-500" />
+                        <span>Wishlist</span>
+                      </div>
+                      {wishlistCount > 0 && (
+                        <span className="text-[10px] bg-[var(--theme-primary)] text-[var(--theme-primary-ink)] font-bold rounded-full px-2 py-0.5">
+                          {wishlistCount}
+                        </span>
+                      )}
+                    </button>
+                  )}
+
+                  {/* Notifications item in mobile drawer - Only shown when logged in */}
+                  {isAuthenticated && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMobileMenuOpen(false);
+                        if (isAdmin) {
+                          navigate(`${adminDashboardPath}/notifications`);
+                        } else {
+                          setNotifOpen(true);
+                        }
+                      }}
+                      className={`flex items-center justify-between w-full px-3.5 py-3 rounded-xl transition-all duration-200 mx-2 text-xs font-bold cursor-pointer ${
+                        isDark
+                          ? "text-zinc-300 hover:text-[var(--theme-primary)] hover:bg-white/10"
+                          : "text-gray-700 hover:text-[var(--theme-primary)] hover:bg-gray-100"
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <BellIcon className="h-4 w-4 text-gray-500" />
+                        <span>Notifications</span>
+                      </div>
+                      {unreadCount > 0 && (
+                        <span className="text-[10px] bg-rose-500 text-white font-bold rounded-full px-2 py-0.5 shadow-xs">
+                          {unreadCount > 99 ? "99+" : unreadCount}
+                        </span>
+                      )}
+                    </button>
+                  )}
                 </div>
               </div>
 

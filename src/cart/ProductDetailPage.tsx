@@ -607,19 +607,19 @@ const ModernProductCard = React.memo(function ModernProductCard({ product, addTo
           <div className="mt-1 flex flex-wrap items-center gap-1.5">
             {product.discount && product.discount > 0 ? (
               <>
-                <span className="text-sm font-extrabold text-gray-900">
-                  ₹{calculateDiscountedPrice(product.price, product.discount).toFixed(0)}
+                <span className="text-sm font-black text-emerald-700 tracking-tight">
+                  ₹{Math.round(calculateDiscountedPrice(product.price, product.discount)).toLocaleString("en-IN")}
                 </span>
-                <span className="text-xs text-gray-400 line-through">
-                  ₹{product.price?.toFixed(0)}
+                <span className="text-xs text-gray-400 line-through font-normal">
+                  ₹{Math.round(Number(product.price)).toLocaleString("en-IN")}
                 </span>
-                <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 px-1.5 py-0.5 rounded-full">
-                  {product.discount}% OFF
+                <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 border border-emerald-200/60 px-1.5 py-0.5 rounded-full leading-none">
+                  {Math.round(Number(product.discount))}% OFF
                 </span>
               </>
             ) : (
-              <span className="text-sm font-extrabold text-gray-900">
-                ₹{product.price?.toFixed(0)}
+              <span className="text-sm font-black text-emerald-700 tracking-tight">
+                ₹{Math.round(Number(product.price)).toLocaleString("en-IN")}
               </span>
             )}
           </div>
@@ -1206,19 +1206,19 @@ export default function ProductDetailPage() {
               <div className="flex flex-wrap items-center gap-3">
                 {hasDiscount ? (
                   <>
-                    <span className="text-2xl sm:text-3xl font-extrabold text-neutral-900">
+                    <span className="text-2xl sm:text-3xl font-black text-emerald-700 tracking-tight">
                       Rs. {discountedPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </span>
-                    <span className="text-base text-gray-400 line-through">
+                    <span className="text-base text-gray-400 line-through font-normal">
                       Rs. {effectivePrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </span>
                     {/* Vibrant Green Discount Badge */}
-                    <span className="inline-flex items-center px-2.5 py-1 text-xs font-extrabold text-emerald-800">
-                      {effectiveDiscount}% OFF
+                    <span className="inline-flex items-center px-2.5 py-1 text-xs font-extrabold text-emerald-800 bg-emerald-50 border border-emerald-200/80 rounded-md">
+                      {Math.round(Number(effectiveDiscount))}% OFF
                     </span>
                   </>
                 ) : (
-                  <span className="text-2xl sm:text-3xl font-extrabold text-neutral-900">
+                  <span className="text-2xl sm:text-3xl font-black text-emerald-700 tracking-tight">
                     Rs. {effectivePrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </span>
                 )}

@@ -8,13 +8,8 @@ import { useBodyScrollLock } from "../hooks/useBodyScrollLock";
 import { Dialog, DialogBackdrop, DialogPanel } from "@headlessui/react";
 import {
   XMarkIcon,
-  UserIcon,
-  EnvelopeIcon,
-  PhoneIcon,
   ShieldExclamationIcon,
-  CheckCircleIcon,
   ArrowLeftIcon,
-  SparklesIcon,
   ClockIcon,
   ArrowPathIcon,
 } from "@heroicons/react/24/outline";
@@ -23,9 +18,11 @@ import OtpInput from "react-otp-input";
 import toast from "react-hot-toast";
 import api from "../utils/api";
 import { useAuth } from "../context/AuthContext";
+import { useBranding } from "../context/BrandingContext";
+import logo123 from "../assets/logo.png";
 
 // ── Brand tokens ─────────────────────────────────────────────────────────────
-const DEEP_GREEN = "#34433d";
+const DEEP_GREEN = "#0c6b5e";
 
 // ── MSG91 Widget Configuration (Fetched dynamically from backend at runtime) ───
 let cachedMsg91Config: { widgetId: string; tokenAuth: string } | null = null;
@@ -67,9 +64,9 @@ type Step = "form" | "otp";
 
 // ── OTP input style ───────────────────────────────────────────────────────────
 const OTP_CLASS =
-  "!w-12 !h-12 sm:!w-14 sm:!h-14 md:!w-16 md:!h-16 border-2 border-slate-200 rounded-2xl text-center " +
-  "text-xl sm:text-2xl font-black text-slate-900 bg-white focus:outline-none " +
-  "focus:border-slate-900 focus:ring-4 focus:ring-slate-900/10 shadow-xs transition-all duration-200";
+  "!w-11 !h-12 sm:!w-12 sm:!h-13 border border-slate-300 rounded-2xl text-center " +
+  "text-xl font-bold text-slate-800 bg-white focus:outline-none " +
+  "focus:border-[#0c6b5e] focus:ring-1 focus:ring-[#0c6b5e] transition-all duration-150";
 
 interface Props {
   open: boolean;
@@ -78,6 +75,15 @@ interface Props {
 
 export default function CustomerAuthModal({ open, onClose }: Props) {
   const { checkAuthStatus } = useAuth();
+  const { branding } = useBranding();
+  const domainUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:5000";
+  const logoSrc = branding.companyLogo
+    ? branding.companyLogo.startsWith("http")
+      ? branding.companyLogo
+      : `${domainUrl}/${branding.companyLogo}`
+    : logo123;
+  const companyDisplayName = branding.companyName?.trim() || "Panakkal Ayurveda";
+
   useBodyScrollLock(open);
 
   const [mode, setMode] = useState<Mode>("sign-in");
@@ -481,310 +487,358 @@ export default function CustomerAuthModal({ open, onClose }: Props) {
 
   return (
     <Dialog open={open} onClose={handleClose} className="relative z-[100]">
-      <DialogBackdrop className="fixed inset-0 bg-slate-950/60 backdrop-blur-md transition-opacity duration-300 animate-in fade-in" />
+      <DialogBackdrop className="fixed inset-0 bg-slate-950/50 backdrop-blur-xs transition-opacity duration-300 animate-in fade-in" />
 
       <div className="fixed inset-0 flex items-center justify-center p-3 sm:p-4">
-        <DialogPanel className="w-full max-w-md bg-white rounded-3xl shadow-2xl border border-slate-100/80 p-5 sm:p-7 md:p-9 pt-12 sm:pt-14 md:pt-16 relative overflow-hidden animate-in zoom-in-95 duration-200">
-          
-          {/* Top Decorative Subtle Glow */}
-          <div className="absolute -top-24 left-1/2 -translate-x-1/2 w-48 h-48 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
-
+        <DialogPanel className="w-full max-w-[620px] bg-white rounded-[26px] shadow-2xl border border-slate-100 relative overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col sm:flex-row items-stretch min-h-[300px]">
           {/* Close Button */}
           <button
             onClick={handleClose}
-            className="absolute top-4 right-4 p-2 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-all duration-200 z-10 cursor-pointer"
+            className="absolute top-4 right-4 sm:top-5 sm:right-5 p-1 text-slate-400 hover:text-slate-600 transition-colors z-20 cursor-pointer"
             aria-label="Close"
           >
-            <XMarkIcon className="h-5 w-5" strokeWidth={2} />
+            <XMarkIcon className="h-5 w-5" strokeWidth={2.2} />
           </button>
 
-          {/* ── Admin account blocked screen ──────────────────────────────── */}
-          {adminBlocked && (
-            <div className="flex flex-col items-center text-center gap-4 py-2">
-              <div className="w-16 h-16 rounded-2xl bg-rose-50 border border-rose-100 flex items-center justify-center shadow-inner">
-                <ShieldExclamationIcon className="w-8 h-8 text-rose-500" strokeWidth={1.8} />
-              </div>
-
-              <div>
-                <h2 className="text-xl font-black text-slate-900 tracking-tight">Access Restricted</h2>
-                <p className="text-xs text-slate-500 mt-1.5 leading-relaxed max-w-xs mx-auto">
-                  This mobile number belongs to an administrative profile.
-                  Please log in through the primary <span className="font-bold text-slate-900">Admin Portal</span>.
-                </p>
-              </div>
-
-              <div className="w-full rounded-2xl border border-rose-100 bg-rose-50/70 p-3.5 text-xs text-rose-700 flex items-start gap-2.5 text-left leading-snug">
-                <ShieldExclamationIcon className="w-4 h-4 flex-shrink-0 mt-0.5 text-rose-500" strokeWidth={2} />
-                <span>Superadmin & Admin accounts require email and password authentication on the secure portal.</span>
-              </div>
-
-              <button
-                onClick={() => { setAdminBlocked(false); setPhone(""); }}
-                className="w-full h-11 text-xs font-bold uppercase tracking-wider rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50 transition cursor-pointer flex items-center justify-center gap-2 mt-1"
-              >
-                <ArrowLeftIcon className="w-4 h-4" strokeWidth={2.2} />
-                Try a different number
-              </button>
-            </div>
-          )}
-
-          {/* Mode toggle (only on form step, hidden when admin-blocked) */}
-          {!adminBlocked && step === "form" && (
-            <div className="flex bg-slate-100/80 p-1.5 rounded-2xl mb-7 border border-slate-200/60 shadow-inner">
-              <button
-                onClick={() => switchMode("sign-in")}
-                className={`flex-1 py-2.5 text-xs font-bold uppercase tracking-wider rounded-xl transition-all duration-200 cursor-pointer ${
-                  mode === "sign-in"
-                    ? "bg-white text-slate-950 shadow-sm"
-                    : "text-slate-500 hover:text-slate-800"
-                }`}
-              >
-                Sign In
-              </button>
-              <button
-                onClick={() => switchMode("register")}
-                className={`flex-1 py-2.5 text-xs font-bold uppercase tracking-wider rounded-xl transition-all duration-200 cursor-pointer ${
-                  mode === "register"
-                    ? "bg-white text-slate-950 shadow-sm"
-                    : "text-slate-500 hover:text-slate-800"
-                }`}
-              >
-                Create Account
-              </button>
-            </div>
-          )}
-
-          {/* Header — hidden when admin-blocked */}
-          {!adminBlocked && (
-            <div className="text-center mb-6">
-              
-              <h2 className="text-2xl font-black tracking-tight text-slate-950">{title}</h2>
-              <p className="text-xs font-medium text-slate-500 mt-1 max-w-xs mx-auto">{subtitle}</p>
-            </div>
-          )}
-
-          {/* ── Form step ────────────────────────────────────────────────── */}
-          {!adminBlocked && step === "form" && (
-            <div className="flex flex-col gap-4">
-              {/* Register: name + email */}
-              {mode === "register" && (
-                <>
-                  <div className="relative">
-                    <UserIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" strokeWidth={2} />
-                    <input
-                      type="text"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          e.preventDefault();
-                          emailRef.current?.focus();
-                        }
-                      }}
-                      placeholder="Full name *"
-                      className="w-full pl-10 pr-4 py-3 bg-slate-50/50 border border-slate-200 rounded-2xl text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:border-slate-900 focus:ring-4 focus:ring-slate-900/10 transition-all duration-200"
-                      autoFocus
-                    />
-                  </div>
-                  <div className="relative">
-                    <EnvelopeIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" strokeWidth={2} />
-                    <input
-                      ref={emailRef}
-                      type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value.toLowerCase())}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          e.preventDefault();
-                          phoneRef.current?.focus();
-                        }
-                      }}
-                      placeholder="Email address (optional)"
-                      className="w-full pl-10 pr-4 py-3 bg-slate-50/50 border border-slate-200 rounded-2xl text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:border-slate-900 focus:ring-4 focus:ring-slate-900/10 transition-all duration-200"
-                    />
-                  </div>
-                </>
-              )}
-
-              {/* Phone */}
-              <div className="flex flex-col gap-1.5">
-                <div className={`relative flex items-stretch border rounded-2xl overflow-hidden transition-all duration-200 ${
-                  phoneError
-                    ? "border-rose-400 focus-within:ring-4 focus-within:ring-rose-500/10 bg-rose-50/30"
-                    : "border-slate-200 focus-within:border-slate-900 focus-within:ring-4 focus-within:ring-slate-900/10 bg-slate-50/50 focus-within:bg-white"
-                }`}>
-                  <div className="flex items-center gap-1.5 px-3 sm:px-3.5 text-xs font-bold text-slate-700 bg-slate-100/80 border-r border-slate-200/80 select-none shrink-0">
-                    <PhoneIcon className="w-3.5 h-3.5 text-slate-400" strokeWidth={2} />
-                    +91
-                  </div>
-                  <input
-                    ref={phoneRef}
-                    type="tel"
-                    inputMode="numeric"
-                    maxLength={10}
-                    value={phone}
-                    onChange={(e) => handlePhoneChange(e.target.value)}
-                    onBlur={() => phone.length > 0 && validatePhone(phone)}
-                    placeholder="Mobile number *"
-                    className="flex-1 min-w-0 px-2.5 sm:px-3.5 py-3 text-xs font-medium text-slate-900 placeholder:text-slate-400 outline-none bg-transparent"
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        handleSendOtp();
-                      }
-                    }}
-                    autoFocus={mode === "sign-in"}
-                  />
-                  {/* Live digit counter */}
-                  {phone.length > 0 && (
-                    <span className={`flex items-center shrink-0 pr-2.5 sm:pr-3.5 text-[11px] font-mono font-bold select-none gap-1 whitespace-nowrap ${
-                      phone.length === 10 ? "text-emerald-600" : "text-slate-400"
-                    }`}>
-                      {phone.length === 10 && <CheckCircleIcon className="w-3.5 h-3.5 text-emerald-500 shrink-0" strokeWidth={2.5} />}
-                      {phone.length}/10
-                    </span>
-                  )}
-                </div>
-
-                {/* Inline error message */}
-                {phoneError && (
-                  <p className="text-[11px] text-rose-500 font-semibold flex items-center gap-1 mt-0.5 pl-1 animate-fadeIn">
-                    <ShieldExclamationIcon className="w-3.5 h-3.5 flex-shrink-0 text-rose-500" strokeWidth={2} />
-                    {phoneError}
-                  </p>
-                )}
-              </div>
-
-              <button
-                onClick={handleSendOtp}
-                disabled={loading}
-                className="w-full h-12 font-bold text-xs uppercase tracking-wider rounded-2xl text-white shadow-md hover:shadow-lg hover:shadow-slate-900/20 active:scale-[0.98] transition-all duration-150 disabled:opacity-60 cursor-pointer flex items-center justify-center mt-2 bg-slate-900 hover:bg-slate-800"
-              >
-                {loading ? <ClipLoader color="white" size={18} /> : "Send OTP"}
-              </button>
-            </div>
-          )}
-
-          {/* ── OTP step ─────────────────────────────────────────────────── */}
-          {!adminBlocked && step === "otp" && (
-            <div className="flex flex-col gap-5 pt-1">
-              <OtpInput
-                value={otp}
-                onChange={handleOtpChange}
-                numInputs={4}
-                shouldAutoFocus
-                renderInput={(props) => (
-                  <input
-                    {...props}
-                    disabled={loading}
-                    inputMode="numeric"
-                    autoComplete="one-time-code"
-                    className={`${OTP_CLASS} ${loading ? "opacity-60 bg-slate-50 cursor-not-allowed" : ""}`}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && otp.length === 4 && !loading) {
-                        e.preventDefault();
-                        handleVerifyOtp(otp);
-                      }
-                      if (props.onKeyDown) props.onKeyDown(e);
-                    }}
-                  />
-                )}
-                containerStyle={{ width: "100%", display: "flex", justifyContent: "center", gap: "12px" }}
+          {/* Left Column: Branding Logo & Name */}
+          <div className="w-full sm:w-[210px] md:w-[230px] bg-[#f8faff] flex flex-col items-center justify-center p-6 sm:p-7 text-center select-none sm:border-r border-slate-100 shrink-0">
+            <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full p-1 bg-white ring-2 ring-[#eedc9e] shadow-xs flex items-center justify-center overflow-hidden">
+              <img
+                src={logoSrc}
+                alt={companyDisplayName}
+                className="w-full h-full object-contain rounded-full"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = logo123;
+                }}
               />
+            </div>
+            <h3 className="mt-4 font-serif font-bold text-slate-800 text-base sm:text-lg leading-tight px-2">
+              {companyDisplayName}
+            </h3>
+          </div>
 
-              {/* Inline error alert */}
-              {verifyError && (
-                <div className="p-3 rounded-2xl bg-rose-50 border border-rose-100 flex items-start gap-2.5 text-xs text-rose-700 animate-fadeIn">
-                  <ShieldExclamationIcon className="w-4 h-4 text-rose-500 flex-shrink-0 mt-0.5" strokeWidth={2} />
-                  <p className="font-semibold leading-relaxed">{verifyError}</p>
+          {/* Right Column: Auth Content */}
+          <div className="flex-1 min-w-0 p-6 sm:p-7 md:p-8 flex flex-col justify-center bg-white relative">
+            {/* ── Admin account blocked screen ──────────────────────────────── */}
+            {adminBlocked ? (
+              <div className="flex flex-col items-center text-center gap-3 py-2">
+                <div className="w-14 h-14 rounded-2xl bg-rose-50 border border-rose-100 flex items-center justify-center shadow-inner">
+                  <ShieldExclamationIcon className="w-7 h-7 text-rose-500" strokeWidth={1.8} />
                 </div>
-              )}
 
-              {/* "Taking longer than usual" warning banner */}
-              {loading && takingLong && (
-                <div className="p-3 rounded-2xl bg-amber-50/90 border border-amber-200/80 flex items-center justify-between gap-3 text-xs text-amber-900 shadow-xs animate-fadeIn">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <ClockIcon className="w-4 h-4 text-amber-600 flex-shrink-0 animate-pulse" strokeWidth={2} />
-                    <span className="font-medium truncate">Taking longer than usual...</span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleCancelVerification}
-                    className="font-bold text-amber-900 underline hover:text-amber-950 whitespace-nowrap cursor-pointer px-2.5 py-1 rounded-lg bg-amber-100/90 hover:bg-amber-200 transition text-[11px]"
-                  >
-                    Cancel & Retry
-                  </button>
+                <div>
+                  <h2 className="text-lg font-black text-slate-900 tracking-tight">Access Restricted</h2>
+                  <p className="text-xs text-slate-500 mt-1 leading-relaxed max-w-xs mx-auto">
+                    This mobile number belongs to an administrative profile. Please log in through the{" "}
+                    <span className="font-bold text-slate-900">Admin Portal</span>.
+                  </p>
                 </div>
-              )}
-
-              <div className="flex flex-col gap-2">
-                <button
-                  type="button"
-                  onClick={() => handleVerifyOtp()}
-                  disabled={loading || otp.length !== 4}
-                  className="w-full h-12 font-bold text-xs uppercase tracking-wider rounded-2xl text-white shadow-md hover:shadow-lg hover:shadow-slate-900/20 active:scale-[0.98] transition-all duration-150 disabled:opacity-60 cursor-pointer flex items-center justify-center bg-slate-900 hover:bg-slate-800"
-                >
-                  {loading ? (
-                    <div className="flex items-center gap-2">
-                      <ClipLoader color="white" size={16} />
-                      <span>Verifying code...</span>
-                    </div>
-                  ) : mode === "sign-in" ? (
-                    "Sign In"
-                  ) : (
-                    "Create Account"
-                  )}
-                </button>
-
-                {/* If loading is active, give user a quick cancel option */}
-                {loading && (
-                  <button
-                    type="button"
-                    onClick={handleCancelVerification}
-                    className="w-full py-1 text-xs font-semibold text-slate-500 hover:text-slate-800 transition text-center cursor-pointer"
-                  >
-                    Stop & Edit OTP
-                  </button>
-                )}
-              </div>
-
-              <div className="flex flex-col items-center gap-2 pt-1 border-t border-slate-100">
-                <p className="text-xs text-slate-500 font-medium flex items-center gap-1.5">
-                  Didn't receive the code?{" "}
-                  <button
-                    type="button"
-                    onClick={handleResend}
-                    disabled={timer > 0 || loading}
-                    className="font-bold text-slate-900 hover:underline disabled:opacity-50 transition cursor-pointer inline-flex items-center gap-1"
-                  >
-                    {timer > 0 ? (
-                      `Resend in ${formatTimer(timer)}`
-                    ) : (
-                      <>
-                        <ArrowPathIcon className="w-3.5 h-3.5 inline" strokeWidth={2.2} />
-                        Resend OTP
-                      </>
-                    )}
-                  </button>
-                </p>
 
                 <button
                   type="button"
                   onClick={() => {
-                    handleCancelVerification();
-                    setStep("form");
-                    setOtp("");
-                    setVerifyError("");
+                    setAdminBlocked(false);
+                    setPhone("");
                   }}
-                  disabled={loading}
-                  className="text-xs font-bold text-slate-400 hover:text-slate-700 transition flex items-center gap-1 cursor-pointer mt-1 disabled:opacity-40"
+                  className="w-full h-11 text-xs font-bold uppercase tracking-wider rounded-2xl border border-slate-200 text-slate-700 hover:bg-slate-50 transition cursor-pointer flex items-center justify-center gap-2 mt-2"
                 >
-                  <ArrowLeftIcon className="w-3.5 h-3.5" strokeWidth={2.2} />
-                  {mode === "register" ? "Edit details" : "Change mobile number"}
+                  <ArrowLeftIcon className="w-4 h-4" strokeWidth={2.2} />
+                  Try a different number
                 </button>
               </div>
-            </div>
-          )}
+            ) : step === "form" ? (
+              <div>
+                {/* Tabs: SIGN IN | CREATE ACCOUNT */}
+                <div className="flex items-center gap-6 mb-5">
+                  <button
+                    type="button"
+                    onClick={() => switchMode("sign-in")}
+                    className={`text-xs font-bold uppercase tracking-wider pb-1 transition-all cursor-pointer ${
+                      mode === "sign-in"
+                        ? "text-[#0c6b5e] border-b-2 border-[#0c6b5e]"
+                        : "text-slate-400 hover:text-slate-600 border-b-2 border-transparent"
+                    }`}
+                  >
+                    SIGN IN
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => switchMode("register")}
+                    className={`text-xs font-bold uppercase tracking-wider pb-1 transition-all cursor-pointer ${
+                      mode === "register"
+                        ? "text-[#0c6b5e] border-b-2 border-[#0c6b5e]"
+                        : "text-slate-400 hover:text-slate-600 border-b-2 border-transparent"
+                    }`}
+                  >
+                    CREATE ACCOUNT
+                  </button>
+                </div>
+
+                {/* SIGN IN Mode Form */}
+                {mode === "sign-in" && (
+                  <div className="space-y-4">
+                    <div className="flex flex-col gap-1">
+                      <div className="flex items-center gap-2 sm:gap-2.5">
+                        <div className="w-14 sm:w-16 h-12 flex items-center justify-center rounded-2xl border border-slate-300 text-slate-700 font-semibold text-sm bg-white shrink-0">
+                          +91
+                        </div>
+                        <input
+                          ref={phoneRef}
+                          type="tel"
+                          inputMode="numeric"
+                          maxLength={10}
+                          value={phone}
+                          onChange={(e) => handlePhoneChange(e.target.value)}
+                          onBlur={() => phone.length > 0 && validatePhone(phone)}
+                          placeholder="Enter Mobile Number"
+                          className={`flex-1 min-w-0 h-12 px-4 rounded-2xl border transition-all text-sm outline-none bg-white text-slate-800 placeholder:text-slate-400 font-normal ${
+                            phoneError
+                              ? "border-rose-400 focus:border-rose-500 focus:ring-1 focus:ring-rose-500/20"
+                              : "border-[#0c6b5e] focus:border-[#0c6b5e] focus:ring-1 focus:ring-[#0c6b5e]"
+                          }`}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              handleSendOtp();
+                            }
+                          }}
+                          autoFocus
+                        />
+                      </div>
+                      {phoneError && (
+                        <p className="text-[11px] text-rose-500 font-semibold flex items-center gap-1 mt-0.5 pl-1 animate-fadeIn">
+                          <ShieldExclamationIcon className="w-3.5 h-3.5 shrink-0" strokeWidth={2} />
+                          {phoneError}
+                        </p>
+                      )}
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handleSendOtp}
+                      disabled={loading}
+                      className="w-full h-12 bg-[#0c6b5e] hover:bg-[#09574c] active:scale-[0.99] text-white font-bold text-sm rounded-2xl transition-all duration-150 cursor-pointer flex items-center justify-center disabled:opacity-60 shadow-none mt-2"
+                    >
+                      {loading ? <ClipLoader color="white" size={18} /> : "Submit"}
+                    </button>
+                  </div>
+                )}
+
+                {/* CREATE ACCOUNT Mode Form */}
+                {mode === "register" && (
+                  <div className="space-y-3 sm:space-y-3.5">
+                    {/* Full Name */}
+                    <div>
+                      <input
+                        type="text"
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            emailRef.current?.focus();
+                          }
+                        }}
+                        placeholder="Enter Full Name *"
+                        className="w-full h-12 px-4 rounded-2xl border border-[#0c6b5e] focus:border-[#0c6b5e] focus:ring-1 focus:ring-[#0c6b5e] transition-all text-sm outline-none bg-white text-slate-800 placeholder:text-slate-400"
+                        autoFocus
+                      />
+                    </div>
+
+                    {/* Email */}
+                    <div>
+                      <input
+                        ref={emailRef}
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value.toLowerCase())}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            phoneRef.current?.focus();
+                          }
+                        }}
+                        placeholder="Enter Email Address (optional)"
+                        className="w-full h-12 px-4 rounded-2xl border border-slate-300 focus:border-[#0c6b5e] focus:ring-1 focus:ring-[#0c6b5e] transition-all text-sm outline-none bg-white text-slate-800 placeholder:text-slate-400"
+                      />
+                    </div>
+
+                    {/* Mobile Number */}
+                    <div className="flex flex-col gap-1">
+                      <div className="flex items-center gap-2 sm:gap-2.5">
+                        <div className="w-14 sm:w-16 h-12 flex items-center justify-center rounded-2xl border border-slate-300 text-slate-700 font-semibold text-sm bg-white shrink-0">
+                          +91
+                        </div>
+                        <input
+                          ref={phoneRef}
+                          type="tel"
+                          inputMode="numeric"
+                          maxLength={10}
+                          value={phone}
+                          onChange={(e) => handlePhoneChange(e.target.value)}
+                          onBlur={() => phone.length > 0 && validatePhone(phone)}
+                          placeholder="Enter Mobile Number"
+                          className={`flex-1 min-w-0 h-12 px-4 rounded-2xl border transition-all text-sm outline-none bg-white text-slate-800 placeholder:text-slate-400 font-normal ${
+                            phoneError
+                              ? "border-rose-400 focus:border-rose-500 focus:ring-1 focus:ring-rose-500/20"
+                              : "border-slate-300 focus:border-[#0c6b5e] focus:ring-1 focus:ring-[#0c6b5e]"
+                          }`}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              handleSendOtp();
+                            }
+                          }}
+                        />
+                      </div>
+                      {phoneError && (
+                        <p className="text-[11px] text-rose-500 font-semibold flex items-center gap-1 mt-0.5 pl-1 animate-fadeIn">
+                          <ShieldExclamationIcon className="w-3.5 h-3.5 shrink-0" strokeWidth={2} />
+                          {phoneError}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Submit button */}
+                    <button
+                      type="button"
+                      onClick={handleSendOtp}
+                      disabled={loading}
+                      className="w-full h-12 bg-[#0c6b5e] hover:bg-[#09574c] active:scale-[0.99] text-white font-bold text-sm rounded-2xl transition-all duration-150 cursor-pointer flex items-center justify-center disabled:opacity-60 shadow-none mt-1"
+                    >
+                      {loading ? <ClipLoader color="white" size={18} /> : "Submit"}
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              /* ── Step 2: OTP Step ── */
+              <div className="space-y-4">
+                <div className="flex items-center gap-6 mb-2">
+                  <span className="text-[#0c6b5e] font-bold text-xs uppercase tracking-wider pb-1 border-b-2 border-[#0c6b5e]">
+                    VERIFY OTP
+                  </span>
+                </div>
+
+                <p className="text-xs text-slate-500 font-medium">
+                  Enter the 4-digit code sent to +91 <span className="font-bold text-slate-800">{phone}</span>
+                </p>
+
+                <OtpInput
+                  value={otp}
+                  onChange={handleOtpChange}
+                  numInputs={4}
+                  shouldAutoFocus
+                  renderInput={(props) => (
+                    <input
+                      {...props}
+                      disabled={loading}
+                      inputMode="numeric"
+                      autoComplete="one-time-code"
+                      className={`${OTP_CLASS} ${loading ? "opacity-60 bg-slate-50 cursor-not-allowed" : ""}`}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && otp.length === 4 && !loading) {
+                          e.preventDefault();
+                          handleVerifyOtp(otp);
+                        }
+                        if (props.onKeyDown) props.onKeyDown(e);
+                      }}
+                    />
+                  )}
+                  containerStyle={{ width: "100%", display: "flex", justifyContent: "center", gap: "10px" }}
+                />
+
+                {/* Inline error alert */}
+                {verifyError && (
+                  <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-100 flex items-start gap-2 text-xs text-rose-700 animate-fadeIn">
+                    <ShieldExclamationIcon className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" strokeWidth={2} />
+                    <p className="font-semibold leading-relaxed">{verifyError}</p>
+                  </div>
+                )}
+
+                {/* Taking long warning */}
+                {loading && takingLong && (
+                  <div className="p-2.5 rounded-xl bg-amber-50/90 border border-amber-200/80 flex items-center justify-between gap-2 text-xs text-amber-900 shadow-xs animate-fadeIn">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <ClockIcon className="w-4 h-4 text-amber-600 shrink-0 animate-pulse" strokeWidth={2} />
+                      <span className="font-medium truncate text-[11px]">Taking longer than usual...</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleCancelVerification}
+                      className="font-bold text-amber-900 underline hover:text-amber-950 whitespace-nowrap cursor-pointer text-[11px]"
+                    >
+                      Cancel & Retry
+                    </button>
+                  </div>
+                )}
+
+                <div className="flex flex-col gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleVerifyOtp()}
+                    disabled={loading || otp.length !== 4}
+                    className="w-full h-12 bg-[#0c6b5e] hover:bg-[#09574c] active:scale-[0.99] text-white font-bold text-sm rounded-2xl transition-all duration-150 cursor-pointer flex items-center justify-center disabled:opacity-60 shadow-none"
+                  >
+                    {loading ? (
+                      <div className="flex items-center gap-2">
+                        <ClipLoader color="white" size={16} />
+                        <span>Verifying...</span>
+                      </div>
+                    ) : (
+                      "Submit"
+                    )}
+                  </button>
+
+                  {loading && (
+                    <button
+                      type="button"
+                      onClick={handleCancelVerification}
+                      className="w-full py-1 text-xs font-semibold text-slate-500 hover:text-slate-800 transition text-center cursor-pointer"
+                    >
+                      Stop & Edit OTP
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex flex-col items-center gap-2 pt-1 border-t border-slate-100">
+                  <p className="text-xs text-slate-500 font-medium flex items-center gap-1.5">
+                    Didn't receive the code?{" "}
+                    <button
+                      type="button"
+                      onClick={handleResend}
+                      disabled={timer > 0 || loading}
+                      className="font-bold text-[#0c6b5e] hover:underline disabled:opacity-50 transition cursor-pointer inline-flex items-center gap-1"
+                    >
+                      {timer > 0 ? (
+                        `Resend in ${formatTimer(timer)}`
+                      ) : (
+                        <>
+                          <ArrowPathIcon className="w-3.5 h-3.5 inline" strokeWidth={2.2} />
+                          Resend OTP
+                        </>
+                      )}
+                    </button>
+                  </p>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleCancelVerification();
+                      setStep("form");
+                      setOtp("");
+                      setVerifyError("");
+                    }}
+                    disabled={loading}
+                    className="text-xs font-semibold text-slate-400 hover:text-slate-700 transition flex items-center gap-1 cursor-pointer disabled:opacity-40"
+                  >
+                    <ArrowLeftIcon className="w-3.5 h-3.5" strokeWidth={2.2} />
+                    {mode === "register" ? "Edit details" : "Change mobile number"}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </DialogPanel>
       </div>
     </Dialog>

@@ -12,19 +12,24 @@
 // applies further changes instantly with no reload — see StorefrontPreviewFrame.tsx.
 // Neither path does anything for a real top-level visitor, even if the URL leaked.
 
-import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from "react";
 import api from "../utils/api";
 import { THEME_CSS_VARS, DEFAULT_THEME_ID, getThemeById, ThemeTokens } from "../utils/themes";
+import { findMatchingOccasion, type OccasionPreset } from "../utils/occasionPresets";
+import { getFestiveOccasionColors, type FestiveThemeColors } from "../utils/festiveThemeMapping";
 
 interface ThemeContextValue {
   themeId: string;
   tokens: ThemeTokens;
   loading: boolean;
+  activeOccasion: OccasionPreset | null;
+  activeFestiveColors: FestiveThemeColors | null;
 }
 
 const ThemeContext = createContext<ThemeContextValue | undefined>(undefined);
 
 const THEME_CACHE_KEY = "storra_theme_cache";
+const OCCASION_CACHE_KEY = "storra_occasion_cache";
 const FONT_LINK_ID = "storra-theme-fonts";
 
 const isEmbeddedPreview = () => {
@@ -45,6 +50,14 @@ function readThemeCache(): string | null {
   }
 }
 
+function readOccasionCache(): string | null {
+  try {
+    return localStorage.getItem(OCCASION_CACHE_KEY);
+  } catch {
+    return null;
+  }
+}
+
 const readPreviewThemeFromUrl = (): string | null => {
   if (!isEmbeddedPreview()) return null;
   return new URLSearchParams(window.location.search).get("previewTheme");
@@ -59,7 +72,15 @@ export const useTheme = (): ThemeContextValue => {
 export const ThemeProvider = ({ children }: { children: ReactNode }) => {
   const previewFromUrl = readPreviewThemeFromUrl();
   const cached = readThemeCache();
-  const [themeId, setThemeId] = useState<string>(previewFromUrl ?? cached ?? DEFAULT_THEME_ID);
+  const cachedOccasionId = readOccasionCache();
+  const initialThemeId = previewFromUrl ?? cached ?? DEFAULT_THEME_ID;
+  const [themeId, setThemeId] = useState<string>(initialThemeId);
+  const [activeOccasion, setActiveOccasion] = useState<OccasionPreset | null>(() => {
+    if (cachedOccasionId) {
+      return findMatchingOccasion(cachedOccasionId) || null;
+    }
+    return null;
+  });
   const [loading, setLoading] = useState(!previewFromUrl && !cached);
   // Once a live preview message arrives, it wins over whatever the real fetch resolves —
   // otherwise a slow-landing fetch response could stomp the admin's swatch click.
@@ -69,6 +90,8 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
     try {
       const res = await api.get("/home-banners/homepage-config");
       const fetchedId: string | undefined = res.data?.themeConfig?.themeId;
+      const explicitOccasionId: string | null | undefined = res.data?.activeOccasionId;
+
       if (fetchedId) {
         try {
           localStorage.setItem(THEME_CACHE_KEY, fetchedId);
@@ -76,6 +99,22 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
           /* quota exceeded — ignore */
         }
         setThemeId((prev) => (previewLocked ? prev : fetchedId));
+      }
+
+      if (typeof explicitOccasionId !== "undefined") {
+        const matchingOccasion = explicitOccasionId
+          ? findMatchingOccasion(explicitOccasionId)
+          : null;
+        try {
+          if (explicitOccasionId) {
+            localStorage.setItem(OCCASION_CACHE_KEY, explicitOccasionId);
+          } else {
+            localStorage.removeItem(OCCASION_CACHE_KEY);
+          }
+        } catch {
+          /* quota */
+        }
+        setActiveOccasion(matchingOccasion);
       }
     } catch {
       // Keep cached/default value on error — non-critical.
@@ -99,21 +138,62 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
         setPreviewLocked(true);
         setThemeId(event.data.themeId);
       }
+      if (event.data?.type === "STORRA_PREVIEW_OCCASION") {
+        const occId = event.data.occasionId;
+        setActiveOccasion(occId ? findMatchingOccasion(occId) : null);
+      }
     };
     window.addEventListener("message", handler);
     return () => window.removeEventListener("message", handler);
   }, []);
 
   const tokens = getThemeById(themeId);
+  const activeFestiveColors = useMemo(
+    () => getFestiveOccasionColors(activeOccasion?.id),
+    [activeOccasion?.id]
+  );
 
-  // Inject CSS custom properties onto <html> — same mechanical setProperty pattern
-  // App.tsx already uses for --primary-color etc., generalized to loop over all tokens.
+  const effectiveTokens = useMemo(() => {
+    if (!activeFestiveColors) return tokens;
+    return {
+      ...tokens,
+      primary: activeFestiveColors.primary,
+      primaryHover: activeFestiveColors.primaryHover,
+      primaryInk: activeFestiveColors.primaryInk,
+      accent: activeFestiveColors.accent,
+      accentInk: activeFestiveColors.accentInk,
+      border: activeFestiveColors.border,
+    };
+  }, [tokens, activeFestiveColors]);
+
+  // Inject CSS custom properties onto <html> — synchronizes theme variables, buttons,
+  // line colors, and the festive announcement bar colors for the footer and storefront.
   useEffect(() => {
     const root = document.documentElement;
     (Object.keys(THEME_CSS_VARS) as (keyof typeof THEME_CSS_VARS)[]).forEach((key) => {
-      root.style.setProperty(THEME_CSS_VARS[key], String(tokens[key]));
+      root.style.setProperty(THEME_CSS_VARS[key], String(effectiveTokens[key]));
     });
-  }, [tokens]);
+
+    // Global button color variables
+    root.style.setProperty("--primary-color", effectiveTokens.primary);
+    root.style.setProperty("--primary-hover", effectiveTokens.primaryHover);
+    root.style.setProperty("--primary-light", effectiveTokens.accent);
+
+    // Festive announcement bar colors for footer, buttons, and lines
+    if (activeFestiveColors && activeOccasion) {
+      root.setAttribute("data-active-occasion", activeOccasion.id);
+      root.style.setProperty("--festive-gradient", activeFestiveColors.gradient);
+      root.style.setProperty("--festive-border", activeFestiveColors.borderColor);
+      root.style.setProperty("--festive-accent", activeFestiveColors.accent);
+      root.style.setProperty("--festive-text", activeFestiveColors.textColor);
+    } else {
+      root.removeAttribute("data-active-occasion");
+      root.style.removeProperty("--festive-gradient");
+      root.style.removeProperty("--festive-border");
+      root.style.removeProperty("--festive-accent");
+      root.style.removeProperty("--festive-text");
+    }
+  }, [effectiveTokens, activeFestiveColors, activeOccasion]);
 
   // Load the active theme's two Google Fonts on demand — nothing is statically loaded
   // for any theme up front; mirrors BrandingContext.tsx's id-checked, create-if-missing
@@ -131,5 +211,17 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
     if (link.href !== href) link.href = href;
   }, [tokens.googleFontFamilies]);
 
-  return <ThemeContext.Provider value={{ themeId, tokens, loading }}>{children}</ThemeContext.Provider>;
+  return (
+    <ThemeContext.Provider
+      value={{
+        themeId,
+        tokens: effectiveTokens,
+        loading,
+        activeOccasion,
+        activeFestiveColors,
+      }}
+    >
+      {children}
+    </ThemeContext.Provider>
+  );
 };

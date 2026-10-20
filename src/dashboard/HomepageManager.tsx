@@ -10,6 +10,7 @@ import {
   TrashIcon,
   ArrowsUpDownIcon,
   PhotoIcon,
+  CheckIcon,
   CheckCircleIcon,
   XCircleIcon,
   StarIcon,
@@ -29,13 +30,195 @@ import {
 } from "@heroicons/react/24/outline";
 import StorefrontPreviewFrame from "./components/StorefrontPreviewFrame";
 import { THEMES, DEFAULT_THEME_ID } from "../utils/themes";
+import { OCCASION_PRESETS, type OccasionPreset } from "../utils/occasionPresets";
+import { FESTIVE_ANNOUNCEMENTS } from "../components/AnnouncementBar";
+
 import { StarIcon as StarSolidIcon } from "@heroicons/react/24/solid";
 import { formatDiscountBadge } from "../utils/product";
+import {
+  PreFooterConfig,
+  PreFooterBannerItem,
+  DEFAULT_PRE_FOOTER_CONFIG,
+} from "../components/PreFooterBannerSlider";
+import {
+  FeaturedCategorySlot,
+  FeaturedCategoriesConfig,
+  DEFAULT_FEATURED_CATEGORIES_CONFIG,
+} from "../components/AlternatingShowcase";
+
+// ─── Custom UI Dropdown Select Component ───────────────────────────────────────
+interface CustomDropdownOption<T extends string | number> {
+  value: T;
+  label: string;
+  badge?: string;
+}
+
+interface CustomDropdownSelectProps<T extends string | number> {
+  value: T;
+  onChange: (value: T) => void;
+  options: CustomDropdownOption<T>[];
+  placeholder?: string;
+  searchable?: boolean;
+  className?: string;
+}
+
+function CustomDropdownSelect<T extends string | number>({
+  value,
+  onChange,
+  options,
+  placeholder = "Select...",
+  searchable = false,
+  className = "",
+}: CustomDropdownSelectProps<T>) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const containerRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    if (isOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+      if (searchable) {
+        setTimeout(() => searchInputRef.current?.focus(), 50);
+      }
+    } else {
+      setSearch("");
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [isOpen, searchable]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isOpen) {
+        setIsOpen(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen]);
+
+  const selectedOption = options.find((opt) => String(opt.value) === String(value));
+
+  const filteredOptions = searchable && search.trim()
+    ? options.filter((opt) => opt.label.toLowerCase().includes(search.toLowerCase()))
+    : options;
+
+  return (
+    <div ref={containerRef} className={`relative w-full ${isOpen ? "z-40" : "z-10"} ${className}`}>
+      <button
+        type="button"
+        onClick={() => setIsOpen((prev) => !prev)}
+        className={`w-full flex items-center justify-between px-3.5 py-2.5 bg-slate-50 border rounded-xl text-xs sm:text-sm font-medium transition-all text-left cursor-pointer ${
+          isOpen
+            ? "bg-white border-indigo-500 ring-2 ring-indigo-500/20 shadow-sm"
+            : "border-gray-200 hover:bg-white hover:border-gray-300 text-gray-900"
+        }`}
+      >
+        <span
+          className={`truncate ${
+            selectedOption && selectedOption.value !== ""
+              ? "text-gray-900 font-medium"
+              : "text-gray-400 font-normal"
+          }`}
+        >
+          {selectedOption && selectedOption.value !== "" ? selectedOption.label : placeholder}
+        </span>
+        <div className="flex items-center gap-1.5 ml-2 shrink-0">
+          {selectedOption?.badge && (
+            <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100">
+              {selectedOption.badge}
+            </span>
+          )}
+          <ChevronDownIcon
+            className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${
+              isOpen ? "rotate-180 text-indigo-600" : ""
+            }`}
+          />
+        </div>
+      </button>
+
+      {isOpen && (
+        <div className="absolute z-50 left-0 right-0 mt-1.5 bg-white rounded-xl shadow-xl border border-gray-100 py-1.5 max-h-64 overflow-hidden flex flex-col animate-in fade-in-0 zoom-in-95 duration-100">
+          {searchable && options.length > 5 && (
+            <div className="p-2 border-b border-gray-100 bg-white shrink-0">
+              <div className="relative">
+                <MagnifyingGlassIcon className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search categories..."
+                  className="w-full pl-8 pr-2.5 py-1.5 bg-slate-50 border border-gray-200 rounded-lg text-xs font-medium text-gray-900 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:bg-white"
+                  onClick={(e) => e.stopPropagation()}
+                />
+              </div>
+            </div>
+          )}
+
+          <div className="overflow-y-auto max-h-52 p-1 space-y-0.5 scrollbar-thin">
+            {filteredOptions.length === 0 ? (
+              <div className="py-3 px-3 text-center text-xs text-gray-400 font-light">
+                No matching options found
+              </div>
+            ) : (
+              filteredOptions.map((opt) => {
+                const isSelected = String(opt.value) === String(value);
+                return (
+                  <button
+                    key={String(opt.value)}
+                    type="button"
+                    onClick={() => {
+                      onChange(opt.value);
+                      setIsOpen(false);
+                    }}
+                    className={`w-full flex items-center justify-between px-3 py-2 text-xs sm:text-sm rounded-lg transition-colors text-left cursor-pointer ${
+                      isSelected
+                        ? "bg-indigo-50 text-indigo-700 font-semibold"
+                        : "text-gray-700 hover:bg-slate-50 hover:text-gray-900 font-medium"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 truncate">
+                      <span className="truncate">{opt.label}</span>
+                      {opt.badge && (
+                        <span className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.2 rounded-full bg-indigo-100 text-indigo-700 shrink-0">
+                          {opt.badge}
+                        </span>
+                      )}
+                    </div>
+                    {isSelected && <CheckIcon className="w-4 h-4 text-indigo-600 shrink-0 ml-2" />}
+                  </button>
+                );
+              })
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type BannerType = "DISCOUNT_PANEL" | "CAROUSEL_ITEM" | "PROMO_BANNER";
-type Tab = BannerType | "FEATURED" | "ANNOUNCEMENT" | "HERO" | "HEADER" | "FOOTER" | "NAVIGATION" | "THEME";
+type Tab =
+  | BannerType
+  | "FEATURED"
+  | "ANNOUNCEMENT"
+  | "HERO"
+  | "HEADER"
+  | "FOOTER"
+  | "NAVIGATION"
+  | "THEME"
+  | "PRE_FOOTER"
+  | "OCCASIONS";
 
 interface NavbarConfig {
   activeTemplate: 1 | 2 | 3 | 4 | 5 | 6;
@@ -67,8 +250,8 @@ const NAVBAR_TEMPLATE_LABELS: Record<string, { name: string; desc: string; tag: 
     tag: "Pairs with Footer 4",
   },
   "5": {
-    name: "Festive Accent Band",
-    desc: "Full theme-primary brand header with high-contrast white active tabs and festive energetic energy.",
+    name: "Sleek Boutique Slim",
+    desc: "Ultra-slim luxury boutique single-row header with uppercase typography and minimalist action icons.",
     tag: "Pairs with Footer 5",
   },
   "6": {
@@ -145,6 +328,7 @@ interface FooterLinkColumn {
 
 interface FooterTemplateData {
   tagline: string;
+  showCompanyName?: boolean;
   newsletterTitle?: string;
   instagramLink?: string;
   facebookLink?: string;
@@ -272,6 +456,10 @@ const DEFAULT_HERO: HeroConfig = {
       ],
     },
     "9": {
+      title: "",
+      subtitle: "",
+      ctaText: "",
+      ctaLink: "",
       images: [
         "https://images.unsplash.com/photo-1490481651871-ab68de25d43d?auto=format&fit=crop&q=85&w=1920",
         "https://images.unsplash.com/photo-1469334031218-e382a71b716b?auto=format&fit=crop&q=85&w=1920",
@@ -582,6 +770,18 @@ export default function HomepageManager() {
     DEFAULT_FOOTER.templates["1"],
   );
 
+  // Pre-footer config state
+  const [preFooterConfig, setPreFooterConfig] =
+    useState<PreFooterConfig>(DEFAULT_PRE_FOOTER_CONFIG);
+  const [savingPreFooter, setSavingPreFooter] = useState(false);
+  const [uploadingPreFooterSlot, setUploadingPreFooterSlot] = useState<number | null>(null);
+
+  // Additional category showcases state (Featured Sections 2-5)
+  const [featuredCatConfig, setFeaturedCatConfig] =
+    useState<FeaturedCategoriesConfig>(DEFAULT_FEATURED_CATEGORIES_CONFIG);
+  const [savingFeaturedCategories, setSavingFeaturedCategories] = useState(false);
+  const [allCategoriesList, setAllCategoriesList] = useState<{ id: string; name: string }[]>([]);
+
   // Storefront theme state — themeId is the saved/live value; draftThemeId is what's
   // currently selected in the picker but not yet saved (drives the instant preview via
   // StorefrontPreviewFrame's previewThemeId prop, independent of what's actually live).
@@ -598,6 +798,11 @@ export default function HomepageManager() {
   const [discountTemplate, setDiscountTemplate] = useState(1);
   const [featuredTemplate, setFeaturedTemplate] = useState(1);
   const [savingTheme, setSavingTheme] = useState(false);
+
+  // Occasion presets state
+  const [activeOccasionId, setActiveOccasionId] = useState<string | null>(null);
+  const [applyingPreset, setApplyingPreset] = useState(false);
+  const [disablingOccasion, setDisablingOccasion] = useState(false);
 
   // Bumped after every successful save that changes real storefront content — the
   // single shared preview's src is otherwise fixed for its whole mounted lifetime (see
@@ -729,6 +934,23 @@ export default function HomepageManager() {
           ),
         });
       }
+      if (configResp.data?.preFooterConfig) {
+        const fetchedPreFooter = configResp.data.preFooterConfig;
+        setPreFooterConfig({
+          enabled: fetchedPreFooter.enabled ?? DEFAULT_PRE_FOOTER_CONFIG.enabled,
+          autoplaySpeed: fetchedPreFooter.autoplaySpeed ?? DEFAULT_PRE_FOOTER_CONFIG.autoplaySpeed,
+          banners: Array.isArray(fetchedPreFooter.banners) ? fetchedPreFooter.banners : [],
+        });
+      }
+      if (configResp.data?.featuredCategoriesConfig) {
+        const fetchedCatConfig = configResp.data.featuredCategoriesConfig;
+        setFeaturedCatConfig({
+          slots:
+            Array.isArray(fetchedCatConfig.slots) && fetchedCatConfig.slots.length > 0
+              ? fetchedCatConfig.slots
+              : DEFAULT_FEATURED_CATEGORIES_CONFIG.slots,
+        });
+      }
       const fetchedThemeId: string | undefined = configResp.data?.themeConfig?.themeId;
       if (fetchedThemeId) {
         setThemeId(fetchedThemeId);
@@ -742,6 +964,8 @@ export default function HomepageManager() {
         setDiscountTemplate(configResp.data.discountTemplate);
       if (typeof configResp.data?.featuredTemplate === "number")
         setFeaturedTemplate(configResp.data.featuredTemplate);
+      if (typeof configResp.data?.activeOccasionId !== "undefined")
+        setActiveOccasionId(configResp.data.activeOccasionId || null);
     } catch {
       // silently keep defaults
     } finally {
@@ -800,7 +1024,8 @@ export default function HomepageManager() {
     setNavLoading(true);
     try {
       const { data } = await api.get("/category/list");
-      const topLevel: NavCategory[] = (data.list || [])
+      const rawList = data.list || [];
+      const topLevel: NavCategory[] = rawList
         .filter((c: any) => !c.parentId)
         .map((c: any) => ({
           id: c._id ?? c.id,
@@ -810,6 +1035,17 @@ export default function HomepageManager() {
         }))
         .sort((a: NavCategory, b: NavCategory) => a.navOrder - b.navOrder || a.name.localeCompare(b.name));
       setNavCategories(topLevel);
+
+      const allCats = rawList
+        .filter((c: any) => c.status !== "inactive")
+        .map((c: any) => ({
+          id: c._id ?? c.id,
+          name: c.parentId ? `— ${c.name}` : c.name,
+        }))
+        .sort((a: any, b: any) =>
+          a.name.replace(/^—\s*/, "").localeCompare(b.name.replace(/^—\s*/, ""))
+        );
+      setAllCategoriesList(allCats);
       setNavDirty(false);
     } catch {
       toast.error("Failed to load categories");
@@ -819,7 +1055,7 @@ export default function HomepageManager() {
   }, []);
 
   useEffect(() => {
-    if (activeTab === "NAVIGATION") fetchNavCategories();
+    if (activeTab === "NAVIGATION" || activeTab === "FEATURED") fetchNavCategories();
   }, [activeTab]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const toggleNavVisibility = (id: string) => {
@@ -964,6 +1200,72 @@ export default function HomepageManager() {
     saveSectionTemplate("/admin/homepage-config/discount-template", n, discountTemplate, setDiscountTemplate);
   const handleFeaturedTemplateSelect = (n: number) =>
     saveSectionTemplate("/admin/homepage-config/featured-template", n, featuredTemplate, setFeaturedTemplate);
+
+  // ─── Occasion presets ─────────────────────────────────────────────────────────
+  // A preset counts as "currently applied" when activeOccasionId matches the preset id.
+  const isPresetApplied = (preset: OccasionPreset) => activeOccasionId === preset.id;
+  const activeOccasion = OCCASION_PRESETS.find((preset) => preset.id === activeOccasionId) || null;
+  const isOccasionActive = Boolean(activeOccasion);
+
+  const applyOccasionPreset = async (preset: OccasionPreset) => {
+    if (!canBannerEdit) {
+      toast.error(NO_PERMISSION_MSG);
+      return;
+    }
+    setApplyingPreset(true);
+    try {
+      await api.put("/admin/homepage-config/occasion", { occasionId: preset.id });
+      setActiveOccasionId(preset.id);
+
+      // Pre-fill announcementText with this festival's marquee copy so it is immediately editable
+      const festivePreset = FESTIVE_ANNOUNCEMENTS[preset.id];
+      if (festivePreset?.items?.length) {
+        setAnnouncementText(festivePreset.items.join(" | "));
+      }
+
+      toast.success(`${preset.name} ambient animation activated! 🎉`);
+      refreshPreview();
+    } catch {
+      toast.error("Failed to activate festive occasion");
+    } finally {
+      setApplyingPreset(false);
+    }
+  };
+
+  const disableActiveOccasion = async () => {
+    if (!canBannerEdit) {
+      toast.error(NO_PERMISSION_MSG);
+      return;
+    }
+    setDisablingOccasion(true);
+    try {
+      await api.put("/admin/homepage-config/occasion", { occasionId: null });
+      setActiveOccasionId(null);
+      toast.success("Festive occasion deactivated");
+      refreshPreview();
+    } catch {
+      toast.error("Failed to deactivate festive occasion");
+    } finally {
+      setDisablingOccasion(false);
+    }
+  };
+
+  const handleOccasionToggle = () => {
+    if (!canBannerEdit) {
+      toast.error(NO_PERMISSION_MSG);
+      return;
+    }
+    if (isOccasionActive) {
+      disableActiveOccasion();
+    } else {
+      toast("Select any festive occasion below and click Activate to turn it on.", {
+        icon: "✨",
+        id: "occasion-toggle-hint",
+      });
+      document.getElementById("occasion-presets-grid")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  };
+
 
   // ─── Hero Config ────────────────────────────────────────────────────────────
 
@@ -1201,8 +1503,10 @@ export default function HomepageManager() {
 
   const openFooterEdit = (templateKey: string) => {
     // Same "fall back to this template's own defaults" fix as openHeroEdit above.
+    const existing = footerConfig.templates[templateKey] ?? DEFAULT_FOOTER.templates[templateKey] ?? DEFAULT_FOOTER.templates["1"];
     setFooterForm({
-      ...(footerConfig.templates[templateKey] ?? DEFAULT_FOOTER.templates[templateKey] ?? DEFAULT_FOOTER.templates["1"]),
+      showCompanyName: existing?.showCompanyName !== undefined ? existing.showCompanyName : true,
+      ...existing,
     });
     setEditingFooterTemplate(templateKey);
   };
@@ -1250,6 +1554,190 @@ export default function HomepageManager() {
       toast.error("Failed to save footer template", { id: "footer-template-save-error" });
     } finally {
       setSavingFooter(false);
+    }
+  };
+
+  // ── Pre-Footer Banners ───────────────────────────────────────────────────────
+
+  const updatePreFooterSlot = (index: number, updates: Partial<PreFooterBannerItem>) => {
+    setPreFooterConfig((prev) => {
+      const banners = [...(prev.banners || [])];
+      while (banners.length <= index) {
+        banners.push({
+          id: `pf-${Date.now()}-${banners.length}`,
+          image: "",
+          link: "",
+          title: "",
+          isActive: true,
+        });
+      }
+      banners[index] = {
+        ...banners[index],
+        ...updates,
+        id: banners[index].id || `pf-${Date.now()}-${index}`,
+      };
+      return { ...prev, banners };
+    });
+  };
+
+  const uploadPreFooterSlotImage = async (file: File, index: number) => {
+    if (!canBannerEdit) {
+      toast.error(NO_PERMISSION_MSG, { id: "prefooter-upload-perm-error" });
+      return;
+    }
+    if (file.size >= MAX_IMAGE_SIZE) {
+      toast.error("Please add image below 1 MB", { id: "prefooter-img-size-error" });
+      return;
+    }
+    const currentSlot = preFooterConfig.banners?.[index];
+    const previousUrl = currentSlot?.image;
+    try {
+      setUploadingPreFooterSlot(index);
+      const fd = new FormData();
+      fd.append("image", file);
+      fd.append("folder", "pre-footer");
+      if (previousUrl && previousUrl.includes("cloudinary.com")) {
+        fd.append("previousUrl", previousUrl);
+      }
+      const { data } = await api.post("/admin/upload-image", fd, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      updatePreFooterSlot(index, { image: data.url, isActive: true });
+      toast.success(`Banner ${index + 1} uploaded successfully`, { id: "prefooter-img-uploaded" });
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || "Image upload failed";
+      toast.error(msg, { id: "prefooter-img-upload-error" });
+    } finally {
+      setUploadingPreFooterSlot(null);
+    }
+  };
+
+  const removePreFooterSlotImage = async (index: number) => {
+    if (!canBannerEdit) {
+      toast.error(NO_PERMISSION_MSG, { id: "prefooter-delete-perm-error" });
+      return;
+    }
+    const currentSlot = preFooterConfig.banners?.[index];
+    const oldUrl = currentSlot?.image;
+    updatePreFooterSlot(index, { image: "", link: "", title: "" });
+    if (oldUrl && oldUrl.includes("cloudinary.com")) {
+      try {
+        await api.post("/admin/delete-image", { url: oldUrl });
+        toast.success(`Banner ${index + 1} image removed`, { id: "prefooter-img-removed" });
+      } catch {
+        // Silently handled
+      }
+    }
+  };
+
+  const savePreFooterConfig = async () => {
+    if (!canBannerEdit) {
+      toast.error(NO_PERMISSION_MSG, { id: "prefooter-perm-error" });
+      return;
+    }
+    if (savingPreFooter) return;
+
+    const cleanBanners = (preFooterConfig.banners || [])
+      .filter((b) => b && typeof b.image === "string" && b.image.trim() !== "")
+      .slice(0, 3)
+      .map((b, idx) => ({
+        id: b.id || `pf-${Date.now()}-${idx}`,
+        image: b.image.trim(),
+        link: (b.link || "").trim(),
+        title: (b.title || "").trim(),
+        isActive: b.isActive !== false,
+      }));
+
+    const payload: PreFooterConfig = {
+      enabled: preFooterConfig.enabled !== false,
+      banners: cleanBanners,
+    };
+
+    try {
+      setSavingPreFooter(true);
+      await api.put("/admin/homepage-config/pre-footer", payload);
+      setPreFooterConfig(payload);
+      toast.success("Pre-footer banners saved successfully", { id: "prefooter-saved" });
+      refreshPreview();
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || "Failed to save pre-footer banners";
+      toast.error(msg, { id: "prefooter-save-error" });
+    } finally {
+      setSavingPreFooter(false);
+    }
+  };
+
+  // ── Category Showcases (Sections 2 to 3) ───────────────────────────────────
+
+  const updateFeaturedCategorySlot = (
+    index: number,
+    patch: Partial<FeaturedCategorySlot>
+  ) => {
+    setFeaturedCatConfig((prev) => {
+      const currentSlots =
+        Array.isArray(prev.slots) && prev.slots.length > 0
+          ? [...prev.slots]
+          : [...DEFAULT_FEATURED_CATEGORIES_CONFIG.slots];
+      while (currentSlots.length <= index) {
+        currentSlots.push({
+          id: `slot-${currentSlots.length + 1}`,
+          categoryId: "",
+          customTitle: "",
+          customSubtitle: "",
+          limit: 8,
+          isActive: true,
+        });
+      }
+      currentSlots[index] = { ...currentSlots[index], ...patch };
+      return { ...prev, slots: currentSlots };
+    });
+  };
+
+  const saveFeaturedCategoriesConfig = async () => {
+    if (!canBannerEdit) {
+      toast.error(NO_PERMISSION_MSG, { id: "featured-cat-perm-error" });
+      return;
+    }
+    if (savingFeaturedCategories) return;
+
+    const cleanSlots: FeaturedCategorySlot[] = (
+      featuredCatConfig.slots || DEFAULT_FEATURED_CATEGORIES_CONFIG.slots
+    )
+      .slice(0, 2)
+      .map((s, idx) => ({
+        id: s.id || `slot-${idx + 1}`,
+        categoryId: (s.categoryId || "").trim(),
+        customTitle: (s.customTitle || "").trim(),
+        customSubtitle: (s.customSubtitle || "").trim(),
+        limit: Number(s.limit) || 8,
+        isActive: s.isActive !== false,
+      }));
+
+    const payload: FeaturedCategoriesConfig = {
+      slots: cleanSlots,
+    };
+
+    try {
+      setSavingFeaturedCategories(true);
+      const { data } = await api.put(
+        "/admin/homepage-config/featured-categories",
+        payload
+      );
+      if (data?.featuredCategoriesConfig) {
+        setFeaturedCatConfig(data.featuredCategoriesConfig);
+      } else {
+        setFeaturedCatConfig(payload);
+      }
+      toast.success("Category showcase sections saved successfully", {
+        id: "featured-cat-saved",
+      });
+      refreshPreview();
+    } catch (err: any) {
+      const msg =
+        err?.response?.data?.message || "Failed to save category showcases";
+      toast.error(msg, { id: "featured-cat-save-error" });
+    } finally {
+      setSavingFeaturedCategories(false);
     }
   };
 
@@ -1595,6 +2083,11 @@ export default function HomepageManager() {
 
   const TABS: { key: Tab; label: string; icon: React.ReactNode }[] = [
     {
+      key: "OCCASIONS",
+      label: "Occasions",
+      icon: <SparklesIcon className="w-4 h-4 text-amber-500" />,
+    },
+    {
       key: "ANNOUNCEMENT",
       label: "Announcement Bar",
       icon: <SpeakerWaveIcon className="w-4 h-4" />,
@@ -1618,6 +2111,11 @@ export default function HomepageManager() {
     { key: "CAROUSEL_ITEM", label: "Curated Carousel", icon: null },
     { key: "FEATURED", label: "Featured Collections", icon: null },
     {
+      key: "PRE_FOOTER",
+      label: "Pre-Footer Banners",
+      icon: <RectangleStackIcon className="w-4 h-4" />,
+    },
+    {
       key: "FOOTER",
       label: "Footer Section",
       icon: <Squares2X2Icon className="w-4 h-4" />,
@@ -1640,23 +2138,27 @@ export default function HomepageManager() {
   // scrolls to — derived from whichever tab is active. Undefined (top of page) for
   // tabs with no one specific section to jump to (Navigation, Theme).
   const previewAnchor: string | undefined =
-    activeTab === "ANNOUNCEMENT"
-      ? "announcement"
-      : activeTab === "HEADER"
-        ? "header"
-        : activeTab === "HERO"
-          ? "hero"
-        : activeTab === "FOOTER"
-          ? "footer"
-          : activeTab === "DISCOUNT_PANEL"
-            ? "discount"
-            : activeTab === "CAROUSEL_ITEM"
-              ? "carousel"
-              : activeTab === "PROMO_BANNER"
-                ? "banner"
-                : activeTab === "FEATURED"
-                  ? "featured"
-                  : undefined;
+    activeTab === "OCCASIONS"
+      ? "hero"
+      : activeTab === "ANNOUNCEMENT"
+        ? "announcement"
+        : activeTab === "HEADER"
+          ? "header"
+          : activeTab === "HERO"
+            ? "hero"
+          : activeTab === "PRE_FOOTER"
+            ? "pre-footer"
+          : activeTab === "FOOTER"
+            ? "footer"
+            : activeTab === "DISCOUNT_PANEL"
+              ? "discount"
+              : activeTab === "CAROUSEL_ITEM"
+                ? "carousel"
+                : activeTab === "PROMO_BANNER"
+                  ? "banner"
+                  : activeTab === "FEATURED"
+                    ? "featured"
+                    : undefined;
 
   return (
     <div className="px-8 py-8 w-full bg-slate-50/50 min-h-screen">
@@ -1689,6 +2191,12 @@ export default function HomepageManager() {
           >
             {icon && <span className={activeTab === key ? "text-white" : "text-gray-400 group-hover:text-gray-600"}>{icon}</span>}
             {label}
+            {key === "OCCASIONS" && isOccasionActive && (
+              <span
+                className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse ml-0.5"
+                title={`Active Occasion: ${activeOccasion?.name}`}
+              />
+            )}
           </button>
         ))}
       </div>
@@ -1700,9 +2208,348 @@ export default function HomepageManager() {
       <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_400px] gap-8 items-start">
         <div className="min-w-0">
 
+      {/* ── OCCASIONS TAB ────────────────────────────────────────────────────── */}
+      {activeTab === "OCCASIONS" && (
+        <div className="space-y-6 animate-fadeIn">
+          {/* Master Occasion Status & Toggle Card */}
+          <div
+            className={`rounded-2xl border p-5 transition-all duration-300 shadow-sm ${
+              isOccasionActive
+                ? "bg-gradient-to-r from-emerald-500/10 via-emerald-50/50 to-white border-emerald-300 ring-1 ring-emerald-200"
+                : "bg-white border-gray-200"
+            }`}
+          >
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-3.5">
+                <div
+                  className={`w-12 h-12 rounded-xl flex items-center justify-center text-2xl shrink-0 transition-colors ${
+                    isOccasionActive
+                      ? "bg-emerald-600 text-white shadow-md shadow-emerald-200"
+                      : "bg-slate-100 text-slate-400"
+                  }`}
+                >
+                  {isOccasionActive ? (activeOccasion?.emoji ?? "🎉") : "✨"}
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-base font-bold text-gray-950">
+                      {isOccasionActive ? (
+                        <>
+                          <span>Active Occasion:</span>{" "}
+                          <span className="text-emerald-700 font-black">
+                            {activeOccasion?.name}
+                          </span>
+                        </>
+                      ) : (
+                        "Festive Occasions Mode"
+                      )}
+                    </h3>
+                    {isOccasionActive && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-800 border border-emerald-300">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse" />
+                        Live on Store
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-500 mt-0.5 max-w-xl leading-relaxed">
+                    {isOccasionActive
+                      ? `Your storefront theme, hero, footer, and promotional layouts are currently running the ${activeOccasion?.name} preset. Toggle off to return to your standard store layout.`
+                      : "No festive occasion is currently active. Your storefront is using standard store themes and section templates."}
+                  </p>
+                </div>
+              </div>
+
+              {/* Master Toggle Switch & Turn Off Action */}
+              <div className="flex items-center gap-3 shrink-0 self-end sm:self-center">
+                <span
+                  className={`text-xs font-bold uppercase tracking-wider transition-colors ${
+                    isOccasionActive ? "text-emerald-700" : "text-gray-400"
+                  }`}
+                >
+                  {disablingOccasion
+                    ? "Turning off…"
+                    : isOccasionActive
+                    ? "Occasion On"
+                    : "Occasion Off"}
+                </span>
+
+                {/* Toggle Button */}
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={isOccasionActive}
+                  disabled={disablingOccasion || applyingPreset || !canBannerEdit}
+                  onClick={handleOccasionToggle}
+                  title={
+                    isOccasionActive
+                      ? "Click to disable occasion and restore default store settings"
+                      : "Click to activate an occasion preset"
+                  }
+                  className={`relative inline-flex h-7 w-12 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed ${
+                    isOccasionActive ? "bg-emerald-600" : "bg-gray-300"
+                  }`}
+                >
+                  <span className="sr-only">Toggle festive occasion</span>
+                  <span
+                    aria-hidden="true"
+                    className={`pointer-events-none inline-block h-6 w-6 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
+                      isOccasionActive ? "translate-x-5" : "translate-x-0"
+                    }`}
+                  />
+                </button>
+
+                {/* Explicit Turn Off Button when active */}
+                {isOccasionActive && (
+                  <button
+                    type="button"
+                    disabled={disablingOccasion || applyingPreset || !canBannerEdit}
+                    onClick={disableActiveOccasion}
+                    className="px-3.5 py-1.5 text-xs font-bold uppercase tracking-wide text-rose-700 hover:text-rose-800 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg transition-colors flex items-center gap-1.5 shadow-sm disabled:opacity-50"
+                  >
+                    {disablingOccasion ? (
+                      <>
+                        <svg
+                          className="animate-spin h-3.5 w-3.5 text-rose-700"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                        >
+                          <circle
+                            className="opacity-25"
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            strokeWidth="4"
+                          />
+                          <path
+                            className="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                          />
+                        </svg>
+                        <span>Turning Off…</span>
+                      </>
+                    ) : (
+                      <>
+                        <XCircleIcon className="w-4 h-4 text-rose-600" />
+                        <span>Turn Off</span>
+                      </>
+                    )}
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Active Festive Announcement Banner Editor */}
+          {isOccasionActive && activeOccasion && (
+            <div className="bg-white border-2 border-amber-300/80 rounded-2xl p-6 shadow-md space-y-4 relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-amber-100/40 rounded-full blur-2xl pointer-events-none" />
+
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-gray-100">
+                <div className="flex items-center gap-2.5">
+                  <span className="text-2xl">{activeOccasion.emoji}</span>
+                  <div>
+                    <h4 className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                      <span>{activeOccasion.name} Announcement Banner</span>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-100 text-amber-800 border border-amber-200">
+                        Live Festive Banner
+                      </span>
+                    </h4>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      Edit the announcement message scrolling at the top of your storefront during {activeOccasion.name}. Separate multiple messages using <code className="bg-gray-100 text-gray-700 px-1 py-0.5 rounded font-mono font-bold">|</code>.
+                    </p>
+                  </div>
+                </div>
+
+                {FESTIVE_ANNOUNCEMENTS[activeOccasion.id] && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const defaults = FESTIVE_ANNOUNCEMENTS[activeOccasion.id]?.items.join(" | ");
+                      if (defaults) {
+                        setAnnouncementText(defaults);
+                        toast.success(`Reset to ${activeOccasion.name} default messages! Click 'Save Festive Banner' to publish.`);
+                      }
+                    }}
+                    className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-lg border border-indigo-200 transition-colors shrink-0 self-start sm:self-center flex items-center gap-1.5"
+                  >
+                    <span>↻</span>
+                    <span>Reset to {activeOccasion.name} Defaults</span>
+                  </button>
+                )}
+              </div>
+
+              {/* Live Festive Banner Preview */}
+              {FESTIVE_ANNOUNCEMENTS[activeOccasion.id] && (
+                <div className="space-y-1.5">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-gray-500">
+                    Live Banner Preview
+                  </span>
+                  <div
+                    className="w-full py-2.5 px-4 rounded-xl border flex items-center justify-center gap-3 overflow-hidden text-xs sm:text-sm font-medium shadow-inner"
+                    style={{
+                      background: FESTIVE_ANNOUNCEMENTS[activeOccasion.id].gradient,
+                      borderColor: FESTIVE_ANNOUNCEMENTS[activeOccasion.id].borderColor,
+                      color: FESTIVE_ANNOUNCEMENTS[activeOccasion.id].textColor,
+                      fontFamily: FESTIVE_ANNOUNCEMENTS[activeOccasion.id].fontFamily,
+                    }}
+                  >
+                    <span className="text-base animate-bounce">
+                      {FESTIVE_ANNOUNCEMENTS[activeOccasion.id].icons[0] || "✨"}
+                    </span>
+                    <span className="truncate max-w-xl text-center">
+                      {(announcementText || FESTIVE_ANNOUNCEMENTS[activeOccasion.id].items.join(" | "))
+                        .split("|")[0]
+                        ?.trim() || `Happy ${activeOccasion.name}!`}
+                    </span>
+                    <span className="text-base animate-bounce">
+                      {FESTIVE_ANNOUNCEMENTS[activeOccasion.id].icons[1] ||
+                        FESTIVE_ANNOUNCEMENTS[activeOccasion.id].icons[0] ||
+                        "✨"}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* Textarea */}
+              <div className="space-y-2">
+                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider">
+                  Banner Text / Announcement Pipeline
+                </label>
+                <textarea
+                  rows={4}
+                  value={announcementText}
+                  onChange={(e) => setAnnouncementText(e.target.value)}
+                  placeholder={`e.g. Happy ${activeOccasion.name}! | Special Festive Offers Inside | Limited Time Deals`}
+                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-800 bg-slate-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all resize-none shadow-inner leading-relaxed"
+                />
+              </div>
+
+              {/* Save Button */}
+              <div className="flex items-center justify-between pt-1">
+                <p className="text-[11px] text-gray-400">
+                  Tip: Changes are instantly pushed live to the storefront marquee once saved.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => saveAnnouncement()}
+                  disabled={savingAnnouncement}
+                  className="px-6 py-2.5 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 text-white rounded-xl text-xs font-bold tracking-wide uppercase shadow-md shadow-amber-600/20 active:scale-[0.98] transition-all disabled:opacity-50 flex items-center gap-2"
+                >
+                  {savingAnnouncement ? (
+                    <>
+                      <svg className="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                      Saving Festive Banner...
+                    </>
+                  ) : (
+                    <>
+                      <span>💾</span>
+                      <span>Save Festive Banner</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          )}
+
+          <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4">
+            <p className="text-sm text-indigo-800 font-medium leading-relaxed">
+              Activate any festive occasion below to run its celebratory ambient animation (e.g. falling flower petals for Onam, sparkles for Diwali, gentle snow for Christmas/New Year, gulal for Holi, confetti for Sales) across your storefront. Your custom Hero Section template and theme remain completely untouched and intact.
+            </p>
+          </div>
+
+          <div id="occasion-presets-grid" className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {OCCASION_PRESETS.map((preset) => {
+              const theme = THEMES.find((t) => t.id === preset.themeId);
+              const applied = isPresetApplied(preset);
+              return (
+                <div
+                  key={preset.id}
+                  className={`border-2 rounded-xl overflow-hidden transition-all ${
+                    applied
+                      ? "border-emerald-400 ring-2 ring-emerald-100 shadow-sm"
+                      : "border-gray-200 hover:border-indigo-300"
+                  }`}
+                >
+                  <div
+                    className="h-20 flex items-center gap-3 px-5 relative"
+                    style={{ background: theme?.primary ?? "#111", color: theme?.primaryInk ?? "#fff" }}
+                  >
+                    <span className="text-2xl">{preset.emoji}</span>
+                    <div>
+                      <p className="font-black tracking-tight">{preset.name}</p>
+                      <p className="text-[11px] opacity-75">{theme?.name ?? preset.themeId}</p>
+                    </div>
+                    {applied && (
+                      <span className="absolute top-2 right-2 flex items-center gap-1 bg-emerald-500 text-white text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full shadow-sm">
+                        <CheckCircleIcon className="w-3 h-3" /> Applied
+                      </span>
+                    )}
+                  </div>
+                  <div className="p-4 bg-white">
+                    <p className="text-xs text-gray-500 mb-4 leading-snug">{preset.description}</p>
+                    {applied ? (
+                      <button
+                        onClick={disableActiveOccasion}
+                        disabled={disablingOccasion || applyingPreset || !canBannerEdit}
+                        className="w-full py-2.5 rounded-xl text-xs font-bold uppercase tracking-wide bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100 transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5 shadow-sm"
+                      >
+                        <XCircleIcon className="w-4 h-4 text-rose-600" />
+                        {disablingOccasion ? "Turning Off…" : "Turn Off Animation"}
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => applyOccasionPreset(preset)}
+                        disabled={disablingOccasion || applyingPreset || !canBannerEdit}
+                        className="w-full py-2.5 rounded-xl text-xs font-bold uppercase tracking-wide bg-indigo-600 hover:bg-indigo-700 text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm flex items-center justify-center gap-1.5"
+                      >
+                        <SparklesIcon className="w-4 h-4" />
+                        Activate {preset.name}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+
+        </div>
+      )}
+
       {/* ── ANNOUNCEMENT TAB ─────────────────────────────────────────────────── */}
       {activeTab === "ANNOUNCEMENT" && (
         <div className="space-y-6 animate-fadeIn">
+          {isOccasionActive && activeOccasion && (
+            <div className="bg-gradient-to-r from-amber-500/10 via-amber-50 to-orange-50/50 border border-amber-300 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
+              <div className="flex items-center gap-3">
+                <span className="text-3xl">{activeOccasion.emoji}</span>
+                <div>
+                  <h4 className="text-sm font-bold text-amber-950 flex items-center gap-2">
+                    <span>{activeOccasion.name} Occasion is Active</span>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-amber-200 text-amber-900 border border-amber-300">
+                      Live Festive Marquee
+                    </span>
+                  </h4>
+                  <p className="text-xs text-amber-800 mt-0.5 max-w-xl">
+                    Your storefront is currently rendering the celebratory {activeOccasion.name} festive banner style. You can edit the festive messages directly below!
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActiveTab("OCCASIONS")}
+                className="text-xs font-bold text-amber-900 bg-amber-100 hover:bg-amber-200 px-3.5 py-2 rounded-xl border border-amber-300/80 transition-colors shrink-0 self-start sm:self-center flex items-center gap-1.5 shadow-sm"
+              >
+                <span>{activeOccasion.emoji}</span>
+                <span>Open Festive Manager</span>
+              </button>
+            </div>
+          )}
 
           <div>
             <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wider mb-3">Layout</h3>
@@ -3268,24 +4115,31 @@ export default function HomepageManager() {
                     )}
 
                     {key === "5" && (
-                      <div className="w-full bg-indigo-600 text-white rounded-lg p-2.5 border border-indigo-700 shadow-xs flex items-center justify-between h-20">
+                      <div className="w-full bg-white text-gray-900 rounded-lg p-2.5 border border-gray-200 shadow-xs flex items-center justify-between h-20">
                         <div className="flex items-center gap-1.5">
-                          <div className="w-4 h-4 rounded-md bg-white text-[8px] font-bold text-indigo-700 flex items-center justify-center">
-                            A
+                          <div className="w-4 h-4 rounded-xs bg-black text-[8px] font-black text-white flex items-center justify-center">
+                            P
                           </div>
-                          <div className="h-2 w-8 bg-white/90 rounded-xs" />
+                          <div className="flex flex-col">
+                            <span className="text-[8px] font-black tracking-wider uppercase text-gray-900 leading-none">PEARLS</span>
+                            <span className="text-[5px] text-gray-400 font-medium tracking-widest uppercase leading-none mt-0.5">COUTURE</span>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-1">
-                          <span className="px-2 py-0.5 bg-white text-[8px] text-indigo-900 font-bold rounded-md shadow-xs">
-                            Home
-                          </span>
-                          <span className="px-1.5 py-0.5 text-[8px] text-white/80">
-                            Festive
+                        <div className="flex items-center gap-1.5 text-[7px] font-semibold tracking-wider uppercase text-gray-700">
+                          <div className="flex flex-col items-center">
+                            <span className="text-black font-bold">HOME</span>
+                            <span className="w-2.5 h-[1.5px] bg-black rounded-full mt-0.5" />
+                          </div>
+                          <span className="text-gray-400">SHOP</span>
+                          <span className="text-gray-400 flex items-center gap-0.5">
+                            CAT <span className="text-[6px]">▾</span>
                           </span>
                         </div>
-                        <div className="flex items-center gap-1">
-                          <div className="h-3 w-8 bg-white/20 rounded-full" />
-                          <div className="w-3.5 h-3.5 rounded-full bg-white text-indigo-900" />
+                        <div className="flex items-center gap-1 text-gray-700">
+                          <div className="w-2.5 h-2.5 rounded-full border border-gray-400" />
+                          <div className="w-2.5 h-2.5 rounded-full border border-gray-400" />
+                          <div className="w-2.5 h-2.5 rounded-full border border-gray-400" />
+                          <div className="w-2.5 h-2.5 rounded-full bg-black" />
                         </div>
                       </div>
                     )}
@@ -3353,6 +4207,320 @@ export default function HomepageManager() {
                 </div>
               );
             })}
+          </div>
+        </div>
+      )}
+
+      {/* ── PRE-FOOTER BANNERS TAB ─────────────────────────────────────── */}
+      {activeTab === "PRE_FOOTER" && (
+        <div className="space-y-6 animate-fadeIn">
+          {/* Header & Main Actions */}
+          <div className="bg-white border border-gray-200/80 shadow-sm rounded-2xl p-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-gray-100">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-indigo-600 animate-pulse" />
+                  <h2 className="text-xl font-bold text-gray-900 tracking-tight">Full-Width Pre-Footer Banners</h2>
+                </div>
+                <p className="text-xs text-gray-500 mt-1 max-w-2xl leading-relaxed">
+                  Manage up to 3 full-width banners displayed one by one directly above the footer. Images display at their natural uploaded dimensions across the full screen width with zero cropping. Each banner can optionally link to any product, category, or page.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={savePreFooterConfig}
+                disabled={savingPreFooter}
+                className="shrink-0 inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wide bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm hover:shadow-indigo-100"
+              >
+                {savingPreFooter ? (
+                  <>
+                    <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircleIcon className="w-4 h-4" />
+                    Save Changes
+                  </>
+                )}
+              </button>
+            </div>
+
+            {/* Global Controls & Status Pill */}
+            <div className="pt-5 grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
+              {/* Section Visibility Toggle */}
+              <div className="flex items-center justify-between p-3.5 rounded-xl border border-gray-200 bg-gray-50/50">
+                <div>
+                  <span className="text-xs font-bold text-gray-800 block">Section Visibility</span>
+                  <span className="text-[11px] text-gray-500">
+                    {preFooterConfig.enabled ? "Visible on storefront" : "Hidden from storefront"}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setPreFooterConfig((p) => ({ ...p, enabled: !p.enabled }))}
+                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                    preFooterConfig.enabled ? "bg-indigo-600" : "bg-gray-300"
+                  }`}
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                      preFooterConfig.enabled ? "translate-x-5" : "translate-x-0"
+                    }`}
+                  />
+                </button>
+              </div>
+
+              {/* Status Mode Indicator */}
+              <div className="p-3.5 rounded-xl border border-indigo-100 bg-indigo-50/40 text-left">
+                <span className="text-xs font-bold text-indigo-950 block">Active Banners Stack</span>
+                <span className="text-[11px] text-indigo-700 font-medium leading-tight block mt-0.5">
+                  {!preFooterConfig.enabled
+                    ? "🚫 Section is Disabled (Hidden from storefront)"
+                    : (() => {
+                        const count = (preFooterConfig.banners || []).filter(
+                          (b) => b && b.isActive !== false && b.image && b.image.trim() !== ""
+                        ).length;
+                        if (count === 0) return "⚪ 0 active banners (Hidden from storefront)";
+                        if (count === 1) return "⭐ 1 full-width banner active (100% natural size)";
+                        return `📸 ${count} full-width banners active (stacked one by one)`;
+                      })()}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* 3 Banner Slots */}
+          <div className="space-y-4">
+            {[0, 1, 2].map((slotIndex) => {
+              const slot = preFooterConfig.banners?.[slotIndex];
+              const hasImage = Boolean(slot?.image && slot.image.trim() !== "");
+              const isUploading = uploadingPreFooterSlot === slotIndex;
+              const isActive = slot?.isActive !== false;
+
+              return (
+                <div
+                  key={slotIndex}
+                  className={`bg-white border rounded-2xl shadow-sm transition-all overflow-hidden ${
+                    hasImage && isActive
+                      ? "border-gray-200"
+                      : hasImage && !isActive
+                      ? "border-amber-200 bg-amber-50/20"
+                      : "border-gray-200/80"
+                  }`}
+                >
+                  {/* Slot Header */}
+                  <div className="px-5 py-3.5 bg-gray-50/70 border-b border-gray-100 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2.5">
+                      <span className="w-6 h-6 rounded-lg bg-gray-200 text-gray-700 font-bold text-xs flex items-center justify-center">
+                        {slotIndex + 1}
+                      </span>
+                      <span className="text-xs font-bold text-gray-900">
+                        Banner Slot {slotIndex + 1}
+                      </span>
+                      {slotIndex === 0 && (
+                        <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200">
+                          Primary
+                        </span>
+                      )}
+                      {hasImage && !isActive && (
+                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">
+                          Paused
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      {hasImage && (
+                        <button
+                          type="button"
+                          onClick={() => updatePreFooterSlot(slotIndex, { isActive: !isActive })}
+                          className={`text-xs px-2.5 py-1 rounded-lg font-semibold transition-colors ${
+                            isActive
+                              ? "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                              : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                          }`}
+                        >
+                          {isActive ? "Active" : "Paused"}
+                        </button>
+                      )}
+                      {hasImage && (
+                        <button
+                          type="button"
+                          onClick={() => removePreFooterSlotImage(slotIndex)}
+                          title="Remove banner"
+                          className="p-1 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50 transition-colors"
+                        >
+                          <TrashIcon className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Slot Body */}
+                  <div className="p-5 grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+                    {/* Image Area (5 cols) */}
+                    <div className="lg:col-span-5">
+                      <label className="text-[11px] font-bold uppercase tracking-wider text-gray-500 mb-1.5 block">
+                        Banner Image
+                      </label>
+                      {hasImage ? (
+                        <div className="relative group rounded-xl overflow-hidden border border-gray-200 bg-neutral-950 min-h-[100px] max-h-[220px] flex items-center justify-center">
+                          <img
+                            src={slot.image}
+                            alt={slot.title || `Slot ${slotIndex + 1}`}
+                            className="w-full h-auto max-h-[220px] object-contain block"
+                          />
+                          <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                            <label className="cursor-pointer px-3 py-1.5 rounded-lg text-xs font-semibold bg-white text-gray-900 hover:bg-gray-100 shadow transition-transform active:scale-95">
+                              Replace Image
+                              <input
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                disabled={isUploading}
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0];
+                                  if (file) uploadPreFooterSlotImage(file, slotIndex);
+                                  e.target.value = "";
+                                }}
+                              />
+                            </label>
+                            <button
+                              type="button"
+                              onClick={() => removePreFooterSlotImage(slotIndex)}
+                              className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-600 text-white hover:bg-red-700 shadow transition-transform active:scale-95"
+                            >
+                              Remove
+                            </button>
+                          </div>
+                          {isUploading && (
+                            <div className="absolute inset-0 bg-black/75 flex flex-col items-center justify-center gap-2 text-white text-xs">
+                              <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                              Uploading...
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <label
+                          className={`flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 hover:border-indigo-400 bg-gray-50/50 hover:bg-indigo-50/20 py-8 px-4 transition-all cursor-pointer text-center ${
+                            isUploading ? "pointer-events-none opacity-60" : ""
+                          }`}
+                        >
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            disabled={isUploading}
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) uploadPreFooterSlotImage(file, slotIndex);
+                              e.target.value = "";
+                            }}
+                          />
+                          {isUploading ? (
+                            <div className="flex flex-col items-center gap-1.5 text-indigo-600">
+                              <span className="w-5 h-5 border-2 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
+                              <span className="text-xs font-semibold">Uploading...</span>
+                            </div>
+                          ) : (
+                            <>
+                              <PhotoIcon className="w-7 h-7 text-gray-400 mb-1" />
+                              <span className="text-xs font-bold text-gray-700">Click to upload banner</span>
+                              <span className="text-[10px] text-gray-400 mt-0.5">
+                                JPG, PNG, WEBP &bull; Max 1 MB &bull; Full-width banner (natural size)
+                              </span>
+                            </>
+                          )}
+                        </label>
+                      )}
+                    </div>
+
+                    {/* Controls Area (7 cols) */}
+                    <div className="lg:col-span-7 space-y-3.5">
+                      {/* Link input */}
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="text-[11px] font-bold uppercase tracking-wider text-gray-500">
+                            Banner Click Link <span className="text-gray-400 font-normal lowercase">(optional)</span>
+                          </label>
+                          {/* Quick suggestion pills */}
+                          <div className="flex gap-1 text-[10px]">
+                            <button
+                              type="button"
+                              onClick={() => updatePreFooterSlot(slotIndex, { link: "/products" })}
+                              className="px-1.5 py-0.5 rounded bg-gray-100 hover:bg-gray-200 text-gray-600 transition-colors"
+                            >
+                              + All Products
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => updatePreFooterSlot(slotIndex, { link: "/about" })}
+                              className="px-1.5 py-0.5 rounded bg-gray-100 hover:bg-gray-200 text-gray-600 transition-colors"
+                            >
+                              + About
+                            </button>
+                          </div>
+                        </div>
+                        <input
+                          type="text"
+                          value={slot?.link || ""}
+                          onChange={(e) => updatePreFooterSlot(slotIndex, { link: e.target.value })}
+                          placeholder="e.g. /products/handloom-saree or https://..."
+                          className="w-full text-xs border border-gray-300 rounded-xl px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 font-mono"
+                        />
+                        <p className="text-[10px] text-gray-400 mt-1">
+                          If provided, clicking this banner redirects customers here. If blank, banner is display-only.
+                        </p>
+                      </div>
+
+                      {/* Title / Alt input */}
+                      <div>
+                        <label className="text-[11px] font-bold uppercase tracking-wider text-gray-500 mb-1 block">
+                          Title / Alt Text <span className="text-gray-400 font-normal lowercase">(optional)</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={slot?.title || ""}
+                          onChange={(e) => updatePreFooterSlot(slotIndex, { title: e.target.value })}
+                          placeholder="e.g. Exclusive Festive Collection 2026"
+                          className="w-full text-xs border border-gray-300 rounded-xl px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                        />
+                        <p className="text-[10px] text-gray-400 mt-1">
+                          Accessibility description for screen readers and SEO alt attribute.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Bottom Save Bar */}
+          <div className="sticky bottom-4 z-10 bg-white/95 backdrop-blur-md border border-gray-200 rounded-2xl p-4 shadow-lg flex items-center justify-between gap-4">
+            <p className="text-xs text-gray-500">
+              Make sure to save your changes to publish them to your storefront live preview.
+            </p>
+            <button
+              type="button"
+              onClick={savePreFooterConfig}
+              disabled={savingPreFooter}
+              className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wide bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm hover:shadow-indigo-100"
+            >
+              {savingPreFooter ? (
+                <>
+                  <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <CheckCircleIcon className="w-4 h-4" />
+                  Save Changes
+                </>
+              )}
+            </button>
           </div>
         </div>
       )}
@@ -3442,6 +4610,30 @@ export default function HomepageManager() {
                   {/* Inline edit form */}
                   {isEditing && (
                     <div className="border-t border-gray-100 p-4 bg-gray-50 space-y-3">
+                      {/* Display Company Name Toggle */}
+                      <div className="flex items-center justify-between p-3.5 bg-white rounded-xl border border-gray-200 shadow-xs">
+                        <div className="pr-4">
+                          <label htmlFor="footerShowCompanyName" className="text-xs font-bold text-gray-800 cursor-pointer block">
+                            Display Company Name Next to Logo
+                          </label>
+                          <p className="text-[11px] text-gray-500 mt-0.5">
+                            Show text brand name next to your logo. Turn OFF to hide the text if your logo image already contains your brand name.
+                          </p>
+                        </div>
+                        <input
+                          type="checkbox"
+                          id="footerShowCompanyName"
+                          checked={footerForm.showCompanyName !== false}
+                          onChange={(e) =>
+                            setFooterForm((p) => ({
+                              ...p,
+                              showCompanyName: e.target.checked,
+                            }))
+                          }
+                          className="w-4 h-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500 cursor-pointer shrink-0"
+                        />
+                      </div>
+
                       <div>
                         <label className="text-xs font-semibold text-gray-600">
                           Tagline / Description
@@ -3462,7 +4654,12 @@ export default function HomepageManager() {
 
                       {/* Social Media Links section */}
                       <div className="border-t border-gray-200 pt-3 mt-3 space-y-3">
-                        <p className="text-xs font-black uppercase text-gray-400 tracking-wider">Social Links</p>
+                        <div>
+                          <p className="text-xs font-black uppercase text-gray-400 tracking-wider">Social Links</p>
+                          <p className="text-[11px] text-gray-500 mt-0.5">
+                            Leave any field blank to hide that icon from your footer.
+                          </p>
+                        </div>
 
                         <div>
                           <label className="text-xs font-semibold text-gray-600">
@@ -3478,7 +4675,7 @@ export default function HomepageManager() {
                                 instagramLink: e.target.value,
                               }))
                             }
-                            placeholder="https://instagram.com/yourbrand"
+                            placeholder="https://instagram.com/yourbrand (leave empty to hide)"
                           />
                         </div>
 
@@ -3496,31 +4693,13 @@ export default function HomepageManager() {
                                 facebookLink: e.target.value,
                               }))
                             }
-                            placeholder="https://facebook.com/yourbrand"
+                            placeholder="https://facebook.com/yourbrand (leave empty to hide)"
                           />
                         </div>
 
                         <div>
                           <label className="text-xs font-semibold text-gray-600">
-                            Twitter / X Link
-                          </label>
-                          <input
-                            type="url"
-                            className="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
-                            value={footerForm.twitterLink ?? ""}
-                            onChange={(e) =>
-                              setFooterForm((p) => ({
-                                ...p,
-                                twitterLink: e.target.value,
-                              }))
-                            }
-                            placeholder="https://twitter.com/yourbrand"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="text-xs font-semibold text-gray-600">
-                            Contact Email / Mail Link
+                            Contact Email / Gmail Link
                           </label>
                           <input
                             className="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
@@ -3531,7 +4710,7 @@ export default function HomepageManager() {
                                 mailLink: e.target.value,
                               }))
                             }
-                            placeholder="info@yourbrand.com"
+                            placeholder="info@yourbrand.com (leave empty to hide)"
                           />
                         </div>
                       </div>
@@ -4519,6 +5698,267 @@ export default function HomepageManager() {
             </div>
           </div>
         )}
+
+        {/* ── ADDITIONAL FEATURED SECTIONS (CATEGORY SHOWCASES) ────────────── */}
+        <div className="pt-6 border-t-2 border-dashed border-gray-200 space-y-6">
+          {/* Header Card with Explanatory alternating workflow */}
+          <div className="bg-gradient-to-r from-indigo-50/70 via-purple-50/40 to-white border border-indigo-100/90 rounded-2xl p-5 sm:p-6 shadow-sm">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+              <div className="space-y-1.5 max-w-2xl">
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-indigo-100 text-indigo-700 border border-indigo-200">
+                  <SparklesIcon className="w-3.5 h-3.5" />
+                  Homepage Interleaved Showcase
+                </div>
+                <h3 className="text-lg font-bold text-gray-900 tracking-tight">
+                  Additional Featured Sections (Category Showcases 2 – 3)
+                </h3>
+                <p className="text-xs text-gray-600 leading-relaxed">
+                  Configure up to 2 category showcases that alternate with your Pre-Footer Banners across the homepage. Products from each category are automatically fetched and presented with a dedicated <span className="font-semibold text-gray-800">"View All [Category] →"</span> button.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={saveFeaturedCategoriesConfig}
+                disabled={savingFeaturedCategories}
+                className="shrink-0 inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wide bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm hover:shadow-indigo-100"
+              >
+                {savingFeaturedCategories ? (
+                  <>
+                    <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircleIcon className="w-4 h-4" />
+                    Save Category Showcases
+                  </>
+                )}
+              </button>
+            </div>
+
+            {/* Alternating Workflow Flow Diagram Pill */}
+            <div className="mt-4 pt-4 border-t border-indigo-100/80">
+              <div className="text-[11px] font-bold text-indigo-900 mb-2 flex items-center gap-1.5">
+                <span>🔄 Alternating Showcase Layout:</span>
+                <span className="text-[10px] font-normal text-indigo-700">
+                  (Banners &amp; Sections alternate down the homepage; uneven counts automatically flow cleanly)
+                </span>
+              </div>
+              <div className="flex flex-wrap items-center gap-1.5 text-[11px] font-semibold text-gray-700">
+                <span className="px-2 py-1 bg-white rounded-md border border-indigo-200 shadow-2xs">Banner 1</span>
+                <span className="text-indigo-400">➔</span>
+                <span className="px-2 py-1 bg-amber-50 rounded-md border border-amber-200 text-amber-900 shadow-2xs">Section 1 (Curated)</span>
+                <span className="text-indigo-400">➔</span>
+                <span className="px-2 py-1 bg-white rounded-md border border-indigo-200 shadow-2xs">Banner 2</span>
+                <span className="text-indigo-400">➔</span>
+                <span className="px-2 py-1 bg-purple-50 rounded-md border border-purple-200 text-purple-900 shadow-2xs">Section 2 (Slot 1)</span>
+                <span className="text-indigo-400">➔</span>
+                <span className="px-2 py-1 bg-white rounded-md border border-indigo-200 shadow-2xs">Banner 3</span>
+                <span className="text-indigo-400">➔</span>
+                <span className="px-2 py-1 bg-purple-50 rounded-md border border-purple-200 text-purple-900 shadow-2xs">Section 3 (Slot 2)</span>
+              </div>
+            </div>
+          </div>
+
+          {/* 2 Category Slots */}
+          <div className="grid grid-cols-1 gap-5">
+            {[0, 1].map((slotIdx) => {
+              const slot = (featuredCatConfig.slots || DEFAULT_FEATURED_CATEGORIES_CONFIG.slots)[slotIdx] || {
+                id: `slot-${slotIdx + 1}`,
+                categoryId: "",
+                customTitle: "",
+                customSubtitle: "",
+                limit: 8,
+                isActive: true,
+              };
+
+              const isActive = slot.isActive !== false;
+              const hasCategory = Boolean(slot.categoryId && slot.categoryId.trim() !== "");
+              const selectedCat = allCategoriesList.find((c) => c.id === slot.categoryId);
+              const selectedCatName = selectedCat?.name.replace(/^—\s*/, "") || "";
+
+              return (
+                <div
+                  key={slotIdx}
+                  className={`bg-white border rounded-2xl shadow-sm transition-all ${
+                    hasCategory && isActive
+                      ? "border-gray-200"
+                      : hasCategory && !isActive
+                      ? "border-amber-200 bg-amber-50/15"
+                      : "border-gray-200/80"
+                  }`}
+                >
+                  {/* Card Header */}
+                  <div className="px-5 py-3.5 bg-gray-50/80 border-b border-gray-100 flex items-center justify-between gap-3 rounded-t-2xl">
+                    <div className="flex items-center gap-2.5">
+                      <span className="w-7 h-7 rounded-lg bg-indigo-600 text-white font-bold text-xs flex items-center justify-center shadow-2xs">
+                        {slotIdx + 2}
+                      </span>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold text-gray-900">
+                            Featured Section {slotIdx + 2}
+                          </span>
+                          <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
+                            Slot {slotIdx + 1}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-gray-500">
+                          {selectedCatName ? `Category: ${selectedCatName}` : "No category selected"}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Enable Toggle Switch */}
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-medium text-gray-500 hidden sm:inline">
+                        {isActive ? "Enabled" : "Disabled"}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => updateFeaturedCategorySlot(slotIdx, { isActive: !isActive })}
+                        className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                          isActive ? "bg-indigo-600" : "bg-gray-300"
+                        }`}
+                      >
+                        <span
+                          className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                            isActive ? "translate-x-5" : "translate-x-0"
+                          }`}
+                        />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Card Inputs */}
+                  <div className="p-5 space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* Target Category Select */}
+                      <div>
+                        <label className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-1.5">
+                          Target Category <span className="text-indigo-600 font-semibold">*</span>
+                        </label>
+                        <CustomDropdownSelect
+                          value={slot.categoryId || ""}
+                          onChange={(val) => updateFeaturedCategorySlot(slotIdx, { categoryId: String(val) })}
+                          options={[
+                            { value: "", label: "-- Select a Category --" },
+                            ...allCategoriesList.map((cat) => ({
+                              value: cat.id,
+                              label: cat.name,
+                            })),
+                          ]}
+                          placeholder="-- Select a Category --"
+                          searchable={allCategoriesList.length > 5}
+                        />
+                        <p className="text-[11px] text-gray-500 mt-1">
+                          Products from this category will automatically be fetched.
+                        </p>
+                      </div>
+
+                      {/* Display Limit Select */}
+                      <div>
+                        <label className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-1.5">
+                          Max Products to Display
+                        </label>
+                        <CustomDropdownSelect
+                          value={slot.limit || 8}
+                          onChange={(val) => updateFeaturedCategorySlot(slotIdx, { limit: Number(val) })}
+                          options={[
+                            { value: 4, label: "4 Products" },
+                            { value: 8, label: "8 Products", badge: "Default" },
+                            { value: 12, label: "12 Products" },
+                            { value: 16, label: "16 Products" },
+                          ]}
+                        />
+                        <p className="text-[11px] text-gray-500 mt-1">
+                          How many products to show in this section before "View All".
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* Custom Title Input */}
+                      <div>
+                        <label className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-1.5">
+                          Custom Section Title <span className="text-gray-400 font-normal">(Optional)</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={slot.customTitle || ""}
+                          onChange={(e) => updateFeaturedCategorySlot(slotIdx, { customTitle: e.target.value })}
+                          placeholder={selectedCatName ? `Default: ${selectedCatName}` : "e.g. Best in Sarees"}
+                          className="w-full px-3.5 py-2.5 bg-slate-50 border border-gray-200 rounded-xl text-xs sm:text-sm font-medium text-gray-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+                        />
+                      </div>
+
+                      {/* Custom Subtitle Input */}
+                      <div>
+                        <label className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-1.5">
+                          Subtitle <span className="text-gray-400 font-normal">(Optional)</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={slot.customSubtitle || ""}
+                          onChange={(e) => updateFeaturedCategorySlot(slotIdx, { customSubtitle: e.target.value })}
+                          placeholder="e.g. Handcrafted styles curated especially for you"
+                          className="w-full px-3.5 py-2.5 bg-slate-50 border border-gray-200 rounded-xl text-xs sm:text-sm font-medium text-gray-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Status Pill Indicator */}
+                    <div className="pt-2">
+                      {!isActive ? (
+                        <div className="flex items-center gap-2 p-2.5 rounded-lg bg-gray-50 border border-gray-200 text-[11px] text-gray-500 font-medium">
+                          <span>⚪</span>
+                          <span>Slot is disabled and will be omitted from the homepage.</span>
+                        </div>
+                      ) : !hasCategory ? (
+                        <div className="flex items-center gap-2 p-2.5 rounded-lg bg-amber-50 border border-amber-200 text-[11px] text-amber-800 font-medium">
+                          <span>⚠️</span>
+                          <span>No category selected. This slot is currently idle and will be skipped on the storefront.</span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2 p-2.5 rounded-lg bg-emerald-50 border border-emerald-200 text-[11px] text-emerald-800 font-medium">
+                          <span>✅</span>
+                          <span>
+                            Active: Will showcase up to <strong className="font-bold">{slot.limit || 8}</strong> products from{" "}
+                            <strong className="font-bold text-emerald-900">"{selectedCatName}"</strong> with a dedicated{" "}
+                            <strong className="font-bold">"View All {selectedCatName} →"</strong> button.
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Bottom Save Action Bar */}
+          <div className="flex items-center justify-end pt-3">
+            <button
+              type="button"
+              onClick={saveFeaturedCategoriesConfig}
+              disabled={savingFeaturedCategories}
+              className="inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wide bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm hover:shadow-indigo-100"
+            >
+              {savingFeaturedCategories ? (
+                <>
+                  <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  Saving Category Showcases...
+                </>
+              ) : (
+                <>
+                  <CheckCircleIcon className="w-4 h-4" />
+                  Save Category Showcases
+                </>
+              )}
+            </button>
+          </div>
+        </div>
       </div>
     )}
 
