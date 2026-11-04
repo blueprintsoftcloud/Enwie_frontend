@@ -27,6 +27,40 @@ export const stripHtml = (html: string | null | undefined): string => {
 };
 
 /**
+ * Converts Unicode mathematical bold characters (serif, sans-serif, bold digits)
+ * into standard characters wrapped in <b>...</b> tags.
+ * This ensures bold text copied from WhatsApp, Instagram, font generators (e.g. YayText, LingoJam)
+ * is cleanly preserved and renders beautifully with regular fonts & accessible SEO.
+ */
+export const convertUnicodeBoldToTags = (text: string | null | undefined): string => {
+  if (!text) return "";
+  return text.replace(
+    /(?:[\u{1D400}-\u{1D433}\u{1D5D4}-\u{1D607}\u{1D7CE}-\u{1D7F5}]+(?:\s+[\u{1D400}-\u{1D433}\u{1D5D4}-\u{1D607}\u{1D7CE}-\u{1D7F5}]+)*)/gu,
+    (match) => {
+      let converted = "";
+      for (const char of match) {
+        const cp = char.codePointAt(0);
+        if (!cp) continue;
+        // Math Bold Serif A-Z (1D400..1D419) -> 65..90
+        if (cp >= 0x1D400 && cp <= 0x1D419) converted += String.fromCharCode(cp - 0x1D400 + 65);
+        // Math Bold Serif a-z (1D41A..1D433) -> 97..122
+        else if (cp >= 0x1D41A && cp <= 0x1D433) converted += String.fromCharCode(cp - 0x1D41A + 97);
+        // Math Bold Sans A-Z (1D5D4..1D5ED) -> 65..90
+        else if (cp >= 0x1D5D4 && cp <= 0x1D5ED) converted += String.fromCharCode(cp - 0x1D5D4 + 65);
+        // Math Bold Sans a-z (1D5EE..1D607) -> 97..122
+        else if (cp >= 0x1D5EE && cp <= 0x1D607) converted += String.fromCharCode(cp - 0x1D5EE + 97);
+        // Math Bold Digits 0-9 (1D7CE..1D7D7) -> 48..57
+        else if (cp >= 0x1D7CE && cp <= 0x1D7D7) converted += String.fromCharCode(cp - 0x1D7CE + 48);
+        // Math Sans Bold Digits 0-9 (1D7EC..1D7F5) -> 48..57
+        else if (cp >= 0x1D7EC && cp <= 0x1D7F5) converted += String.fromCharCode(cp - 0x1D7EC + 48);
+        else converted += char;
+      }
+      return `<b>${converted}</b>`;
+    }
+  );
+};
+
+/**
  * Safely sanitizes and formats product descriptions.
  * If the description is plain text with newlines/spaces (from a standard textarea),
  * it preserves paragraphs and line breaks without combining them into a single blob.
@@ -35,8 +69,11 @@ export const stripHtml = (html: string | null | undefined): string => {
 export const formatProductDescription = (desc: string | null | undefined): string => {
   if (!desc || !desc.trim()) return "<p>No description available.</p>";
 
+  // Convert any Unicode bold characters into <b> tags
+  let processed = convertUnicodeBoldToTags(desc);
+
   // Convert markdown bold syntax **text** into <strong>text</strong>
-  let processed = desc.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
+  processed = processed.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
 
   const sanitized = sanitizeHtml(processed);
 
@@ -61,7 +98,7 @@ export const convertClipboardHtmlToText = (
   html: string | undefined | null,
   fallbackPlain: string
 ): string => {
-  if (!html || !html.trim()) return fallbackPlain;
+  if (!html || !html.trim()) return convertUnicodeBoldToTags(fallbackPlain);
 
   try {
     const parser = new DOMParser();
@@ -73,14 +110,38 @@ export const convertClipboardHtmlToText = (
 
     const isBoldNode = (node: HTMLElement): boolean => {
       const tag = node.tagName.toUpperCase();
+      const style = (node.getAttribute("style") || "").toLowerCase();
+      const fontWeight = (node.style?.fontWeight || "").toLowerCase();
+
+      // If explicitly normal/400 (common in Google Docs wrappers), do not treat as bold
+      if (
+        fontWeight === "normal" ||
+        fontWeight === "400" ||
+        style.includes("font-weight: normal") ||
+        style.includes("font-weight:normal") ||
+        style.includes("font-weight: 400") ||
+        style.includes("font-weight:400")
+      ) {
+        return false;
+      }
+
       if (tag === "B" || tag === "STRONG" || /^H[1-6]$/.test(tag)) return true;
-      const style = node.getAttribute("style") || "";
-      const fontWeight = node.style?.fontWeight || style;
       if (
         fontWeight.includes("bold") ||
+        fontWeight.includes("600") ||
         fontWeight.includes("700") ||
         fontWeight.includes("800") ||
-        fontWeight.includes("900")
+        fontWeight.includes("900") ||
+        style.includes("font-weight: bold") ||
+        style.includes("font-weight:bold") ||
+        style.includes("font-weight: 600") ||
+        style.includes("font-weight:600") ||
+        style.includes("font-weight: 700") ||
+        style.includes("font-weight:700") ||
+        style.includes("font-weight: 800") ||
+        style.includes("font-weight:800") ||
+        style.includes("font-weight: 900") ||
+        style.includes("font-weight:900")
       ) {
         return true;
       }
@@ -141,9 +202,10 @@ export const convertClipboardHtmlToText = (
       .replace(/\n{3,}/g, "\n\n")
       .trim();
 
-    return result || fallbackPlain;
+    const finalResult = result || fallbackPlain;
+    return convertUnicodeBoldToTags(finalResult);
   } catch (err) {
     console.error("Error converting clipboard HTML:", err);
-    return fallbackPlain;
+    return convertUnicodeBoldToTags(fallbackPlain);
   }
 };

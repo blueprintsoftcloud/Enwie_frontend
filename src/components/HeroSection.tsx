@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowRight, ArrowUpRight, ChevronLeft, ChevronRight } from "lucide-react";
 import api from "../utils/api";
+import { CircularSpinner } from "./Loader";
 
 
 // Fallback images (same pool as the original hero)
@@ -30,10 +31,10 @@ const FALLBACK_IMAGES = [
 ];
 
 interface HeroTemplateData {
-  title: string;
-  subtitle: string;
-  ctaText: string;
-  ctaLink: string;
+  title?: string;
+  subtitle?: string;
+  ctaText?: string;
+  ctaLink?: string;
   bgImage?: string;
   accentText?: string;
   images?: string[];
@@ -215,23 +216,28 @@ function Template1({ data }: { data: HeroTemplateData }) {
             className="w-full lg:w-1/2 text-center lg:text-left z-20 mb-12 lg:mb-0"
           >
             {/* Changed font weight to font-black and bumped the size scale up */}
-            <h1 className="text-3xl sm:text-6xl lg:text-5xl font-bold font-sans text-black spacing pb-3 uppercase">
-              {data.title}
-            </h1>
+            {Boolean(data.title && data.title.trim()) && (
+              <h1 className="text-3xl sm:text-6xl lg:text-5xl font-bold font-sans text-black spacing pb-3 uppercase">
+                {data.title}
+              </h1>
+            )}
             {/* Enhanced body text size and font weight for visibility against the heavy heading */}
-            <p className="mt-2 text-xs sm:text-lg font-semibold text-gray-600 max-w-2xl mx-auto lg:mx-0 leading-relaxed font-serif line-clamp-2 sm:line-clamp-none">
-              {data.subtitle}
-            </p>
-            <motion.button
-              whileHover={{ scale: 1.03 }}
-              whileTap={{ scale: 0.97 }}
-              onClick={() => navigate(data.ctaLink || "/products")}
-
-              className="mt-10 inline-flex items-center gap-3 bg-[var(--theme-primary)] text-[var(--theme-primary-ink)] px-8 py-4 rounded-xl text-base font-bold tracking-wide hover:opacity-90 transition-opacity shadow-lg"
-            >
-              {data.ctaText || "Shop Collection"}
-              <ArrowRight className="w-5 h-5 stroke-[2.5]" />
-            </motion.button>
+            {Boolean(data.subtitle && data.subtitle.trim()) && (
+              <p className="mt-2 text-xs sm:text-lg font-semibold text-gray-600 max-w-2xl mx-auto lg:mx-0 leading-relaxed font-serif line-clamp-2 sm:line-clamp-none">
+                {data.subtitle}
+              </p>
+            )}
+            {Boolean(data.ctaText && data.ctaText.trim()) && (
+              <motion.button
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.97 }}
+                onClick={() => navigate(data.ctaLink || "/products")}
+                className="mt-10 inline-flex items-center gap-3 bg-[var(--theme-primary)] text-[var(--theme-primary-ink)] px-8 py-4 rounded-xl text-base font-bold tracking-wide hover:opacity-90 transition-opacity shadow-lg"
+              >
+                {data.ctaText}
+                <ArrowRight className="w-5 h-5 stroke-[2.5]" />
+              </motion.button>
+            )}
           </motion.div>
 
           {/* Right: Masonry image grid — 2 | 3 | 2 column layout */}
@@ -367,47 +373,54 @@ function Template2({ data }: { data: HeroTemplateData }) {
           className="max-w-2xl text-left space-y-4 sm:space-y-6"
         >
           {/* Accent Glassmorphism Badge */}
-          <div>
-            <span className="inline-flex items-center px-3.5 py-1.5 rounded-md bg-white/10 hover:bg-white/15 backdrop-blur-md border border-white/20 text-white text-[11px] sm:text-xs font-bold tracking-[0.25em] uppercase shadow-lg transition-colors">
-              {data.accentText || "New Season Drop"}
-            </span>
-          </div>
+          {Boolean(data.accentText && data.accentText.trim()) && (
+            <div>
+              <span className="inline-flex items-center px-3.5 py-1.5 rounded-md bg-white/10 hover:bg-white/15 backdrop-blur-md border border-white/20 text-white text-[11px] sm:text-xs font-bold tracking-[0.25em] uppercase shadow-lg transition-colors">
+                {data.accentText}
+              </span>
+            </div>
+          )}
 
           {/* Headline */}
-          <h1 className="text-3xl sm:text-5xl md:text-6xl lg:text-7xl font-black text-white tracking-tight leading-[1.06] drop-shadow-2xl">
-            {data.title || "Summer Styles Are Finally Here"}
-          </h1>
+          {Boolean(data.title && data.title.trim()) && (
+            <h1 className="text-3xl sm:text-5xl md:text-6xl lg:text-7xl font-black text-white tracking-tight leading-[1.06] drop-shadow-2xl">
+              {data.title}
+            </h1>
+          )}
 
           {/* Subtitle */}
-          <p className="text-white/80 text-sm sm:text-base lg:text-lg font-normal leading-relaxed max-w-xl drop-shadow-md">
-            {data.subtitle || "Discover our latest curated pieces made for the modern era."}
-          </p>
+          {Boolean(data.subtitle && data.subtitle.trim()) && (
+            <p className="text-white/80 text-sm sm:text-base lg:text-lg font-normal leading-relaxed max-w-xl drop-shadow-md">
+              {data.subtitle}
+            </p>
+          )}
 
           {/* Action Button Row */}
-          <div className="pt-2 sm:pt-4 flex flex-wrap items-center gap-3 sm:gap-4">
-            <motion.button
-              whileHover={{ scale: 1.02, y: -2 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={() => navigate(data.ctaLink || "/products")}
-              className="inline-flex items-center gap-3 bg-white text-neutral-950 hover:bg-neutral-100 px-7 sm:px-9 py-3.5 sm:py-4 rounded-lg text-sm sm:text-base font-bold tracking-wide shadow-xl hover:shadow-2xl transition-all cursor-pointer group"
-            >
-              <span>{data.ctaText || "Explore Collection"}</span>
-              <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 group-hover:translate-x-1 transition-transform" />
-            </motion.button>
+          {Boolean(data.ctaText && data.ctaText.trim()) && (
+            <div className="pt-2 sm:pt-4 flex flex-wrap items-center gap-3 sm:gap-4">
+              <motion.button
+                whileHover={{ scale: 1.02, y: -2 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => navigate(data.ctaLink || "/products")}
+                className="inline-flex items-center gap-3 bg-white text-neutral-950 hover:bg-neutral-100 px-7 sm:px-9 py-3.5 sm:py-4 rounded-lg text-sm sm:text-base font-bold tracking-wide shadow-xl hover:shadow-2xl transition-all cursor-pointer group"
+              >
+                <span>{data.ctaText}</span>
+                <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 group-hover:translate-x-1 transition-transform" />
+              </motion.button>
 
-            <motion.button
-              whileHover={{ scale: 1.02, y: -2 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={() => navigate("/products")}
-              className="inline-flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white backdrop-blur-md border border-white/20 px-6 sm:px-8 py-3.5 sm:py-4 rounded-lg text-sm sm:text-base font-semibold transition-all cursor-pointer shadow-lg group"
-            >
-              <span>View All</span>
-              <ArrowUpRight className="w-4 h-4 opacity-70 group-hover:opacity-100 transition-opacity" />
-            </motion.button>
-          </div>
+              <motion.button
+                whileHover={{ scale: 1.02, y: -2 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => navigate("/products")}
+                className="inline-flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white backdrop-blur-md border border-white/20 px-6 sm:px-8 py-3.5 sm:py-4 rounded-lg text-sm sm:text-base font-semibold transition-all cursor-pointer shadow-lg group"
+              >
+                <span>View All</span>
+                <ArrowUpRight className="w-4 h-4 opacity-70 group-hover:opacity-100 transition-opacity" />
+              </motion.button>
+            </div>
+          )}
         </motion.div>
       </div>
-
     </div>
   );
 }
@@ -437,8 +450,8 @@ function Template3({ data }: { data: HeroTemplateData }) {
       {/* Background noise texture */}
       <div className="absolute inset-0 opacity-5 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMDAiIGhlaWdodD0iMzAwIj48ZmlsdGVyIGlkPSJub2lzZSI+PGZlVHVyYnVsZW5jZSB0eXBlPSJmcmFjdGFsTm9pc2UiIGJhc2VGcmVxdWVuY3k9IjAuNjUiIG51bU9jdGF2ZXM9IjMiIHN0aXRjaFRpbGVzPSJzdGl0Y2giLz48L2ZpbHRlcj48cmVjdCB3aWR0aD0iMzAwIiBoZWlnaHQ9IjMwMCIgZmlsdGVyPSJ1cmwoI25vaXNlKSIgb3BhY2l0eT0iMSIvPjwvc3ZnPg==')]" />
 
-      {/* Centered gradient glow behind content */}
-      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[500px] h-[500px] bg-indigo-600/15 rounded-full blur-[120px] pointer-events-none" />
+
+
 
       <div className="relative z-10 mx-auto max-w-7xl px-6 sm:px-8 lg:px-12 py-20 lg:py-32">
         {/* Fully centered stacked layout container */}
@@ -451,7 +464,7 @@ function Template3({ data }: { data: HeroTemplateData }) {
             transition={{ duration: 0.8 }}
             className="w-full flex flex-col items-center"
           >
-            {data.accentText && (
+            {Boolean(data.accentText && data.accentText.trim()) && (
               <motion.span
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
@@ -464,36 +477,41 @@ function Template3({ data }: { data: HeroTemplateData }) {
               </motion.span>
             )}
 
-            <h1 className="text-5xl sm:text-6xl lg:text-7xl xl:text-8xl font-black text-white leading-none tracking-tighter mb-8 max-w-4xl">
-              {data.title.split(" ").map((word, i) => (
-                <motion.span
-                  key={i}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: i * 0.07 + 0.3 }}
-                  className={`inline-block mx-2 ${i % 2 === 1 ? "text-[var(--theme-accent)]" : "text-white"}`}
-                >
-                  {word}
-                </motion.span>
-              ))}
-            </h1>
+            {Boolean(data.title && data.title.trim()) && (
+              <h1 className="text-5xl sm:text-6xl lg:text-7xl xl:text-8xl font-black text-white leading-none tracking-tighter mb-8 max-w-4xl">
+                {data.title!.split(" ").map((word, i) => (
+                  <motion.span
+                    key={i}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.07 + 0.3 }}
+                    className={`inline-block mx-2 ${i % 2 === 1 ? "text-[var(--theme-accent)]" : "text-white"}`}
+                  >
+                    {word}
+                  </motion.span>
+                ))}
+              </h1>
+            )}
 
-            <p className="text-white/50 text-sm sm:text-lg leading-relaxed mb-10 max-w-xl">
-              {data.subtitle}
-            </p>
+            {Boolean(data.subtitle && data.subtitle.trim()) && (
+              <p className="text-white/50 text-sm sm:text-lg leading-relaxed mb-10 max-w-xl">
+                {data.subtitle}
+              </p>
+            )}
 
-            <motion.button
-              whileHover={{
-                scale: 1.03,
-                boxShadow: "0 0 40px rgba(99,102,241,0.4)",
-              }}
-              whileTap={{ scale: 0.97 }}
-              onClick={() => navigate(data.ctaLink || "/products")}
-              className="inline-flex items-center gap-3 bg-[var(--theme-primary)] text-[var(--theme-primary-ink)] px-10 py-4 rounded-full text-base font-bold hover:opacity-95 transition shadow-lg mb-20"
-            >
-              {data.ctaText || "Shop Now"}
-              <ArrowRight className="w-5 h-5" />
-            </motion.button>
+            {Boolean(data.ctaText && data.ctaText.trim()) && (
+              <motion.button
+                whileHover={{
+                  scale: 1.03,
+                }}
+                whileTap={{ scale: 0.97 }}
+                onClick={() => navigate(data.ctaLink || "/products")}
+                className="inline-flex items-center gap-3 bg-[var(--theme-primary)] text-[var(--theme-primary-ink)] px-10 py-4 rounded-full text-base font-bold hover:opacity-95 transition shadow-lg mb-20"
+              >
+                {data.ctaText}
+                <ArrowRight className="w-5 h-5" />
+              </motion.button>
+            )}
           </motion.div>
 
           {/* Perfectly Evenly-Aligned 4-Image Grid Strip */}
@@ -660,6 +678,7 @@ function Template4({ data }: { data: HeroTemplateData }) {
   const bgSrc = data.bgImage || image1;
 
   const titleParts = (() => {
+    if (!data.title) return { before: "", highlight: "", after: "" };
     if (data.highlightText && data.title.includes(data.highlightText)) {
       const idx = data.title.indexOf(data.highlightText);
       return {
@@ -671,7 +690,11 @@ function Template4({ data }: { data: HeroTemplateData }) {
     return { before: data.title, highlight: "", after: "" };
   })();
 
-  const badgeParts = data.badgeText ? data.badgeText.split("\n") : [];
+  const badgeParts = data.badgeText ? data.badgeText.split("\n").filter((p) => p.trim()) : [];
+  const hasAccent = Boolean(data.accentText && data.accentText.trim());
+  const hasTitle = Boolean(data.title && data.title.trim());
+  const hasSubtitle = Boolean(data.subtitle && data.subtitle.trim());
+  const hasCta = Boolean(data.ctaText && data.ctaText.trim());
 
   return (
     <div 
@@ -713,33 +736,39 @@ function Template4({ data }: { data: HeroTemplateData }) {
               </motion.div>
             )}
 
-            {data.accentText && (
+            {hasAccent && (
               <p className="text-[11px] font-semibold tracking-widest uppercase text-neutral-400 mb-4">
                 {data.accentText}
               </p>
             )}
 
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight leading-[1.08] text-neutral-900 mb-6">
-              {titleParts.before}
-              {titleParts.highlight && (
-                <span className="text-[var(--theme-accent)]">{titleParts.highlight}</span>
-              )}
-              {titleParts.after}
-            </h1>
+            {hasTitle && (
+              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight leading-[1.08] text-neutral-900 mb-6">
+                {titleParts.before}
+                {titleParts.highlight && (
+                  <span className="text-[var(--theme-accent)]">{titleParts.highlight}</span>
+                )}
+                {titleParts.after}
+              </h1>
+            )}
 
-            <p className="text-neutral-500 text-base sm:text-lg leading-relaxed mb-10 max-w-xl">
-              {data.subtitle}
-            </p>
+            {hasSubtitle && (
+              <p className="text-neutral-500 text-base sm:text-lg leading-relaxed mb-10 max-w-xl">
+                {data.subtitle}
+              </p>
+            )}
 
-            <motion.button
-              whileHover={{ y: -2, boxShadow: "0 12px 30px rgba(0,0,0,0.2)" }}
-              whileTap={{ scale: 0.98 }}
-              onClick={() => navigate(data.ctaLink || "/products")}
-              className="group inline-flex items-center gap-2.5 bg-[var(--theme-primary)] hover:bg-[var(--theme-primary-hover)] text-[var(--theme-primary-ink)] px-8 py-4 rounded-xl text-sm font-semibold transition-all duration-200 shadow-xl shadow-neutral-950/10"
-            >
-              {data.ctaText || "Shop Now"}
-              <ArrowRight className="w-4 h-4 transition-transform duration-200 group-hover:translate-x-1" />
-            </motion.button>
+            {hasCta && (
+              <motion.button
+                whileHover={{ y: -2, boxShadow: "0 12px 30px rgba(0,0,0,0.2)" }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => navigate(data.ctaLink || "/products")}
+                className="group inline-flex items-center gap-2.5 bg-[var(--theme-primary)] hover:bg-[var(--theme-primary-hover)] text-[var(--theme-primary-ink)] px-8 py-4 rounded-xl text-sm font-semibold transition-all duration-200 shadow-xl shadow-neutral-950/10"
+              >
+                {data.ctaText}
+                <ArrowRight className="w-4 h-4 transition-transform duration-200 group-hover:translate-x-1" />
+              </motion.button>
+            )}
           </motion.div>
 
           {/* Right: Clean, Unobstructed Product Image */}
@@ -862,13 +891,15 @@ function Template5({ data }: { data: HeroTemplateData }) {
           <div className="group relative bg-neutral-100 rounded-3xl overflow-hidden w-full h-[280px] sm:h-[340px] md:h-[380px] lg:h-[420px] shadow-sm hover:shadow-lg transition-all duration-300 border border-neutral-200/50">
             <img src={images[3]} alt="Fashion portrait" className="w-full h-full object-cover object-[center_20%] group-hover:scale-105 transition-transform duration-700" />
           </div>
-          <button
-            onClick={() => navigate(data.ctaLink || "/products")}
-            className="w-full bg-[var(--theme-primary)] hover:bg-[var(--theme-primary-hover)] text-[var(--theme-primary-ink)] py-4 px-6 rounded-full flex items-center justify-center gap-2 font-bold text-sm sm:text-base tracking-wide shadow-md hover:shadow-xl transition-all duration-200 group cursor-pointer"
-          >
-            <span>{data.ctaText || "Explore Collections"}</span>
-            <ArrowUpRight className="w-4 h-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
-          </button>
+          {Boolean(data.ctaText && data.ctaText.trim()) && (
+            <button
+              onClick={() => navigate(data.ctaLink || "/products")}
+              className="w-full bg-[var(--theme-primary)] hover:bg-[var(--theme-primary-hover)] text-[var(--theme-primary-ink)] py-4 px-6 rounded-full flex items-center justify-center gap-2 font-bold text-sm sm:text-base tracking-wide shadow-md hover:shadow-xl transition-all duration-200 group cursor-pointer"
+            >
+              <span>{data.ctaText}</span>
+              <ArrowUpRight className="w-4 h-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+            </button>
+          )}
         </motion.div>
 
         {/* Column 4: Tall Image */}
@@ -1011,7 +1042,7 @@ function Template7({ data }: { data: HeroTemplateData }) {
       className="relative overflow-hidden w-full bg-white flex items-center"
     >
       <div className="relative z-10 mx-auto max-w-4xl px-6 text-center py-24">
-        {data.accentText && (
+        {Boolean(data.accentText && data.accentText.trim()) && (
           <motion.p
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -1022,35 +1053,41 @@ function Template7({ data }: { data: HeroTemplateData }) {
             {data.accentText}
           </motion.p>
         )}
-        <motion.h1
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
-          className="text-5xl sm:text-6xl lg:text-7xl font-bold tracking-tight leading-[1.05] text-neutral-900 mb-8"
-          style={{ fontFamily: "var(--theme-font-heading)" }}
-        >
-          {data.title}
-        </motion.h1>
-        <motion.p
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.7, delay: 0.15 }}
-          className="text-neutral-500 text-base sm:text-lg leading-relaxed mb-10 max-w-lg mx-auto"
-        >
-          {data.subtitle}
-        </motion.p>
-        <motion.button
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.7, delay: 0.3 }}
-          whileHover={{ scale: 1.03 }}
-          whileTap={{ scale: 0.97 }}
-          onClick={() => navigate(data.ctaLink || "/products")}
-          className="inline-flex items-center gap-3 bg-[var(--theme-primary)] text-[var(--theme-primary-ink)] px-9 py-4 rounded-full text-base font-bold tracking-wide hover:bg-[var(--theme-primary-hover)] transition-colors shadow-lg"
-        >
-          {data.ctaText || "Shop Now"}
-          <ArrowRight className="w-5 h-5 stroke-[2.5]" />
-        </motion.button>
+        {Boolean(data.title && data.title.trim()) && (
+          <motion.h1
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+            className="text-5xl sm:text-6xl lg:text-7xl font-bold tracking-tight leading-[1.05] text-neutral-900 mb-8"
+            style={{ fontFamily: "var(--theme-font-heading)" }}
+          >
+            {data.title}
+          </motion.h1>
+        )}
+        {Boolean(data.subtitle && data.subtitle.trim()) && (
+          <motion.p
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7, delay: 0.15 }}
+            className="text-neutral-500 text-base sm:text-lg leading-relaxed mb-10 max-w-lg mx-auto"
+          >
+            {data.subtitle}
+          </motion.p>
+        )}
+        {Boolean(data.ctaText && data.ctaText.trim()) && (
+          <motion.button
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7, delay: 0.3 }}
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.97 }}
+            onClick={() => navigate(data.ctaLink || "/products")}
+            className="inline-flex items-center gap-3 bg-[var(--theme-primary)] text-[var(--theme-primary-ink)] px-9 py-4 rounded-full text-base font-bold tracking-wide hover:bg-[var(--theme-primary-hover)] transition-colors shadow-lg"
+          >
+            {data.ctaText}
+            <ArrowRight className="w-5 h-5 stroke-[2.5]" />
+          </motion.button>
+        )}
       </div>
     </div>
   );
@@ -1144,12 +1181,9 @@ function Template8({ data }: { data: HeroTemplateData }) {
   const navigate = useNavigate();
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
 
-  const title = data.title !== undefined && data.title !== "" ? data.title : "Curious What Else I've Created?";
-  const accent = data.accentText !== undefined && data.accentText !== "" ? data.accentText : "Behind the Designs";
-  const subtitle =
-    data.subtitle !== undefined && data.subtitle !== ""
-      ? data.subtitle
-      : "Explore our latest collection of handcrafted fashion, signature jewelry, and artisanal creations made for the modern aesthetic.";
+  const title = data.title;
+  const accent = data.accentText;
+  const subtitle = data.subtitle;
   const ctaLink = data.ctaLink || "/products";
 
   const images = (() => {
@@ -1175,7 +1209,7 @@ function Template8({ data }: { data: HeroTemplateData }) {
       {/* Header Container */}
       <div className="relative z-10 max-w-5xl mx-auto px-6 text-center">
         {/* Main Headline */}
-        {title && (
+        {Boolean(title && title.trim()) && (
           <motion.h1
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -1187,7 +1221,7 @@ function Template8({ data }: { data: HeroTemplateData }) {
         )}
 
         {/* Subtitle */}
-        {subtitle && (
+        {Boolean(subtitle && subtitle.trim()) && (
           <motion.p
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -1303,129 +1337,208 @@ const TEMPLATE9_FALLBACK_IMAGES = [
 ];
 
 function Template9({ data }: { data: HeroTemplateData }) {
+  const navigate = useNavigate();
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
+  const touchStartXRef = useRef<number | null>(null);
 
-  // Collect all available images (up to 5)
+  // Collect configured images. If admin configured images (e.g. 1 or 3), show ONLY those images.
+  // Never pad removed/empty slots with default fallback images.
   const slides = (() => {
-    const rawImages = (data.images && data.images.length > 0)
-      ? data.images.filter(Boolean)
-      : [];
-    if (rawImages.length === 0) {
-      return TEMPLATE9_FALLBACK_IMAGES;
+    const configured: { image: string; link?: string }[] = [];
+    if (data.images && Array.isArray(data.images)) {
+      data.images.forEach((img, idx) => {
+        if (img && typeof img === "string" && img.trim().length > 0) {
+          configured.push({
+            image: img.trim(),
+            link: data.imageLinks?.[idx] || data.ctaLink || "",
+          });
+        }
+      });
     }
-    const filled: string[] = [];
-    for (let i = 0; i < 5; i++) {
-      filled.push(rawImages[i] || TEMPLATE9_FALLBACK_IMAGES[i]);
+
+    if (configured.length > 0) {
+      return configured;
     }
-    return filled;
+
+    return TEMPLATE9_FALLBACK_IMAGES.map((img) => ({
+      image: img,
+      link: data.ctaLink || "",
+    }));
   })();
 
   const totalSlides = slides.length;
 
-  // Auto-advance every 5 seconds (5000ms) continuously
+  // Clamp currentIndex if slides count reduces (e.g. admin removed images)
   useEffect(() => {
-    if (totalSlides <= 1) return;
+    if (currentIndex >= totalSlides && totalSlides > 0) {
+      setCurrentIndex(0);
+    }
+  }, [totalSlides, currentIndex]);
+
+  // Auto-advance every 5 seconds, pauses when user hovers or interacts
+  useEffect(() => {
+    if (totalSlides <= 1 || isPaused) return;
     const interval = setInterval(() => {
       setCurrentIndex((prev) => (prev + 1) % totalSlides);
     }, 5000);
     return () => clearInterval(interval);
-  }, [totalSlides]);
+  }, [totalSlides, isPaused]);
 
-  const handlePrev = (e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handlePrev = (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
     setCurrentIndex((prev) => (prev - 1 + totalSlides) % totalSlides);
   };
 
-  const handleNext = (e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handleNext = (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
     setCurrentIndex((prev) => (prev + 1) % totalSlides);
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartXRef.current = e.touches[0].clientX;
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartXRef.current === null) return;
+    const diff = touchStartXRef.current - e.changedTouches[0].clientX;
+    if (Math.abs(diff) > 40) {
+      if (diff > 0) handleNext();
+      else handlePrev();
+    }
+    touchStartXRef.current = null;
+  };
+
+  const activeSlide = slides[currentIndex] || slides[0];
+  const currentLink = activeSlide?.link || data.ctaLink || "";
+
+  const handleSlideClick = () => {
+    if (!currentLink) return;
+    if (currentLink.startsWith("http://") || currentLink.startsWith("https://")) {
+      window.open(currentLink, "_blank", "noopener,noreferrer");
+    } else {
+      navigate(currentLink);
+    }
   };
 
   return (
     <div 
       style={{
         marginTop: "var(--app-header-h, 7rem)",
-        height: "calc(100dvh - var(--app-header-h, 7rem))",
       }}
-      className="relative overflow-hidden w-full bg-neutral-950 min-h-[520px] select-none group"
+      className="w-full bg-white select-none pt-2 sm:pt-3 pb-3 sm:pb-4"
     >
-      {/* Slide Images with smooth crossfade & gentle Ken Burns animation */}
-      <AnimatePresence initial={false}>
-        <motion.div
-          key={currentIndex}
-          initial={{ opacity: 0, scale: 1.04 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.9, ease: "easeInOut" }}
-          className="absolute inset-0 w-full h-full"
+      <div className="max-w-[1920px] mx-auto px-2 sm:px-4 md:px-6">
+        {/* Banner Card Frame with Referral Aspect Ratio (2.65:1 on desktop / 1920x720) */}
+        <div 
+          onMouseEnter={() => setIsPaused(true)}
+          onMouseLeave={() => setIsPaused(false)}
+          onTouchStart={handleTouchStart}
+          onTouchEnd={handleTouchEnd}
+          onClick={handleSlideClick}
+          className={`relative w-full aspect-[16/9] sm:aspect-[2.2/1] md:aspect-[2.65/1] overflow-hidden rounded-xl sm:rounded-2xl md:rounded-3xl bg-neutral-900 border border-neutral-200/60 shadow-xs group ${
+            currentLink ? "cursor-pointer" : ""
+          }`}
         >
-          <img
-            src={slides[currentIndex]}
-            alt={`Banner slide ${currentIndex + 1}`}
-            className="w-full h-full object-cover object-center"
-          />
-        </motion.div>
-      </AnimatePresence>
+          {/* Slide Images with smooth crossfade */}
+          <AnimatePresence initial={false}>
+            <motion.div
+              key={currentIndex}
+              initial={{ opacity: 0, scale: 1.02 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.7, ease: "easeInOut" }}
+              className="absolute inset-0 w-full h-full"
+            >
+              <img
+                src={activeSlide?.image}
+                alt={`Banner slide ${currentIndex + 1}`}
+                className="w-full h-full object-cover object-center pointer-events-none"
+                draggable={false}
+              />
+            </motion.div>
+          </AnimatePresence>
 
-      {/* Simple Navigation Arrows */}
-      <button
-        onClick={handlePrev}
-        aria-label="Previous Slide"
-        className="absolute left-3 sm:left-5 top-1/2 -translate-y-1/2 z-20 w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-white/80 hover:bg-white text-neutral-900 flex items-center justify-center transition-all shadow-md hover:scale-105 cursor-pointer opacity-0 group-hover:opacity-100"
-      >
-        <ChevronLeft className="w-5 h-5" />
-      </button>
+          {/* Left / Right Frosted Circular Navigation Arrows (Same as referral image) */}
+          {totalSlides > 1 && (
+            <>
+              <button
+                type="button"
+                onClick={handlePrev}
+                aria-label="Previous Slide"
+                className="absolute left-2.5 sm:left-4 md:left-5 top-1/2 -translate-y-1/2 z-20 w-8 h-8 sm:w-10 sm:h-10 md:w-11 md:h-11 rounded-full bg-black/40 hover:bg-black/65 text-white backdrop-blur-xs flex items-center justify-center transition-all duration-200 shadow-md hover:scale-105 active:scale-95 cursor-pointer opacity-85 hover:opacity-100"
+              >
+                <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6" />
+              </button>
 
-      <button
-        onClick={handleNext}
-        aria-label="Next Slide"
-        className="absolute right-3 sm:right-5 top-1/2 -translate-y-1/2 z-20 w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-white/80 hover:bg-white text-neutral-900 flex items-center justify-center transition-all shadow-md hover:scale-105 cursor-pointer opacity-0 group-hover:opacity-100"
-      >
-        <ChevronRight className="w-5 h-5" />
-      </button>
+              <button
+                type="button"
+                onClick={handleNext}
+                aria-label="Next Slide"
+                className="absolute right-2.5 sm:right-4 md:right-5 top-1/2 -translate-y-1/2 z-20 w-8 h-8 sm:w-10 sm:h-10 md:w-11 md:h-11 rounded-full bg-black/40 hover:bg-black/65 text-white backdrop-blur-xs flex items-center justify-center transition-all duration-200 shadow-md hover:scale-105 active:scale-95 cursor-pointer opacity-85 hover:opacity-100"
+              >
+                <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6" />
+              </button>
+            </>
+          )}
+        </div>
 
-      {/* Simple Bottom Pagination Dots */}
-      <div className="absolute bottom-4 sm:bottom-6 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2">
-        {slides.map((_, idx) => (
-          <button
-            key={idx}
-            onClick={(e) => {
-              e.stopPropagation();
-              setCurrentIndex(idx);
-            }}
-            aria-label={`Go to slide ${idx + 1}`}
-            className={`transition-all duration-300 rounded-full cursor-pointer shadow-sm ${
-              currentIndex === idx
-                ? "w-6 h-2 bg-white"
-                : "w-2 h-2 bg-white/50 hover:bg-white/80"
-            }`}
-          />
-        ))}
+        {/* Bottom Referral-Style Controls: Counter Pill ("1/3" or "1/5") + Indicator Dots */}
+        {totalSlides > 1 && (
+          <div className="flex items-center justify-center gap-2 mt-2 sm:mt-2.5 select-none">
+            {/* Slide Counter Pill Badge (e.g. "1/3" or "1/5") */}
+            <div className="bg-neutral-900 text-white text-[10px] sm:text-[11px] font-semibold px-2 sm:px-2.5 py-0.5 rounded-full shadow-2xs tabular-nums tracking-wider">
+              {currentIndex + 1}/{totalSlides}
+            </div>
+
+            {/* Indicator Dots */}
+            <div className="flex items-center gap-1.5">
+              {slides.map((_, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => setCurrentIndex(idx)}
+                  aria-label={`Go to slide ${idx + 1}`}
+                  className={`transition-all duration-300 rounded-full cursor-pointer ${
+                    currentIndex === idx
+                      ? "w-2 h-2 bg-neutral-900 scale-110"
+                      : "w-1.5 h-1.5 bg-neutral-300 hover:bg-neutral-400"
+                  }`}
+                />
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
-// ─── Template 10: Luxury Editorial Festive Banner ─────────────────────────────
+// ─── Template 10: Luxury Editorial Festive Banner (Half-Height Compact Edition) ──
 const TEMPLATE10_FALLBACK_BANNER =
   "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&q=85&w=2400";
 
 function Template10({ data }: { data: HeroTemplateData }) {
   const navigate = useNavigate();
   const bannerSrc = data.bgImage || TEMPLATE10_FALLBACK_BANNER;
-  const title = data.title !== undefined && data.title !== "" ? data.title : "Festive";
-  const scriptAccent = data.highlightText !== undefined && data.highlightText !== "" ? data.highlightText : (data.accentText || "Sale");
-  const subtitle = data.subtitle !== undefined && data.subtitle !== "" ? data.subtitle : "Flat 50% OFF +\nExtra Rs.1000/- OFF";
-  const ctaText = data.ctaText !== undefined && data.ctaText !== "" ? data.ctaText : "Explore More";
+  const title = data.title;
+  const scriptAccent = data.highlightText ?? data.accentText;
+  const subtitle = data.subtitle;
+  const ctaText = data.ctaText;
   const ctaLink = data.ctaLink || "/products";
+
+  const hasTitle = Boolean(title && title.trim());
+  const hasScriptAccent = Boolean(scriptAccent && scriptAccent.trim());
+  const hasSubtitle = Boolean(subtitle && subtitle.trim());
+  const hasCta = Boolean(ctaText && ctaText.trim());
 
   return (
     <section 
       style={{
         marginTop: "var(--app-header-h, 7rem)",
-        minHeight: "calc(100vh - var(--app-header-h, 7rem))",
+        minHeight: "calc((100vh - var(--app-header-h, 7rem)) * 0.5)",
       }}
-      className="relative w-full overflow-hidden bg-neutral-950 select-none min-h-[480px] sm:min-h-[560px] lg:min-h-[620px] flex items-center"
+      className="relative w-full overflow-hidden bg-neutral-950 select-none min-h-[260px] sm:min-h-[310px] lg:min-h-[360px] max-h-[440px] flex items-center"
     >
       {/* Full-bleed Background Image */}
       <div className="absolute inset-0 w-full h-full pointer-events-none">
@@ -1439,29 +1552,29 @@ function Template10({ data }: { data: HeroTemplateData }) {
         <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent sm:hidden" />
       </div>
 
-      {/* Luxury Editorial Text Overlay */}
-      <div className="relative z-10 max-w-7xl mx-auto px-6 sm:px-12 lg:px-16 w-full py-14 sm:py-20 lg:py-28 flex flex-col justify-center">
+      {/* Luxury Editorial Text Overlay (Proportionate for Half-Height Hero) */}
+      <div className="relative z-10 max-w-7xl mx-auto px-6 sm:px-12 lg:px-16 w-full py-6 sm:py-8 lg:py-10 flex flex-col justify-center">
         <motion.div
-          initial={{ opacity: 0, y: 30 }}
+          initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
-          className="max-w-xl text-left space-y-5 sm:space-y-7"
+          transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+          className="max-w-xl text-left space-y-2.5 sm:space-y-3.5"
         >
           {/* Main Headline with Serif + Script Accent Intertwined */}
-          {(title || scriptAccent) && (
-            <div className="relative flex items-baseline flex-wrap gap-x-3 gap-y-1">
-              {title && (
+          {(hasTitle || hasScriptAccent) && (
+            <div className="relative flex items-baseline flex-wrap gap-x-2.5 gap-y-1">
+              {hasTitle && (
                 <h1
                   style={{ fontFamily: "'Cormorant Garamond', 'Playfair Display', serif" }}
-                  className="text-4xl sm:text-6xl lg:text-7xl xl:text-8xl font-normal text-white tracking-tight leading-none drop-shadow-2xl"
+                  className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-normal text-white tracking-tight leading-none drop-shadow-2xl"
                 >
                   {title}
                 </h1>
               )}
-              {scriptAccent && (
+              {hasScriptAccent && (
                 <span
                   style={{ fontFamily: "'Alex Brush', 'Great Vibes', cursive" }}
-                  className="text-4xl sm:text-6xl lg:text-7xl xl:text-8xl text-white font-normal leading-none -ml-1 sm:-ml-2 drop-shadow-2xl"
+                  className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl text-white font-normal leading-none -ml-1 drop-shadow-2xl"
                 >
                   {scriptAccent}
                 </span>
@@ -1470,23 +1583,23 @@ function Template10({ data }: { data: HeroTemplateData }) {
           )}
 
           {/* Subtitle / Multiline Discount Offer */}
-          {subtitle && (
+          {hasSubtitle && (
             <div
               style={{ fontFamily: "'Cormorant Garamond', 'Playfair Display', serif" }}
-              className="text-white/95 text-xl sm:text-3xl lg:text-4xl font-normal leading-tight tracking-wide drop-shadow-md whitespace-pre-line"
+              className="text-white/95 text-sm sm:text-base md:text-lg lg:text-xl font-normal leading-snug tracking-wide drop-shadow-md whitespace-pre-line"
             >
               {subtitle}
             </div>
           )}
 
           {/* Luxury Minimalist Outline CTA Button */}
-          {ctaText && (
-            <div className="pt-2 sm:pt-3">
+          {hasCta && (
+            <div className="pt-1.5 sm:pt-2">
               <motion.button
                 whileHover={{ scale: 1.04, backgroundColor: "rgba(255, 255, 255, 1)", color: "#0a0a0a" }}
                 whileTap={{ scale: 0.97 }}
                 onClick={() => navigate(ctaLink)}
-                className="inline-flex items-center justify-center border border-white/70 hover:border-white text-white px-7 sm:px-9 py-3 sm:py-3.5 text-xs sm:text-sm font-medium uppercase tracking-[0.25em] transition-colors duration-300 cursor-pointer shadow-xl backdrop-blur-sm"
+                className="inline-flex items-center justify-center border border-white/70 hover:border-white text-white px-5 sm:px-7 py-2 sm:py-2.5 text-xs font-medium uppercase tracking-[0.2em] transition-colors duration-300 cursor-pointer shadow-lg backdrop-blur-sm"
               >
                 {ctaText}
               </motion.button>
@@ -1499,6 +1612,7 @@ function Template10({ data }: { data: HeroTemplateData }) {
 }
 
 const HERO_CACHE_KEY = "crm_hero_config_cache";
+const HERO_UPDATE_EVENT = "crm_hero_config_updated";
 
 function readHeroCache(): HeroConfig | null {
   try {
@@ -1522,6 +1636,12 @@ export default function HeroSection({ onReady }: { onReady?: () => void }) {
 
   useEffect(() => {
     let isMounted = true;
+    const handleUpdate = () => {
+      const freshCached = readHeroCache();
+      if (freshCached) setConfig(freshCached);
+    };
+    window.addEventListener(HERO_UPDATE_EVENT, handleUpdate);
+
     api
       .get("/home-banners/homepage-config")
       .then(({ data }) => {
@@ -1643,6 +1763,7 @@ export default function HeroSection({ onReady }: { onReady?: () => void }) {
 
     return () => {
       isMounted = false;
+      window.removeEventListener(HERO_UPDATE_EVENT, handleUpdate);
     };
   }, []);
 
@@ -1675,9 +1796,10 @@ export default function HeroSection({ onReady }: { onReady?: () => void }) {
         style={skeletonStyle}
         className={`w-full ${skeletonBg} flex items-center justify-center`}
       >
-        <p className="text-sm uppercase font-bold tracking-widest text-slate-400 font-mono text-center select-none">
-          Loading...
-        </p>
+        <CircularSpinner
+          size="md"
+          dark={skeletonBg.includes("neutral-950") || config.activeTemplate === 3}
+        />
       </div>
     );
 

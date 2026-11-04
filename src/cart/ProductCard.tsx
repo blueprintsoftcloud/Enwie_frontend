@@ -1,15 +1,11 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Heart, ShoppingBag, Check, ArrowRight } from "lucide-react"; // Consistent icons
-import { toast } from "react-hot-toast"; // Using hot-toast for consistency
-import { useCart } from "../context/CartContext";
+import { Heart, Share2 } from "lucide-react";
+import { toast } from "react-hot-toast";
 import { useWishlist } from "../context/WishlistContext";
 import { domainUrl } from "../utils/constant";
 import { useAuth } from "../context/AuthContext";
 import { calculateDiscountedPrice } from "../utils/product";
-
-
-
 
 interface ProductCategory {
   name: string;
@@ -22,6 +18,8 @@ interface Product {
   price: number;
   discount?: number;
   image?: string;
+  secondaryImage?: string | null;
+  images?: string[];
   stock?: number;
   category?: ProductCategory | string;
 }
@@ -32,36 +30,30 @@ function classNames(...c: (string | false | undefined | null)[]) {
 
 const ProductCard = ({ product }: { product: Product }) => {
   const navigate = useNavigate();
-  const { addToCart, cartItems } = useCart();
   const { isProductInWishlist, toggleWishlist } = useWishlist();
   const { user } = useAuth();
 
-
-  // Safety check
   if (!product || !product.id) return null;
 
-  // State
   const [isWishlistLoading, setIsWishlistLoading] = useState(false);
-  
-  // Derived State
   const isSaved = isProductInWishlist(product.id);
-  const isInCart = cartItems.some((item) => {
-    const cartId = item.productId;
-    return String(cartId) === String(product.id);
-  });
-  const stock = typeof product.stock === "number" ? product.stock : 1;
-  const isOutOfStock = stock <= 0;
 
-  // Image Helper
-  const imageUrl = product.image?.startsWith("http")
+  const primaryUrl = product.image?.startsWith("http")
     ? product.image
-    : `${domainUrl}/${product.image}`;
+    : product.image
+    ? `${domainUrl}/${product.image}`
+    : "https://placehold.co/600x600?text=No+Image";
 
-  const categoryName = typeof product.category === 'object' 
-    ? product.category?.name 
-    : product.category;
+  const secondaryUrl = product.secondaryImage
+    ? product.secondaryImage.startsWith("http")
+      ? product.secondaryImage
+      : `${domainUrl}/${product.secondaryImage}`
+    : product.images && product.images.length > 1
+    ? product.images[1].startsWith("http")
+      ? product.images[1]
+      : `${domainUrl}/${product.images[1]}`
+    : null;
 
-  // Handlers
   const handleCardClick = () => {
     navigate(`/products/${product.id}`);
     window.scrollTo(0, 0);
@@ -70,7 +62,7 @@ const ProductCard = ({ product }: { product: Product }) => {
   const handleToggleWishlist = async (e: React.MouseEvent) => {
     e.stopPropagation();
     if (isWishlistLoading) return;
-    
+
     setIsWishlistLoading(true);
     try {
       if (!user.isAuthenticated) {
@@ -81,127 +73,128 @@ const ProductCard = ({ product }: { product: Product }) => {
 
       const success = await toggleWishlist(product.id);
       if (success) {
-        toast.success(isSaved ? "Removed from favourites" : "Added to favourites",{id:"removed wishlist productcard"});
+        toast.success(isSaved ? "Removed from favourites" : "Added to favourites", {
+          id: "wishlist-toggle-productcard",
+        });
       } else {
         toast.error("Could not update wishlist", { id: "wishlist-product-card-failed" });
       }
     } catch (error) {
-        console.error(error);
-        toast.error("Could not update wishlist", { id: "wishlist-product-card-error" });
+      console.error(error);
+      toast.error("Could not update wishlist", { id: "wishlist-product-card-error" });
     } finally {
-        setIsWishlistLoading(false);
+      setIsWishlistLoading(false);
     }
   };
 
-
-
-
-
-  const handleAddToCart = async (e: React.MouseEvent) => {
+  const handleShare = (e: React.MouseEvent) => {
     e.stopPropagation();
-
-    if (isInCart) {
-      toast.error("This item is already in your cart",{id:"already to cart allproducts"});
-      return;
-    }
-
-    if (isOutOfStock) {
-        toast.error("This item is out of stock",{id:"out of stock product card"});
-        return;
-    }
-
-    try {
-      await addToCart(product.id);
-      toast.success(`Added ${product.name} to cart`);
-    } catch (error: any) {
-      if (error?.message !== "Not authenticated") {
-        console.error(error);
-        toast.error(error?.response?.data?.message || "Failed to add to cart");
-      }
+    e.preventDefault();
+    const productUrl = `${window.location.origin}/product/${product.id}`;
+    if (typeof navigator !== "undefined" && navigator.share) {
+      navigator
+        .share({
+          title: product.name,
+          text: `Check out ${product.name} on our store!`,
+          url: productUrl,
+        })
+        .catch(() => {});
+    } else {
+      navigator.clipboard
+        .writeText(productUrl)
+        .then(() => {
+          toast.success("Product link copied to clipboard!", { id: `share-${product.id}` });
+        })
+        .catch(() => {
+          toast.success("Link copied!", { id: `share-${product.id}` });
+        });
     }
   };
+
+  const hasDiscount = Boolean(product.discount && product.discount > 0);
+  const discountedPrice = hasDiscount
+    ? Math.round(calculateDiscountedPrice(product.price, product.discount!))
+    : Math.round(Number(product.price));
+  const originalPrice = Math.round(Number(product.price));
 
   return (
-    <div 
+    <div
       onClick={handleCardClick}
-      className="group relative aspect-[5/7] w-full cursor-pointer overflow-hidden rounded-[2rem] bg-gray-100 transition-all duration-500 hover:shadow-2xl hover:-translate-y-2"
+      className="group flex flex-col w-full cursor-pointer select-none transition-transform duration-300"
     >
-      {/* 1. Background Image */}
-      <img
-        src={imageUrl}
-        alt={product.name}
-        className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110"
-      />
+      {/* 1. Square Image Container with Rounded Corners */}
+      <div className="relative aspect-square w-full overflow-hidden rounded-2xl bg-stone-50 shadow-xs border border-gray-100">
+        <img
+          src={primaryUrl}
+          alt={product.name}
+          loading="lazy"
+          decoding="async"
+          className={`h-full w-full object-cover transition-all duration-500 ease-out group-hover:scale-105 ${
+            secondaryUrl ? "group-hover:opacity-0" : ""
+          }`}
+        />
 
-      {/* 2. Gradient Overlay */}
-      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/0 to-black/0 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+        {secondaryUrl && (
+          <img
+            src={secondaryUrl}
+            alt={`${product.name} alternate view`}
+            loading="lazy"
+            decoding="async"
+            className="absolute inset-0 h-full w-full object-cover opacity-0 transition-all duration-500 ease-out group-hover:opacity-100 group-hover:scale-105"
+          />
+        )}
 
-      {/* 4. Top Right: Action Buttons */}
-      <div className="absolute right-4 top-4 flex flex-col gap-3">
-        {/* Wishlist Button */}
+        {/* 2. Floating Circular Wishlist Button (Top Right) */}
         <button
+          type="button"
+          aria-label="Save to wishlist"
           onClick={handleToggleWishlist}
           disabled={isWishlistLoading}
-          className="flex h-10 w-10 items-center justify-center rounded-full bg-white/90 text-gray-900 shadow-md backdrop-blur-md transition-all hover:scale-110 active:scale-95 disabled:opacity-70"
+          className="absolute right-2.5 top-2.5 sm:right-3 sm:top-3 z-10 flex h-8 w-8 sm:h-8.5 sm:w-8.5 items-center justify-center rounded-full bg-white/90 text-gray-700 shadow-2xs backdrop-blur-xs transition-all duration-200 hover:scale-110 hover:bg-white active:scale-90 border border-gray-200/60 disabled:opacity-60 cursor-pointer"
         >
           <Heart
             className={classNames(
-              "h-5 w-5 transition-colors",
-              isSaved ? "fill-red-500 text-red-500" : "text-gray-900"
+              "h-4 w-4 transition-colors",
+              isSaved ? "fill-red-500 text-red-500 stroke-red-500" : "text-gray-700 stroke-[1.75]"
             )}
           />
         </button>
 
-        {/* Add To Cart Button */}
+        {/* 3. Floating Circular Share Button (Desktop hover only - hidden on mobile) */}
         <button
-          onClick={handleAddToCart}
-          disabled={isInCart || isOutOfStock}
-          className={classNames(
-            "flex h-10 w-10 items-center justify-center rounded-full shadow-md backdrop-blur-md transition-all hover:scale-110 active:scale-95",
-            isInCart 
-              ? "bg-green-100 text-green-700 cursor-default" 
-              : "bg-white/90 text-gray-900 hover:bg-black hover:text-white"
-          )}
+          type="button"
+          aria-label="Share product"
+          onClick={handleShare}
+          className="hidden sm:flex absolute right-2.5 top-11.5 sm:right-3 sm:top-12 z-10 h-8 w-8 sm:h-8.5 sm:w-8.5 items-center justify-center rounded-full bg-white/90 text-gray-700 shadow-2xs backdrop-blur-xs transition-all duration-200 hover:scale-110 hover:bg-white active:scale-90 border border-gray-200/60 cursor-pointer sm:opacity-0 sm:group-hover:opacity-100"
+          title="Share product"
         >
-          {isInCart ? <Check className="h-5 w-5" /> : <ShoppingBag className="h-5 w-5" />}
+          <Share2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-gray-700 stroke-[1.75]" />
         </button>
       </div>
 
-      {/* 5. Bottom Info Card */}
-      <div className="absolute bottom-4 left-4 right-4 translate-y-4 opacity-0 transition-all duration-300 group-hover:translate-y-0 group-hover:opacity-100">
-        <div className="flex items-center justify-between rounded-2xl bg-white/95 p-4 shadow-xl backdrop-blur-md border border-white/50">
-          <div className="flex flex-col truncate pr-2">
-            <h3 className="truncate text-sm font-bold text-gray-900">
-              {product.name}
-            </h3>
-            {product.discount && product.discount > 0 ? (
-              <div className="mt-0.5 flex items-baseline gap-1.5 flex-wrap">
-                <span className="text-xs sm:text-sm font-black text-emerald-700 tracking-tight">
-                  ₹{Math.round(calculateDiscountedPrice(product.price, product.discount)).toLocaleString("en-IN")}
-                </span>
-                <span className="text-[10px] text-gray-400 line-through font-normal">
-                  ₹{Math.round(Number(product.price)).toLocaleString("en-IN")}
-                </span>
-                <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200/60 px-1.5 py-0.5 rounded-md leading-none shadow-2xs">
-                  {Math.round(Number(product.discount))}% OFF
-                </span>
-              </div>
-            ) : (
-              <p className="mt-0.5 text-xs sm:text-sm font-black text-emerald-700 tracking-tight">
-                ₹{Math.round(Number(product.price)).toLocaleString("en-IN")}
-              </p>
-            )}
-          </div>
-          
-          <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-gray-100 group-hover:bg-black group-hover:text-white transition-colors duration-300">
-            <ArrowRight className="h-4 w-4" />
-          </div>
+      {/* 4. Product Info Left-Aligned Below Image */}
+      <div className="mt-2.5 sm:mt-3 flex flex-col items-start text-left px-0.5 font-sans">
+        <h3 className="w-full text-xs sm:text-[13px] font-normal text-gray-800 leading-snug line-clamp-1 group-hover:text-black transition-colors text-left">
+          {product.name}
+        </h3>
+
+        <div className="mt-1 flex items-center justify-start gap-2 text-xs sm:text-[13px] flex-wrap">
+          {hasDiscount ? (
+            <>
+              <span className="text-gray-400 line-through font-normal text-[11px] sm:text-xs">
+                ₹ {originalPrice.toLocaleString("en-IN")}
+              </span>
+              <span className="text-gray-950 font-medium">
+                From ₹ {discountedPrice.toLocaleString("en-IN")}
+              </span>
+            </>
+          ) : (
+            <span className="text-gray-950 font-medium">
+              ₹ {originalPrice.toLocaleString("en-IN")}
+            </span>
+          )}
         </div>
       </div>
-
-      
-
-
     </div>
   );
 };

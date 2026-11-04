@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
@@ -9,12 +9,14 @@ import {
   TruckIcon,
   XMarkIcon,
   ChevronLeftIcon,
+  ChevronDownIcon,
   CheckCircleIcon,
   ArrowRightIcon,
   ShieldCheckIcon,
   SparklesIcon,
 } from "@heroicons/react/24/outline";
 import { BeatLoader } from "react-spinners";
+import { fetchPincodeDetails } from "../utils/pincodeLookup";
 import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -120,7 +122,13 @@ export default function DeliveryLocationModal({ isOpen, onClose, product }: Deli
   const [position, setPosition] = useState<[number, number] | null>(null);
   const [gpsCoords, setGpsCoords] = useState<[number, number] | null>(null);
   const [preview, setPreview] = useState<ShippingPreview | null>(null);
-  const [manualForm, setManualForm] = useState({ fullAddress: "", city: "", state: "", zipCode: "" });
+  const [manualForm, setManualForm] = useState({ fullAddress: "", city: "", state: "", zipCode: "", locality: "" });
+  const [availableLocalities, setAvailableLocalities] = useState<string[]>([]);
+  const [isLocalityDropdownOpen, setIsLocalityDropdownOpen] = useState(false);
+  const [pincodeLoading, setPincodeLoading] = useState(false);
+  const [pincodeError, setPincodeError] = useState<string | null>(null);
+  const [addressError, setAddressError] = useState<string | null>(null);
+  const addressInputRef = useRef<HTMLTextAreaElement | null>(null);
   const [gpsLoading, setGpsLoading] = useState(false);
   const [calcLoading, setCalcLoading] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -139,7 +147,12 @@ export default function DeliveryLocationModal({ isOpen, onClose, product }: Deli
       setIsProcessing(false);
       setRepositioning(false);
       setAddressLoading(false);
-      setManualForm({ fullAddress: "", city: "", state: "", zipCode: "" });
+      setManualForm({ fullAddress: "", city: "", state: "", zipCode: "", locality: "" });
+      setAvailableLocalities([]);
+      setIsLocalityDropdownOpen(false);
+      setPincodeLoading(false);
+      setPincodeError(null);
+      setAddressError(null);
       return;
     }
     setAddressLoading(true);
@@ -264,31 +277,76 @@ const isWithinIndiaBoundingBox = (lat: number, lng: number): boolean => {
     const val = e.target.value;
     const cleanPincode = val.replace(/\D/g, "").slice(0, 6);
     setManualForm((prev) => ({ ...prev, zipCode: cleanPincode }));
+    setPincodeError(null);
+
+    if (cleanPincode.length < 6) {
+      setAvailableLocalities([]);
+      setManualForm((prev) => ({ ...prev, locality: "" }));
+      return;
+    }
 
     if (cleanPincode.length === 6) {
+      setPincodeLoading(true);
       try {
-        const res = await fetch(`https://api.postalpincode.in/pincode/${cleanPincode}`);
-        if (res.ok) {
-          const data = await res.json();
-          if (data && data[0] && data[0].Status === "Success") {
-            const postOffice = data[0].PostOffice[0];
-            const fetchedState = postOffice.State;
-            const fetchedCity = postOffice.District || postOffice.Block || postOffice.Name;
-            setManualForm((prev) => ({
-              ...prev,
-              state: fetchedState || prev.state,
-              city: fetchedCity || prev.city,
-            }));
-            toast.success(`Pincode resolved to ${fetchedCity}, ${fetchedState}`);
+        const result = await fetchPincodeDetails(cleanPincode);
+        if (result.success) {
+          const autoLocality = result.localities.length === 1 ? result.localities[0] : "";
+          setManualForm((prev) => ({
+            ...prev,
+            state: result.state || prev.state,
+            city: result.city || prev.city,
+            locality: autoLocality,
+          }));
+          setAvailableLocalities(result.localities);
+          setPincodeError(null);
+
+          if (result.localities.length === 1) {
+            setIsLocalityDropdownOpen(false);
+            toast.success(`Resolved: ${result.localities[0]}, ${result.city}, ${result.state}`);
+          } else {
+            setIsLocalityDropdownOpen(true);
+            toast.success(`Resolved: ${result.city}, ${result.state}. Select your post office.`);
           }
+        } else {
+          setAvailableLocalities([]);
+          setIsLocalityDropdownOpen(false);
+          setPincodeError(result.error || "Pincode not found");
+          toast.error(result.error || "Pincode not found. Please enter details manually.");
         }
       } catch (err) {
         console.error("Failed to fetch state/city from pincode", err);
+        setPincodeError("Unable to verify pincode. Please enter your address details manually.");
+      } finally {
+        setPincodeLoading(false);
       }
     }
   };
 
   const handleManualCalculate = async () => {
+    const zip = manualForm.zipCode.trim();
+    if (!zip || zip.length < 6) {
+      toast.error("Please enter a valid 6-digit Pincode", { id: "manual-zip" });
+      return;
+    }
+    if (availableLocalities.length > 1 && !manualForm.locality.trim()) {
+      setIsLocalityDropdownOpen(true);
+      toast.error("Please select your Post Office / Locality", { id: "manual-locality" });
+      return;
+    }
+    const fullAddr = manualForm.fullAddress.trim();
+    if (!fullAddr) {
+      setAddressError("Please enter your House / Flat No., Street Name, or Area");
+      addressInputRef.current?.focus();
+      toast.error("Please enter your Full Address before calculating rates", { id: "manual-address" });
+      return;
+    }
+    if (fullAddr.length < 5) {
+      setAddressError("Please enter a complete address (minimum 5 characters)");
+      addressInputRef.current?.focus();
+      toast.error("Please enter a complete delivery address", { id: "manual-address" });
+      return;
+    }
+    setAddressError(null);
     const state = manualForm.state.trim();
     if (!state) {
       toast.error("Please enter your state", { id: "manual-state" });
@@ -347,11 +405,18 @@ const isWithinIndiaBoundingBox = (lat: number, lng: number): boolean => {
         await api.post("/address/save-geo", { latitude: gpsCoords[0], longitude: gpsCoords[1] });
       } else if (locMode === "manual") {
         const addr = manualForm;
+        const finalFull = addr.fullAddress
+          ? (addr.locality && !addr.fullAddress.toLowerCase().includes(addr.locality.toLowerCase())
+              ? `${addr.fullAddress}, ${addr.locality}`
+              : addr.fullAddress)
+          : (addr.locality ? `${addr.locality}, ${addr.city}` : `${addr.city}, ${addr.state}`);
+
         await api.post("/address/save-manual", {
-          fullAddress: addr.fullAddress || `${addr.city}, ${addr.state}`,
+          fullAddress: finalFull,
           city: addr.city || addr.state,
           state: addr.state,
           zipCode: addr.zipCode || "000000",
+          locality: addr.locality || undefined,
         });
       }
 
@@ -360,7 +425,8 @@ const isWithinIndiaBoundingBox = (lat: number, lng: number): boolean => {
           ? ""
           : locMode === "saved"
             ? (savedAddress?.fullAddress || `${savedAddress?.city}, ${savedAddress?.state}`)
-            : (manualForm.fullAddress || `${manualForm.city}, ${manualForm.state}`),
+            : (manualForm.fullAddress || (manualForm.locality ? `${manualForm.locality}, ${manualForm.city}` : `${manualForm.city}, ${manualForm.state}`)),
+        locality: locMode === "manual" ? manualForm.locality : ((savedAddress as any)?.locality || ""),
         detectedArea: locMode === "gps" ? (preview.address || "") : "",
         city: locMode === "saved"
           ? (savedAddress?.city || "")
@@ -591,8 +657,9 @@ const isWithinIndiaBoundingBox = (lat: number, lng: number): boolean => {
                     </div>
 
                     <div>
-                      <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
-                        Pincode <span className="text-red-500">*</span>
+                      <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5 flex items-center justify-between">
+                        <span>Pincode <span className="text-red-500">*</span></span>
+                        {pincodeLoading && <span className="text-[11px] normal-case font-normal text-indigo-600">Detecting post offices...</span>}
                       </label>
                       <div className="relative">
                         <input
@@ -601,21 +668,126 @@ const isWithinIndiaBoundingBox = (lat: number, lng: number): boolean => {
                           onChange={handlePincodeChange}
                           placeholder="6-digit pincode"
                           maxLength={6}
-                          className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-indigo-600 focus:ring-2 focus:ring-indigo-600/10 focus:outline-none transition shadow-xs font-mono"
+                          className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-indigo-600 focus:ring-2 focus:ring-indigo-600/10 focus:outline-none transition shadow-xs font-mono pr-10"
                         />
-                        {/* <SparklesIcon className="h-4 w-4 text-slate-300 absolute right-3.5 top-3.5" /> */}
+                        {pincodeLoading && (
+                          <div className="absolute right-3.5 top-1/2 -translate-y-1/2">
+                            <BeatLoader size={5} color="#4f46e5" />
+                          </div>
+                        )}
                       </div>
+                      {pincodeError && (
+                        <p className="text-[11px] font-medium text-amber-800 bg-amber-50 border border-amber-200/80 rounded-xl px-3 py-2 mt-2 flex items-center gap-1.5">
+                          <span>⚠️</span>
+                          <span>{pincodeError} — You can fill city and state manually below.</span>
+                        </p>
+                      )}
                     </div>
 
+                    {/* Multiple Post Offices / Localities Custom Dropdown */}
+                    {availableLocalities.length > 1 && (
+                      <div className="relative">
+                        <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5 flex items-center justify-between">
+                          <span>Locality / Post Office <span className="text-rose-500">*</span></span>
+                          <span className="text-[10px] font-normal normal-case text-indigo-600">Select exact area</span>
+                        </label>
+
+                        <button
+                          type="button"
+                          onClick={() => setIsLocalityDropdownOpen((prev) => !prev)}
+                          className={`w-full rounded-2xl border px-4 py-3 text-sm flex items-center justify-between transition-all shadow-xs cursor-pointer text-left ${
+                            isLocalityDropdownOpen
+                              ? "border-indigo-600 ring-2 ring-indigo-600/15 bg-white"
+                              : "border-slate-200 bg-white hover:border-indigo-600"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <MapPinIcon className="h-4 w-4 text-indigo-600 shrink-0" />
+                            <span className={`truncate font-medium ${manualForm.locality ? "text-slate-900" : "text-slate-400"}`}>
+                              {manualForm.locality || "-- Choose your Post Office / Area --"}
+                            </span>
+                          </div>
+                          <ChevronDownIcon
+                            className={`h-4 w-4 text-slate-400 shrink-0 transition-transform duration-200 ${
+                              isLocalityDropdownOpen ? "rotate-180 text-indigo-600" : ""
+                            }`}
+                          />
+                        </button>
+
+                        {isLocalityDropdownOpen && (
+                          <>
+                            <div
+                              className="fixed inset-0 z-20"
+                              onClick={() => setIsLocalityDropdownOpen(false)}
+                            />
+                            <div className="absolute left-0 right-0 mt-1.5 z-30 max-h-56 overflow-y-auto rounded-2xl border border-slate-200 bg-white p-1.5 shadow-xl">
+                              {availableLocalities.map((loc) => {
+                                const isSelected = manualForm.locality === loc;
+                                return (
+                                  <button
+                                    key={loc}
+                                    type="button"
+                                    onClick={() => {
+                                      setManualForm((f) => ({ ...f, locality: loc }));
+                                      setIsLocalityDropdownOpen(false);
+                                    }}
+                                    className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm transition-all cursor-pointer text-left ${
+                                      isSelected
+                                        ? "bg-indigo-50 text-indigo-700 font-bold"
+                                        : "text-slate-800 hover:bg-slate-50 hover:text-indigo-600"
+                                    }`}
+                                  >
+                                    <div className="flex items-center gap-2.5 truncate">
+                                      <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${isSelected ? "bg-indigo-600" : "bg-slate-300"}`} />
+                                      <span className="truncate">{loc}</span>
+                                    </div>
+                                    {isSelected && (
+                                      <CheckCircleIcon className="h-4 w-4 text-indigo-600 shrink-0" />
+                                    )}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Single Post Office Auto-selected badge */}
+                    {availableLocalities.length === 1 && manualForm.locality && (
+                      <div className="flex items-center gap-2 bg-indigo-50 border border-indigo-200 rounded-xl px-3.5 py-2 text-xs font-semibold text-indigo-700">
+                        <CheckCircleIcon className="w-4 h-4 shrink-0 text-indigo-600" />
+                        <span>Post Office: <strong>{manualForm.locality}</strong></span>
+                      </div>
+                    )}
+
                     <div>
-                      <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Full Address</label>
+                      <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5 flex items-center justify-between">
+                        <span>Full Address <span className="text-rose-500">*</span></span>
+                        {!manualForm.fullAddress.trim() && manualForm.zipCode.length === 6 && (
+                          <span className="text-[10px] normal-case text-amber-600 font-medium">Required for delivery</span>
+                        )}
+                      </label>
                       <textarea
+                        ref={addressInputRef}
                         value={manualForm.fullAddress}
-                        onChange={(e) => setManualForm((f) => ({ ...f, fullAddress: e.target.value }))}
+                        onChange={(e) => {
+                          setManualForm((f) => ({ ...f, fullAddress: e.target.value }));
+                          if (addressError) setAddressError(null);
+                        }}
                         placeholder="Flat / House No., Street Name, Area..."
                         rows={2}
-                        className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-indigo-600 focus:ring-2 focus:ring-indigo-600/10 focus:outline-none transition resize-none shadow-xs"
+                        className={`w-full rounded-2xl border px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none transition resize-none shadow-xs ${
+                          addressError
+                            ? "border-rose-400 ring-2 ring-rose-100 bg-rose-50/20"
+                            : "border-slate-200 bg-white focus:border-indigo-600 focus:ring-2 focus:ring-indigo-600/10"
+                        }`}
                       />
+                      {addressError && (
+                        <p className="text-[11px] font-medium text-rose-600 mt-1 flex items-center gap-1">
+                          <span>•</span> {addressError}
+                        </p>
+                      )}
                     </div>
 
                     <div className="grid grid-cols-2 gap-3">

@@ -34,6 +34,7 @@ interface BulkInvoiceOrder {
   orderStatus: string;
   shippingAddress?: {
     fullAddress?: string;
+    locality?: string;
     city?: string;
     state?: string;
     zipCode?: string;
@@ -131,7 +132,7 @@ export default function BulkInvoiceModal({
 
   const totalValue = orders.reduce((sum, o) => sum + (o.finalAmount || 0), 0);
   const companyName = company.COMPANY_NAME || "Store";
-  const companyTagline = company.COMPANY_TAGLINE || "Official Invoice";
+  const companyTagline = company.COMPANY_TAGLINE?.trim() || "";
 
   const fmtCurrency = (n: number) => `₹${n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
@@ -140,6 +141,13 @@ export default function BulkInvoiceModal({
     return Object.entries(variant.options)
       .map(([k, v]) => `${k}: ${v}`)
       .join(" · ");
+  };
+
+  const formatLocality = (locality?: string): string => {
+    if (!locality || !locality.trim()) return "";
+    const trimmed = locality.trim();
+    const hasPo = /(?:\b(?:p\.?o\.?|s\.?o\.?|b\.?o\.?|h\.?o\.?|post\s*office)|\(p\.?o\.?\))$/i.test(trimmed);
+    return hasPo ? trimmed : `${trimmed} P.O.`;
   };
 
   // ── A4 Print Handler ────────────────────────────────────────────────────────
@@ -229,14 +237,6 @@ export default function BulkInvoiceModal({
       if (companyTagline) addLine(companyTagline, { align: "center", size: 8 });
       addDivider();
 
-      addLine(`Invoice: ${invoiceNumber}`, { size: 9, bold: true });
-      addLine(`Date: ${invoiceDate}`);
-      addLine(`Order: #${order.id.slice(-8).toUpperCase()}`);
-      addLine(`Status: ${order.orderStatus}`);
-      const methodLabel = order.paymentMethod === "ONLINE" ? "Online" : order.paymentMethod === "QR" ? "QR" : "POD";
-      addLine(`Payment: ${methodLabel}`);
-      addDivider();
-
       addLine("BILL TO", { size: 7, bold: true });
       if (order.user) {
         addLine(order.user.username ?? "Customer", { bold: true });
@@ -249,6 +249,10 @@ export default function BulkInvoiceModal({
 
       addLine("SHIP TO", { size: 7, bold: true });
       if (addr.fullAddress) addLine(addr.fullAddress);
+      const formattedLoc = formatLocality(addr.locality);
+      if (formattedLoc && (!addr.fullAddress || !addr.fullAddress.toLowerCase().includes(addr.locality!.toLowerCase()))) {
+        addLine(formattedLoc);
+      }
       const cityLine = [addr.city, addr.state].filter(Boolean).join(", ") + (addr.zipCode ? ` - ${addr.zipCode}` : "");
       if (cityLine.trim()) addLine(cityLine);
       if (addr.country) addLine(addr.country);
@@ -560,24 +564,18 @@ export default function BulkInvoiceModal({
                   <div className="flex items-center justify-between pb-6 border-b-2 border-gray-900">
                     <div>
                       <h1 className="text-2xl font-black tracking-tight text-gray-950 uppercase">{companyName}</h1>
-                      <p className="text-xs text-gray-500 mt-0.5">{companyTagline}</p>
+                      {companyTagline && <p className="text-xs text-gray-500 mt-0.5">{companyTagline}</p>}
                     </div>
                     <div className="text-right">
-                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Tax Invoice</p>
                       <p className="text-base font-bold font-mono text-gray-900 mt-0.5">{invoiceNumber}</p>
-                      <p className="text-xs text-gray-500 mt-1">{invoiceDate}</p>
-                    </div>
+                      </div>
                   </div>
 
                   {/* Order Meta Strip */}
-                  <div className="grid grid-cols-3 gap-3 py-3.5 border-b border-gray-200 text-xs bg-gray-50/60 px-4 rounded-xl my-4">
+                  <div className="grid grid-cols-2 gap-3 py-3.5 border-b border-gray-200 text-xs bg-gray-50/60 px-4 rounded-xl my-4">
                     <div>
                       <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider block">Order ID</span>
                       <span className="font-mono font-bold text-gray-900">#{order.id.slice(-8).toUpperCase()}</span>
-                    </div>
-                    <div>
-                      <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider block">Order Status</span>
-                      <span className="font-bold text-gray-900">{order.orderStatus}</span>
                     </div>
                     <div>
                       <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider block">Payment Method</span>
@@ -606,6 +604,9 @@ export default function BulkInvoiceModal({
                       <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Ship To</p>
                       <div className="space-y-0.5">
                         {addr.fullAddress && <p className="font-medium text-gray-900">{addr.fullAddress}</p>}
+                        {addr.locality && (!addr.fullAddress || !addr.fullAddress.toLowerCase().includes(addr.locality.toLowerCase())) && (
+                          <p>{formatLocality(addr.locality)}</p>
+                        )}
                         <p>
                           {[addr.city, addr.state].filter(Boolean).join(", ")}
                           {addr.zipCode ? ` – ${addr.zipCode}` : ""}

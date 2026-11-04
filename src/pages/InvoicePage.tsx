@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Printer, Download, ArrowLeft, CheckCircle, Clock, XCircle, Truck, Package, MapPin, User, Calendar, Hash, RotateCcw, QrCode } from "lucide-react";
+import { Printer, Download, ArrowLeft, CheckCircle, Clock, XCircle, Truck, Package, MapPin, User, Hash, RotateCcw, QrCode } from "lucide-react";
 import jsPDF from "jspdf";
 import api from "../utils/api";
 import { useAuth } from "../context/AuthContext";
@@ -27,8 +27,16 @@ interface OrderItem {
 const formatVariantOptions = (variant: OrderItem["variant"]): string =>
   variant?.options ? Object.entries(variant.options).map(([axis, value]) => `${axis}: ${value}`).join(" · ") : "";
 
+const formatLocality = (locality?: string): string => {
+  if (!locality || !locality.trim()) return "";
+  const trimmed = locality.trim();
+  const hasPo = /(?:\b(?:p\.?o\.?|s\.?o\.?|b\.?o\.?|h\.?o\.?|post\s*office)|\(p\.?o\.?\))$/i.test(trimmed);
+  return hasPo ? trimmed : `${trimmed} P.O.`;
+};
+
 interface ShippingAddress {
   fullAddress?: string;
+  locality?: string;
   city?: string;
   state?: string;
   zipCode?: string;
@@ -170,8 +178,8 @@ export default function InvoicePage() {
     year: "numeric", month: "long", day: "numeric",
   });
 
-  const companyName = company.COMPANY_NAME || "blueprint_crm";
-  const companyTagline = company.COMPANY_TAGLINE || "Premium Fabric & Draping Solutions";
+  const companyName = company.COMPANY_NAME || "Store";
+  const companyTagline = company.COMPANY_TAGLINE?.trim() || "";
   const companyLogo = company.COMPANY_LOGO;
   // Customers (and anyone else without the format toggle) always get A4 — THERMAL is
   // an internal packing-slip format for whoever prints on the business's behalf, not
@@ -273,15 +281,9 @@ export default function InvoicePage() {
     };
 
     addLine(companyName, { align: "center", size: 13, bold: true });
-    addLine(companyTagline, { align: "center", size: 8 });
-    addDivider();
-
-    addLine(`Invoice: ${invoiceNumber}`, { size: 9, bold: true });
-    addLine(`Date: ${invoiceDate}`);
-    addLine(`Order: #${order.id.slice(-8).toUpperCase()}`);
-    addLine(`Status: ${orderMeta.label}`);
-    const thermalMethod = order.paymentMethod === "ONLINE" ? "Online" : order.paymentMethod === "QR" ? "QR" : "POD";
-    addLine(`Payment: ${thermalMethod}`);
+    if (companyTagline) {
+      addLine(companyTagline, { align: "center", size: 8 });
+    }
     addDivider();
 
     addLine("BILL TO", { size: 7, bold: true });
@@ -296,6 +298,10 @@ export default function InvoicePage() {
 
     addLine("SHIP TO", { size: 7, bold: true });
     if (addr.fullAddress) addLine(addr.fullAddress);
+    const formattedLoc = formatLocality(addr.locality);
+    if (formattedLoc && (!addr.fullAddress || !addr.fullAddress.toLowerCase().includes(addr.locality!.toLowerCase()))) {
+      addLine(formattedLoc);
+    }
     const cityLine = [addr.city, addr.state].filter(Boolean).join(", ") + (addr.zipCode ? ` - ${addr.zipCode}` : "");
     if (cityLine.trim()) addLine(cityLine);
     if (addr.country) addLine(addr.country);
@@ -409,19 +415,8 @@ export default function InvoicePage() {
             {/* Header */}
             <div className="text-center border-b border-dashed border-gray-400 pb-5 mb-5">
               <p className="text-sm font-extrabold tracking-tight">{companyName}</p>
-              <p className="text-[10px] text-gray-500 mt-1">{companyTagline}</p>
+              {companyTagline && <p className="text-[10px] text-gray-500 mt-1">{companyTagline}</p>}
             </div>
-
-            {/* Invoice meta */}
-            <div className="space-y-1.5 mb-5">
-              <p><span className="font-bold">Invoice:</span> {invoiceNumber}</p>
-              <p><span className="font-bold">Date:</span> {invoiceDate}</p>
-              <p><span className="font-bold">Order:</span> #{order.id.slice(-8).toUpperCase()}</p>
-              <p><span className="font-bold">Status:</span> {orderMeta.label}</p>
-              <p><span className="font-bold">Payment:</span> {order.paymentMethod === "ONLINE" ? "Online" : order.paymentMethod === "QR" ? "Pay with QR" : "POD"}</p>
-            </div>
-
-            <div className="border-b border-dashed border-gray-400 mb-5" />
 
             {/* Bill To */}
             <div className="mb-5 space-y-1.5">
@@ -441,6 +436,9 @@ export default function InvoicePage() {
             <div className="mb-5 space-y-1.5">
               <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500">Ship To</p>
               {addr.fullAddress && <p>{addr.fullAddress}</p>}
+              {addr.locality && (!addr.fullAddress || !addr.fullAddress.toLowerCase().includes(addr.locality.toLowerCase())) && (
+                <p>{formatLocality(addr.locality)}</p>
+              )}
               <p>
                 {[addr.city, addr.state].filter(Boolean).join(", ")}
                 {addr.zipCode ? ` - ${addr.zipCode}` : ""}
@@ -499,50 +497,34 @@ export default function InvoicePage() {
           </div>
           ) : (
           <>
-          {/* ── Accent bar — tinted with the order's own status color, so the
-               document reads at a glance without needing to find the status chip ── */}
-          <div className="h-1.5 w-full" style={{ backgroundColor: orderMeta.color }} />
-
           {/* ── Header ── */}
-          <div className="relative overflow-hidden bg-gradient-to-br from-gray-950 via-black to-gray-900 text-white px-8 py-9 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
-            {/* Faint decorative ring, purely cosmetic — degrades gracefully if a
-                browser strips print backgrounds. */}
-            <div
-              className="absolute -right-16 -top-20 w-56 h-56 rounded-full opacity-[0.07] pointer-events-none print:hidden"
-              style={{ background: `radial-gradient(circle, ${orderMeta.color}, transparent 70%)` }}
-            />
-            <div className="relative flex items-center gap-4">
+          <div className="bg-white px-8 py-8 border-b border-gray-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
+            <div className="flex items-center gap-4">
               {companyLogo ? (
                 <img
                   src={companyLogo}
                   alt={companyName}
-                  className="w-14 h-14 object-contain rounded-2xl bg-white/10 ring-1 ring-white/10 p-1.5 shrink-0"
+                  className="w-14 h-14 object-contain rounded-2xl bg-gray-50 border border-gray-200 p-1.5 shrink-0"
                 />
               ) : (
-                <div className="w-14 h-14 rounded-2xl bg-white/10 ring-1 ring-white/10 flex items-center justify-center shrink-0">
+                <div className="w-14 h-14 rounded-2xl bg-gray-100 border border-gray-200 flex items-center justify-center shrink-0 text-gray-800">
                   <span className="text-xl font-black tracking-tight">{companyName.charAt(0).toUpperCase()}</span>
                 </div>
               )}
               <div>
-                <h1 className="text-2xl font-extrabold tracking-tight leading-tight">{companyName}</h1>
-                <p className="text-gray-400 text-sm mt-1">{companyTagline}</p>
+                <h1 className="text-2xl font-black tracking-tight text-gray-950 leading-tight">{companyName}</h1>
+                {companyTagline && <p className="text-gray-500 text-sm mt-1">{companyTagline}</p>}
               </div>
             </div>
-            <div className="relative text-left sm:text-right">
-              <p className="text-[10px] text-gray-400 uppercase tracking-[0.2em] font-bold">Tax Invoice</p>
-              <p className="text-lg font-bold text-white mt-1 font-mono tracking-tight">{invoiceNumber}</p>
-              <p className="flex items-center gap-1.5 text-xs text-gray-400 mt-1.5 sm:justify-end">
-                <Calendar className="w-3.5 h-3.5" />
-                {invoiceDate}
-              </p>
-            </div>
+            <div className="text-left sm:text-right">
+              <p className="text-xl font-black text-gray-950 font-mono tracking-tight">{invoiceNumber}</p>
+              </div>
           </div>
 
           {/* ── Status strip ── */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 px-8 py-6 bg-gray-50/60 border-b border-gray-100">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 px-8 py-6 bg-gray-50/60 border-b border-gray-100">
             {[
               { label: "Order ID",       value: `#${order.id.slice(-8).toUpperCase()}`, color: "#475569", icon: Hash },
-              { label: "Order Status",   value: orderMeta.label,                        color: orderMeta.color, icon: orderMeta.icon },
               {
                 label: "Payment Method",
                 value:
@@ -606,6 +588,9 @@ export default function InvoicePage() {
               </div>
               <div className="text-sm text-gray-700 space-y-0.5">
                 {addr.fullAddress && <p className="font-medium text-gray-900">{addr.fullAddress}</p>}
+                {addr.locality && (!addr.fullAddress || !addr.fullAddress.toLowerCase().includes(addr.locality.toLowerCase())) && (
+                  <p>{formatLocality(addr.locality)}</p>
+                )}
                 <p>
                   {[addr.city, addr.state].filter(Boolean).join(", ")}
                   {addr.zipCode ? ` – ${addr.zipCode}` : ""}
@@ -697,10 +682,10 @@ export default function InvoicePage() {
                 )}
               </div>
 
-              <div className="rounded-2xl bg-gray-950 text-white px-5 py-4">
+              <div className="rounded-2xl bg-gray-50 border border-gray-200 px-5 py-4">
                 <div className="flex justify-between items-baseline">
-                  <span className="text-xs font-bold uppercase tracking-widest text-gray-400">Total</span>
-                  <span className="text-xl font-extrabold tabular-nums">{fmt(order.finalAmount)}</span>
+                  <span className="text-xs font-bold uppercase tracking-widest text-gray-600">Total</span>
+                  <span className="text-2xl font-black text-gray-950 tabular-nums">{fmt(order.finalAmount)}</span>
                 </div>
               </div>
 

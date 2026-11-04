@@ -695,9 +695,7 @@ export const CategoryAttributes: React.FC<{
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm px-4">
           <div className="w-full max-w-lg rounded-2xl bg-white shadow-xl border border-slate-100 overflow-hidden">
             <div className="flex items-center gap-2.5 px-5 pt-5 pb-1">
-              <div className="p-2 rounded-xl bg-indigo-600 text-white shrink-0">
-                <Sparkles className="h-4 w-4" />
-              </div>
+             
               <div className="min-w-0 flex-1">
                 <h3 className="font-bold text-slate-900 text-sm">
                   {attrModal.mode === "add" ? "New Filter" : "Edit Filter"}

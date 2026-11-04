@@ -14,6 +14,7 @@ import { motion } from "framer-motion";
 import { ChevronLeft, ChevronRight, ArrowUpRight } from "lucide-react";
 import { resolveAssetUrl } from "../utils/category";
 import { calculateDiscountedPrice } from "../utils/product";
+import ProductCard from "../cart/ProductCard";
 import api from "../utils/api";
 
 export interface Product {
@@ -32,6 +33,7 @@ export interface FeaturedProductsProps {
   sectionTitle?: string;
   sectionSubtitle?: string;
   viewAllLink?: string;
+  template?: number;
 }
 
 const getImageUrl = (imagePath?: string): string => {
@@ -39,7 +41,7 @@ const getImageUrl = (imagePath?: string): string => {
   return resolveAssetUrl(imagePath) ?? "https://via.placeholder.com/300?text=No+Image";
 };
 
-// Shared section header — centered heading with classic old UI "See All" link
+// Shared section header — left-aligned heading matching Tribal Ornaments referral image
 const SectionHeader = ({
   sectionTitle = "Featured Collections",
   sectionSubtitle,
@@ -51,45 +53,26 @@ const SectionHeader = ({
   showSeeAll: boolean;
   viewAllLink?: string;
 }) => (
-  <div className="relative mb-10 sm:mb-14">
-    <div className="text-center max-w-4xl mx-auto px-4">
-      <motion.h2
-        initial={{ opacity: 0, y: 15 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true }}
-        transition={{ duration: 0.5 }}
-        className="text-2xl sm:text-4xl font-serif font-bold text-gray-900 leading-tight"
-      >
+  <div className="flex items-baseline justify-between mb-6 sm:mb-8 pb-3 border-b border-gray-100">
+    <div>
+      <h2 className="text-xl sm:text-2xl font-medium tracking-tight text-gray-950 font-sans uppercase">
         {sectionTitle}
-      </motion.h2>
+      </h2>
       {sectionSubtitle && (
-        <p className="text-gray-500 text-xs sm:text-sm mt-3 tracking-wide font-sans max-w-xl mx-auto">
+        <p className="text-gray-500 text-xs sm:text-sm mt-1 font-sans">
           {sectionSubtitle}
         </p>
-      )}
-      {showSeeAll && (
-        <div className="mt-3 flex justify-center md:hidden">
-          <Link
-            to={viewAllLink || "/products"}
-            className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-widest text-gray-500 hover:text-[var(--theme-primary)] transition-colors group"
-          >
-            <span>See All</span>
-            <ArrowUpRight className="w-3.5 h-3.5 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
-          </Link>
-        </div>
       )}
     </div>
 
     {showSeeAll && (
-      <div className="hidden md:flex absolute right-0 bottom-1 items-center">
-        <Link
-          to={viewAllLink || "/products"}
-          className="flex items-center gap-2 text-sm font-semibold uppercase tracking-widest text-gray-500 hover:text-[var(--theme-primary)] transition-colors group shrink-0 whitespace-nowrap"
-        >
-          <span>See All</span>
-          <ArrowUpRight className="w-4 h-4 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
-        </Link>
-      </div>
+      <Link
+        to={viewAllLink || "/products"}
+        className="inline-flex items-center gap-1.5 text-xs font-medium uppercase tracking-wider text-gray-500 hover:text-black transition-colors group shrink-0"
+      >
+        <span>View All</span>
+        <ArrowUpRight className="w-3.5 h-3.5 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+      </Link>
     )}
   </div>
 );
@@ -120,7 +103,10 @@ const Template1 = ({
 
   const scroll = (direction: "left" | "right") => {
     if (scrollContainerRef.current) {
-      const scrollAmount = direction === "left" ? -280 : 280;
+      const scrollAmount =
+        direction === "left"
+          ? -scrollContainerRef.current.clientWidth * 0.8
+          : scrollContainerRef.current.clientWidth * 0.8;
       scrollContainerRef.current.scrollBy({
         left: scrollAmount,
         behavior: "smooth",
@@ -128,39 +114,21 @@ const Template1 = ({
     }
   };
 
-  // --- Animation Variants ---
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: { staggerChildren: 0.1 },
-    },
-  };
-
-  const cardVariants = {
-    hidden: { opacity: 0, y: 20 },
-    visible: { opacity: 1, y: 0, transition: { duration: 0.5 } },
-  };
-
   // --- Loading Skeleton ---
   const LoadingSkeleton = () => (
-    <div className="flex overflow-x-hidden gap-x-8 pb-12">
+    <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6 lg:gap-8 py-2">
       {[...Array(4)].map((_, i) => (
-        <div key={i} className="w-64 shrink-0 animate-pulse">
-          <div className="w-full aspect-[3/4] bg-gray-200 rounded-xl mb-3"></div>
-          <div className="h-3 bg-gray-200 rounded w-3/4 mb-2"></div>
-          <div className="h-3 bg-gray-200 rounded w-1/4"></div>
+        <div key={i} className="w-full animate-pulse">
+          <div className="w-full aspect-square bg-stone-100 rounded-2xl mb-3 border border-gray-100" />
+          <div className="h-3.5 bg-stone-100 rounded w-1/2" />
         </div>
       ))}
     </div>
   );
 
   return (
-    <section className="bg-white py-20 relative overflow-hidden">
-      {/* Background Decoration */}
-      <div className="absolute top-0 right-0 -mr-20 -mt-20 w-96 h-96 bg-[var(--theme-primary)]/5 rounded-full blur-3xl opacity-50 pointer-events-none"></div>
-
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 relative z-10">
+    <section className="bg-white py-12 relative overflow-hidden font-sans">
+      <div className="w-full px-4 sm:px-6 md:px-8 lg:px-10 xl:px-12 relative z-10">
         {/* --- Header Section --- */}
         <SectionHeader
           sectionTitle={sectionTitle}
@@ -170,15 +138,12 @@ const Template1 = ({
         />
 
         {/* --- Loading State --- */}
-        {/* ================= CONTENT STATES ================= */}
-
-        {/* --- Loading State --- */}
         {productsLoading && <LoadingSkeleton />}
 
-        {/* --- Error State (text only, no box) --- */}
+        {/* --- Error State --- */}
         {!productsLoading && productsError && (
-          <div className="text-center py-20">
-            <p className="text-gray-400 font-light">
+          <div className="text-center py-16">
+            <p className="text-gray-400 font-light text-sm">
               Could not load featured products.
             </p>
           </div>
@@ -186,101 +151,66 @@ const Template1 = ({
 
         {/* --- Products Available --- */}
         {!productsLoading && !productsError && featuredProducts.length > 0 && (
-          <div className="relative group/carousel">
-            {/* Navigation Arrows */}
-            {isScrollable && (
-              <>
-                <button
-                  onClick={() => scroll("left")}
-                  className="absolute -left-4 top-[40%] -translate-y-1/2 z-30 p-2 rounded-full bg-white/90 backdrop-blur-md shadow-lg border border-gray-100 text-gray-800 hover:bg-black hover:text-white transition-all duration-300 opacity-0 group-hover/carousel:opacity-100 translate-x-4 group-hover/carousel:translate-x-0"
-                >
-                  <ChevronLeft className="w-5 h-5" />
-                </button>
-
-                <button
-                  onClick={() => scroll("right")}
-                  className="absolute -right-4 top-[40%] -translate-y-1/2 z-30 p-2 rounded-full bg-white/90 backdrop-blur-md shadow-lg border border-gray-100 text-gray-800 hover:bg-black hover:text-white transition-all duration-300 opacity-0 group-hover/carousel:opacity-100 -translate-x-4 group-hover/carousel:translate-x-0"
-                >
-                  <ChevronRight className="w-5 h-5" />
-                </button>
-              </>
-            )}
-
-            {/* Scrollable Container */}
-            <motion.div
-              variants={containerVariants}
-              initial="hidden"
-              whileInView="visible"
-              viewport={{ once: true }}
-              ref={scrollContainerRef}
-              className="
-                flex overflow-x-auto scroll-smooth snap-x snap-mandatory
-                py-6 pb-10
-                -mx-4 px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8
-                scroll-pl-4 sm:scroll-pl-6 lg:scroll-pl-8
-                gap-x-6 sm:gap-x-8
-              "
-              style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
-            >
+          featuredProducts.length <= 4 ? (
+            /* Exactly 4 Products: Full 4-Column Grid Matching Referral Image */
+            <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6 lg:gap-8">
               {featuredProducts.map((product: Product) => (
-                <motion.div
-                  key={product.id}
-                  variants={cardVariants}
-                  className="w-60 sm:w-64 shrink-0 snap-start"
-                >
-                  <Link to={`/products/${product.id}`} className="group block">
-                    {/* Image */}
-                    <div className="relative overflow-hidden aspect-[3/4] rounded-xl bg-gray-100 border border-gray-100 shadow-sm transition-all duration-500 group-hover:shadow-lg group-hover:-translate-y-1">
-                      <img
-                        src={getImageUrl(product.image)}
-                        alt={product.name}
-                        className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110"
-                      />
-                    </div>
-
-                    {/* Info */}
-                    <div className="mt-4 px-1">
-                      <h3 className="text-base font-medium text-gray-900 truncate">
-                        {product.name}
-                      </h3>
-                      <div className="flex items-center justify-between mt-1">
-                        <p className="text-xs text-gray-500 uppercase tracking-wider">
-                          {product.category?.name || "Collection"}
-                        </p>
-                        <div className="flex items-center gap-1.5">
-                          {product.discount && product.discount > 0 ? (
-                            <>
-                              <span className="text-sm font-black text-emerald-700 tracking-tight">
-                                ₹{Math.round(calculateDiscountedPrice(product.price, product.discount)).toLocaleString("en-IN")}
-                              </span>
-                              <span className="text-xs text-gray-400 line-through font-normal">
-                                ₹{Math.round(Number(product.price)).toLocaleString("en-IN")}
-                              </span>
-                              <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 border border-emerald-200/60 px-1 rounded">
-                                -{Math.round(Number(product.discount))}%
-                              </span>
-                            </>
-                          ) : (
-                            <span className="text-sm font-black text-emerald-700 tracking-tight">
-                              ₹{Math.round(Number(product.price)).toLocaleString("en-IN")}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </Link>
-                </motion.div>
+                <ProductCard key={product.id} product={product} />
               ))}
-            </motion.div>
-          </div>
+            </div>
+          ) : (
+            /* More than 4 Products: 4-Across-Desktop Carousel Slider */
+            <div className="relative group/carousel">
+              {/* Navigation Arrows */}
+              {isScrollable && (
+                <>
+                  <button
+                    onClick={() => scroll("left")}
+                    className="absolute -left-3 top-[38%] -translate-y-1/2 z-30 p-2.5 rounded-full bg-white/95 shadow-md border border-gray-200 text-gray-800 hover:bg-black hover:text-white transition-all opacity-0 group-hover/carousel:opacity-100 cursor-pointer"
+                    aria-label="Scroll left"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+
+                  <button
+                    onClick={() => scroll("right")}
+                    className="absolute -right-3 top-[38%] -translate-y-1/2 z-30 p-2.5 rounded-full bg-white/95 shadow-md border border-gray-200 text-gray-800 hover:bg-black hover:text-white transition-all opacity-0 group-hover/carousel:opacity-100 cursor-pointer"
+                    aria-label="Scroll right"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </>
+              )}
+
+              {/* Scrollable Container with large 4-column-proportioned cards on desktop */}
+              <div
+                ref={scrollContainerRef}
+                className="
+                  flex overflow-x-auto scroll-smooth snap-x snap-mandatory
+                  py-2 pb-6
+                  gap-x-4 sm:gap-x-6 lg:gap-x-8
+                "
+                style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+              >
+                {featuredProducts.map((product: Product) => (
+                  <div
+                    key={product.id}
+                    className="w-[calc(50%-0.5rem)] sm:w-[calc(50%-0.75rem)] md:w-[calc(33.333%-1rem)] lg:w-[calc(25%-1.5rem)] shrink-0 snap-start"
+                  >
+                    <ProductCard product={product} />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )
         )}
 
-        {/* --- Empty State (ONLY when no error) --- */}
+        {/* --- Empty State --- */}
         {!productsLoading &&
           !productsError &&
           featuredProducts.length === 0 && (
-            <div className="text-center py-20">
-              <p className="text-gray-400 font-light">
+            <div className="text-center py-16">
+              <p className="text-gray-400 font-light text-sm">
                 New collections arriving soon.
               </p>
             </div>
@@ -290,66 +220,29 @@ const Template1 = ({
   );
 };
 
-
-
-const ProductPrice = ({ product }: { product: Product }) =>
-  product.discount && product.discount > 0 ? (
-    <>
-      <span className="text-sm font-black text-emerald-700 tracking-tight">
-        ₹{Math.round(calculateDiscountedPrice(product.price, product.discount)).toLocaleString("en-IN")}
-      </span>
-      <span className="text-xs text-gray-400 line-through font-normal">
-        ₹{Math.round(Number(product.price)).toLocaleString("en-IN")}
-      </span>
-      <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 border border-emerald-200/60 px-1 rounded">
-        -{Math.round(Number(product.discount))}%
-      </span>
-    </>
-  ) : (
-    <span className="text-sm font-black text-emerald-700 tracking-tight">
-      ₹{Math.round(Number(product.price)).toLocaleString("en-IN")}
-    </span>
-  );
-
-// ─── Template 2: Static Grid ────────────────────────────────────────────────────
-// A calm responsive grid instead of a horizontal scroll — every product visible at
-// once, no scroll interaction needed.
-// ─── Template 2: Static Grid ────────────────────────────────────────────────────
-// A calm responsive grid instead of a horizontal scroll — every product visible at
-// once, no scroll interaction needed.
+// ─── Template 2: Static Grid (Matches Tribal Ornaments 4-Column Layout) ───────────
 const Template2 = ({ featuredProducts, productsLoading, productsError, sectionTitle, sectionSubtitle, viewAllLink }: FeaturedProductsProps) => (
-  <section className="bg-white py-20">
-    <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+  <section className="bg-white py-12 font-sans">
+    <div className="w-full px-4 sm:px-6 md:px-8 lg:px-10 xl:px-12">
       <SectionHeader sectionTitle={sectionTitle} sectionSubtitle={sectionSubtitle} showSeeAll={!productsLoading && !productsError && featuredProducts.length > 0} viewAllLink={viewAllLink} />
       {productsLoading ? (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-10">
+        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6 lg:gap-8">
           {[...Array(8)].map((_, i) => (
             <div key={i} className="animate-pulse">
-              <div className="w-full aspect-[3/4] bg-gray-200 rounded-xl mb-3"></div>
-              <div className="h-3 bg-gray-200 rounded w-3/4 mb-2"></div>
-              <div className="h-3 bg-gray-200 rounded w-1/4"></div>
+              <div className="w-full aspect-square bg-gray-100 rounded-2xl mb-3"></div>
+              <div className="h-3 bg-gray-100 rounded w-3/4 mb-2"></div>
+              <div className="h-3 bg-gray-100 rounded w-1/4"></div>
             </div>
           ))}
         </div>
       ) : productsError ? (
-        <div className="text-center py-20"><p className="text-gray-400 font-light">Could not load featured products.</p></div>
+        <div className="text-center py-16"><p className="text-gray-400 font-light text-sm">Could not load featured products.</p></div>
       ) : featuredProducts.length === 0 ? (
-        <div className="text-center py-20"><p className="text-gray-400 font-light">New collections arriving soon.</p></div>
+        <div className="text-center py-16"><p className="text-gray-400 font-light text-sm">New collections arriving soon.</p></div>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-10">
+        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6 lg:gap-8">
           {featuredProducts.map((product) => (
-            <Link key={product.id} to={`/products/${product.id}`} className="group block">
-              <div className="relative overflow-hidden aspect-[3/4] rounded-xl bg-gray-100 border border-gray-100 shadow-sm transition-all duration-500 group-hover:shadow-lg group-hover:-translate-y-1">
-                <img src={getImageUrl(product.image)} alt={product.name} className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110" />
-              </div>
-              <div className="mt-4 px-1">
-                <h3 className="text-base font-medium text-gray-900 truncate">{product.name}</h3>
-                <div className="flex items-center justify-between gap-2 mt-1">
-                  <p className="text-xs text-gray-500 uppercase tracking-wider truncate min-w-0">{product.category?.name || "Collection"}</p>
-                  <div className="flex items-center gap-1.5 shrink-0 whitespace-nowrap"><ProductPrice product={product} /></div>
-                </div>
-              </div>
-            </Link>
+            <ProductCard key={product.id} product={product} />
           ))}
         </div>
       )}
@@ -357,49 +250,173 @@ const Template2 = ({ featuredProducts, productsLoading, productsError, sectionTi
   </section>
 );
 
-// ─── Template 3: Spotlight Carousel ─────────────────────────────────────────────
-// One large product at a time with a thumbnail rail below to jump between them — a
-// "product of the moment" treatment rather than a browse-everything grid/scroll.
-const Template3 = ({ featuredProducts, productsLoading, productsError, sectionTitle, sectionSubtitle, viewAllLink }: FeaturedProductsProps) => {
+const ProductPrice = ({ product }: { product: Product }) =>
+  product.discount && product.discount > 0 ? (
+    <div className="flex items-center gap-1.5 flex-wrap">
+      <span className="text-xs text-gray-400 line-through">
+        ₹ {Math.round(Number(product.price)).toLocaleString("en-IN")}
+      </span>
+      <span className="text-sm font-medium text-white">
+        From ₹ {Math.round(calculateDiscountedPrice(product.price, product.discount)).toLocaleString("en-IN")}
+      </span>
+    </div>
+  ) : (
+    <span className="text-sm font-medium text-white">
+      ₹ {Math.round(Number(product.price)).toLocaleString("en-IN")}
+    </span>
+  );
+
+// ─── Template 3: Spotlight Carousel (Editorial Split Showcase) ──────────────────
+// Features 1 product in full natural portrait (3:4) orientation on one side with
+// full headroom (no heads/pleats cropped) alongside editorial details and thumbnail selector rail.
+const Template3 = ({
+  featuredProducts,
+  productsLoading,
+  productsError,
+  sectionTitle,
+  sectionSubtitle,
+  viewAllLink,
+}: FeaturedProductsProps) => {
   const [index, setIndex] = useState(0);
   const active = featuredProducts[index];
 
   return (
-    <section className="bg-white py-20">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <SectionHeader sectionTitle={sectionTitle} sectionSubtitle={sectionSubtitle} showSeeAll={!productsLoading && !productsError && featuredProducts.length > 0} viewAllLink={viewAllLink} />
+    <section className="bg-white py-6 sm:py-8 font-sans">
+      <div className="w-full px-4 sm:px-6 md:px-8 lg:px-10 xl:px-12">
+        <SectionHeader
+          sectionTitle={sectionTitle}
+          sectionSubtitle={sectionSubtitle}
+          showSeeAll={!productsLoading && !productsError && featuredProducts.length > 0}
+          viewAllLink={viewAllLink}
+        />
+
         {productsLoading ? (
-          <div className="w-full aspect-[16/8] bg-gray-200 rounded-2xl animate-pulse" />
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center bg-gray-50/70 rounded-3xl p-5 sm:p-6 animate-pulse">
+            <div className="lg:col-span-5 aspect-[3/4] max-h-[420px] bg-gray-200 rounded-2xl w-full" />
+            <div className="lg:col-span-7 space-y-3">
+              <div className="h-4 bg-gray-200 rounded w-1/4" />
+              <div className="h-8 bg-gray-200 rounded w-3/4" />
+              <div className="h-6 bg-gray-200 rounded w-1/3" />
+              <div className="h-10 bg-gray-200 rounded w-1/2 mt-4" />
+            </div>
+          </div>
         ) : productsError ? (
-          <div className="text-center py-20"><p className="text-gray-400 font-light">Could not load featured products.</p></div>
+          <div className="text-center py-16">
+            <p className="text-gray-400 font-light">Could not load featured products.</p>
+          </div>
         ) : !active ? (
-          <div className="text-center py-20"><p className="text-gray-400 font-light">New collections arriving soon.</p></div>
+          <div className="text-center py-16">
+            <p className="text-gray-400 font-light">New collections arriving soon.</p>
+          </div>
         ) : (
-          <div>
-            <Link to={`/products/${active.id}`} className="group block relative overflow-hidden rounded-2xl bg-gray-100 aspect-[16/9] sm:aspect-[16/7] mb-4">
-              <img src={getImageUrl(active.image)} alt={active.name} className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105" />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
-              <div className="absolute bottom-6 left-6 right-6 flex items-end justify-between">
-                <div>
-                  <p className="text-white/70 text-xs uppercase tracking-wider mb-1">{active.category?.name || "Collection"}</p>
-                  <h3 className="text-white text-xl sm:text-2xl font-bold">{active.name}</h3>
+          <div className="bg-stone-50/70 border border-stone-200/80 rounded-3xl overflow-hidden p-4 sm:p-6 lg:p-7 shadow-xs transition-all">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-10 items-center">
+              {/* Left Column: Bounded Full Portrait Image (3:4 ratio, capped at 430px height) */}
+              <div className="lg:col-span-5 flex items-center justify-center lg:justify-start">
+                <Link
+                  to={`/products/${active.id}`}
+                  className="group block relative h-[360px] sm:h-[400px] lg:h-[430px] aspect-[3/4] rounded-2xl overflow-hidden bg-white shadow-md hover:shadow-xl transition-all duration-500"
+                >
+                  <img
+                    src={getImageUrl(active.image)}
+                    alt={active.name}
+                    className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
+                  />
+                  {active.discount && active.discount > 0 && (
+                    <span className="absolute top-3 left-3 bg-black/85 backdrop-blur-md text-amber-300 text-[10px] sm:text-[11px] font-extrabold px-2.5 py-0.5 rounded-full uppercase tracking-wider border border-amber-300/30 shadow-sm">
+                      {Math.round(active.discount)}% OFF
+                    </span>
+                  )}
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors pointer-events-none" />
+                </Link>
+              </div>
+
+              {/* Right Column: Editorial Product Details & Interactive Thumbnail Rail */}
+              <div className="lg:col-span-7 flex flex-col justify-between h-full space-y-4 lg:py-1">
+                <div className="space-y-3 sm:space-y-3.5">
+                  {active.category?.name && (
+                    <p className="text-xs uppercase tracking-wider text-gray-500 font-medium">
+                      {active.category.name}
+                    </p>
+                  )}
+
+                  <Link to={`/products/${active.id}`} className="group block">
+                    <h3 className="text-xl sm:text-2xl lg:text-3xl font-serif font-bold text-gray-950 tracking-tight leading-snug group-hover:text-indigo-900 transition-colors line-clamp-2">
+                      {active.name}
+                    </h3>
+                  </Link>
+
+                  {/* Price display */}
+                  <div>
+                    {active.discount && active.discount > 0 ? (
+                      <div className="flex items-baseline gap-2.5 flex-wrap">
+                        <span className="text-xl sm:text-2xl font-bold text-gray-950">
+                          ₹ {Math.round(calculateDiscountedPrice(active.price, active.discount)).toLocaleString("en-IN")}
+                        </span>
+                        <span className="text-sm text-gray-400 line-through">
+                          ₹ {Math.round(Number(active.price)).toLocaleString("en-IN")}
+                        </span>
+                        <span className="text-[11px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                          Save ₹ {Math.round(Number(active.price) - calculateDiscountedPrice(active.price, active.discount)).toLocaleString("en-IN")}
+                        </span>
+                      </div>
+                    ) : (
+                      <span className="text-xl sm:text-2xl font-bold text-gray-950">
+                        ₹ {Math.round(Number(active.price)).toLocaleString("en-IN")}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Action CTA */}
+                  <div className="pt-1">
+                    <Link
+                      to={`/products/${active.id}`}
+                      className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gray-950 text-white text-xs font-bold uppercase tracking-wider hover:bg-indigo-600 transition-all shadow-sm hover:shadow-md"
+                    >
+                      <span>View Product</span>
+                      <ArrowUpRight className="w-3.5 h-3.5" />
+                    </Link>
+                  </div>
                 </div>
-                <div className="flex items-center gap-1.5"><ProductPrice product={active} /></div>
+
+                {/* Thumbnails to Switch Between Spotlight Products */}
+                {featuredProducts.length > 1 && (
+                  <div className="pt-4 border-t border-stone-200/80">
+                    <p className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-gray-500 mb-2">
+                      More in this Collection ({index + 1} of {featuredProducts.length}):
+                    </p>
+                    <div className="flex gap-2.5 overflow-x-auto pb-1.5 scrollbar-none" style={{ scrollbarWidth: "none" }}>
+                      {featuredProducts.map((product, i) => {
+                        const isCurrent = i === index;
+                        return (
+                          <button
+                            key={product.id}
+                            type="button"
+                            onClick={() => setIndex(i)}
+                            className={`group/thumb relative shrink-0 w-14 sm:w-16 aspect-[3/4] rounded-xl overflow-hidden border-2 transition-all cursor-pointer ${
+                              isCurrent
+                                ? "border-indigo-600 ring-2 ring-indigo-500/20 shadow-md scale-105"
+                                : "border-gray-200 opacity-60 hover:opacity-100 hover:border-gray-400"
+                            }`}
+                          >
+                            <img
+                              src={getImageUrl(product.image)}
+                              alt={product.name}
+                              className="h-full w-full object-cover transition-transform duration-300 group-hover/thumb:scale-105"
+                            />
+                            {isCurrent && (
+                              <div className="absolute inset-x-0 bottom-0 bg-indigo-600 text-white text-[8px] font-bold text-center py-0.5">
+                                Active
+                              </div>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
-            </Link>
-            {featuredProducts.length > 1 && (
-              <div className="flex gap-3 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
-                {featuredProducts.map((product, i) => (
-                  <button
-                    key={product.id}
-                    onClick={() => setIndex(i)}
-                    className={`relative shrink-0 w-16 h-16 sm:w-20 sm:h-20 rounded-lg overflow-hidden border-2 transition-colors ${i === index ? "border-[var(--theme-primary)]" : "border-transparent opacity-60 hover:opacity-100"}`}
-                  >
-                    <img src={getImageUrl(product.image)} alt={product.name} className="h-full w-full object-cover" />
-                  </button>
-                ))}
-              </div>
-            )}
+            </div>
           </div>
         )}
       </div>
@@ -411,8 +428,8 @@ const Template3 = ({ featuredProducts, productsLoading, productsError, sectionTi
 // Vertical stacked rows with a large image and more room for product info — a
 // magazine-style treatment rather than a compact grid/scroll of small cards.
 const Template4 = ({ featuredProducts, productsLoading, productsError, sectionTitle, sectionSubtitle, viewAllLink }: FeaturedProductsProps) => (
-  <section className="bg-white py-20">
-    <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
+  <section className="bg-white py-12 font-sans">
+    <div className="w-full px-4 sm:px-6 md:px-8 lg:px-10 xl:px-12">
       <SectionHeader sectionTitle={sectionTitle} sectionSubtitle={sectionSubtitle} showSeeAll={!productsLoading && !productsError && featuredProducts.length > 0} viewAllLink={viewAllLink} />
       {productsLoading ? (
         <div className="space-y-6">
@@ -431,15 +448,15 @@ const Template4 = ({ featuredProducts, productsLoading, productsError, sectionTi
         <div className="divide-y divide-gray-100">
           {featuredProducts.map((product) => (
             <Link key={product.id} to={`/products/${product.id}`} className="group flex items-center gap-6 py-6">
-              <div className="relative overflow-hidden w-32 h-32 sm:w-40 sm:h-40 rounded-xl bg-gray-100 shrink-0">
+              <div className="relative overflow-hidden w-32 h-32 sm:w-40 sm:h-40 rounded-2xl bg-gray-100 shrink-0">
                 <img src={getImageUrl(product.image)} alt={product.name} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110" />
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">{product.category?.name || "Collection"}</p>
-                <h3 className="text-lg sm:text-xl font-bold text-gray-900 truncate mb-2">{product.name}</h3>
+                <h3 className="text-lg sm:text-xl font-medium text-gray-900 truncate mb-2">{product.name}</h3>
                 <div className="flex items-center gap-1.5"><ProductPrice product={product} /></div>
               </div>
-              <ArrowUpRight className="w-5 h-5 text-gray-300 shrink-0 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-[var(--theme-primary)]" />
+              <ArrowUpRight className="w-5 h-5 text-gray-300 shrink-0 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-black" />
             </Link>
           ))}
         </div>
@@ -448,10 +465,14 @@ const Template4 = ({ featuredProducts, productsLoading, productsError, sectionTi
   </section>
 );
 
-const FeaturedProducts = (props: FeaturedProductsProps) => {
-  const [activeTemplate, setActiveTemplate] = useState(1);
+const FeaturedProducts = ({ template, ...props }: FeaturedProductsProps) => {
+  const [activeTemplate, setActiveTemplate] = useState<number>(template || 1);
 
   useEffect(() => {
+    if (typeof template === "number") {
+      setActiveTemplate(template);
+      return;
+    }
     api
       .get("/home-banners/homepage-config")
       .then(({ data }) => {
@@ -460,7 +481,7 @@ const FeaturedProducts = (props: FeaturedProductsProps) => {
         }
       })
       .catch(() => { });
-  }, []);
+  }, [template]);
 
   switch (activeTemplate) {
     case 2:

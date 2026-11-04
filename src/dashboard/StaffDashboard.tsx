@@ -8,6 +8,7 @@ import logo123 from "../assets/logo.png";
 import api from "../utils/api";
 import { APP_VERSION } from "../utils/constant";
 import { useAuth } from "../context/AuthContext";
+import Loader from "../components/Loader";
 import { useStaffPermissions, type StaffPermission } from "../context/StaffPermissionContext";
 import { useBranding } from "../context/BrandingContext";
 import NotificationBell from "../components/NotificationBell";
@@ -30,6 +31,7 @@ import {
   TagIcon,
   CubeIcon,
   ShoppingBagIcon,
+  ShoppingCartIcon,
   ChevronDownIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
@@ -67,6 +69,14 @@ function buildNav(permissions: StaffPermission[]): NavItem[] {
       name: "Order Management",
       href: "/staff-dashboard/order-management",
       icon: ShoppingBagIcon,
+    });
+  }
+
+  if (has("ORDER_CREATE")) {
+    items.push({
+      name: "Place Order",
+      href: "/staff-dashboard/place-order",
+      icon: ShoppingCartIcon,
     });
   }
 
@@ -534,13 +544,7 @@ export default function StaffDashboard() {
   );
 
   if (loading) {
-    return (
-      <div className="flex h-screen w-screen flex-col items-center justify-center bg-slate-50 font-sans">
-        <p className="text-sm uppercase font-bold tracking-widest text-slate-400 font-mono text-center select-none">
-          Loading...
-        </p>
-      </div>
-    );
+    return <Loader />;
   }
 
   return (
@@ -696,12 +700,7 @@ export default function StaffDashboard() {
               <Suspense
                 fallback={
                   <div className="flex items-center justify-center py-20 min-h-[350px]">
-                    <div className="flex flex-col items-center gap-3">
-                      <div className="h-6 w-6 animate-spin rounded-full border-2 border-indigo-600 border-t-transparent" />
-                      <p className="text-xs font-semibold tracking-wider uppercase text-slate-400 font-mono select-none">
-                        Loading...
-                      </p>
-                    </div>
+                    <Loader fullScreen={false} />
                   </div>
                 }
               >

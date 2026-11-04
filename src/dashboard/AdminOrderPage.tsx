@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import api from "../utils/api";
 import toast from "react-hot-toast";
 import { stripHtml } from "../utils/sanitizeHtml";
+import { fetchPincodeDetails } from "../utils/pincodeLookup";
 import {
   MagnifyingGlassIcon,
   UserCircleIcon,
@@ -34,9 +35,11 @@ import {
   ArrowRightIcon,
   BuildingStorefrontIcon,
   ClockIcon,
+  ArrowDownTrayIcon,
 } from "@heroicons/react/24/outline";
 import { CheckCircleIcon as CheckCircleSolid } from "@heroicons/react/24/solid";
 import ShipOrderModal, { ShipOrderPayload } from "./ShipOrderModal";
+import BulkInvoiceModal from "./BulkInvoiceModal";
 
 interface RecentOrderInfo {
   id: string;
@@ -106,6 +109,7 @@ interface CartItem {
 
 interface Address {
   fullAddress: string;
+  locality?: string;
   city: string;
   state: string;
   zipCode: string;
@@ -339,6 +343,7 @@ export default function AdminOrderPage() {
 
   // ── Post-order actions (invoice / ship) ──
   const [shipModalOpen, setShipModalOpen] = useState(false);
+  const [invoiceModalOpen, setInvoiceModalOpen] = useState(false);
   const [shipSubmitting, setShipSubmitting] = useState(false);
   const [shippedInfo, setShippedInfo] = useState<{ deliveryPartnerName?: string; trackingId?: string } | null>(null);
 
@@ -381,6 +386,7 @@ export default function AdminOrderPage() {
   // ── Address state ──
   const [address, setAddress] = useState<Address>({
     fullAddress: "",
+    locality: "",
     city: "",
     state: "",
     zipCode: "",
@@ -389,6 +395,13 @@ export default function AdminOrderPage() {
   const [stateDropdownOpen, setStateDropdownOpen] = useState(false);
   const [stateFilter, setStateFilter] = useState("");
   const stateDropdownRef = useRef<HTMLDivElement>(null);
+
+  // ── Post office / locality selection state ──
+  const [availableLocalities, setAvailableLocalities] = useState<string[]>([]);
+  const [localityDropdownOpen, setLocalityDropdownOpen] = useState(false);
+  const [localityFilter, setLocalityFilter] = useState("");
+  const localityDropdownRef = useRef<HTMLDivElement>(null);
+
   const [pincodeLoading, setPincodeLoading] = useState(false);
   const pincodeLookupAbortRef = useRef<AbortController | null>(null);
 
@@ -400,13 +413,59 @@ export default function AdminOrderPage() {
       pincodeLookupAbortRef.current.abort();
     }
 
+    if (cleanPincode.length < 6) {
+      setAvailableLocalities([]);
+      setLocalityDropdownOpen(false);
+      setAddress(prev => ({ ...prev, locality: "" }));
+      return;
+    }
+
     if (cleanPincode.length === 6) {
       const abortController = new AbortController();
       pincodeLookupAbortRef.current = abortController;
       setPincodeLoading(true);
 
       try {
-        // 1. Primary: Query through backend lookup endpoint (uses Nominatim + fallbacks with User-Agent)
+        // 1. Direct Postal PIN code lookup (queries official postal records for localities, city, and state)
+        let resolved = false;
+        try {
+          const result = await fetchPincodeDetails(cleanPincode);
+          if (result.success) {
+            resolved = true;
+            const autoLocality = result.localities.length === 1 ? result.localities[0] : "";
+            const rawState = result.state || "";
+            const matchedState = INDIAN_STATES.find(
+              s => s.toLowerCase() === rawState.trim().toLowerCase()
+            ) || INDIAN_STATES.find(
+              s => s.toLowerCase().includes(rawState.trim().toLowerCase()) || rawState.trim().toLowerCase().includes(s.toLowerCase())
+            ) || rawState;
+
+            setAddress(prev => ({
+              ...prev,
+              city: result.city || prev.city,
+              state: matchedState || prev.state,
+              locality: autoLocality || prev.locality || "",
+            }));
+            setAvailableLocalities(result.localities);
+
+            if (result.localities.length === 1) {
+              setLocalityDropdownOpen(false);
+              toast.success(`Location detected: ${result.localities[0]}, ${result.city}${matchedState ? `, ${matchedState}` : ""}`);
+            } else if (result.localities.length > 1) {
+              setLocalityDropdownOpen(true);
+              toast.success(`Resolved ${result.localities.length} post offices under ${result.city}. Select post office.`);
+            }
+          }
+        } catch {
+          // Continue to backend fallback
+        }
+
+        if (resolved) {
+          setPincodeLoading(false);
+          return;
+        }
+
+        // 2. Query through backend lookup endpoint
         const { data } = await api.get(`/order/admin-order/lookup-pincode/${cleanPincode}`, {
           signal: abortController.signal,
           timeout: 6000,
@@ -420,13 +479,25 @@ export default function AdminOrderPage() {
           ) || INDIAN_STATES.find(
             s => s.toLowerCase().includes(rawState.trim().toLowerCase()) || rawState.trim().toLowerCase().includes(s.toLowerCase())
           ) || rawState;
+          const locs: string[] = Array.isArray(data.localities) ? data.localities : [];
 
           setAddress(prev => ({
             ...prev,
             city: fetchedCity || prev.city,
             state: matchedState || prev.state,
+            locality: (locs.length === 1 ? locs[0] : "") || prev.locality || "",
           }));
-          toast.success(`Location detected: ${fetchedCity}${matchedState ? `, ${matchedState}` : ""}`);
+          setAvailableLocalities(locs);
+
+          if (locs.length === 1) {
+            setLocalityDropdownOpen(false);
+            toast.success(`Location detected: ${locs[0]}, ${fetchedCity}${matchedState ? `, ${matchedState}` : ""}`);
+          } else if (locs.length > 1) {
+            setLocalityDropdownOpen(true);
+            toast.success(`Resolved ${locs.length} post offices under ${fetchedCity}. Select post office.`);
+          } else {
+            toast.success(`Location detected: ${fetchedCity}${matchedState ? `, ${matchedState}` : ""}`);
+          }
         } else {
           toast.error("Location not found for this PIN code");
         }
@@ -474,7 +545,10 @@ export default function AdminOrderPage() {
       pincodeLookupAbortRef.current.abort();
     }
     setPincodeLoading(false);
-    setAddress(p => ({ ...p, zipCode: "" }));
+    setAvailableLocalities([]);
+    setLocalityDropdownOpen(false);
+    setLocalityFilter("");
+    setAddress(p => ({ ...p, zipCode: "", locality: "" }));
   };
 
   // ── Payment state ──
@@ -488,13 +562,38 @@ export default function AdminOrderPage() {
 
     // Auto-fill recent ordered address if available
     if (c.recentAddress && c.recentAddress.fullAddress) {
+      const pin = (c.recentAddress.zipCode || "").replace(/\D/g, "").slice(0, 6);
       setAddress({
         fullAddress: c.recentAddress.fullAddress || "",
+        locality: c.recentAddress.locality || "",
         city: c.recentAddress.city || "",
         state: c.recentAddress.state || "",
-        zipCode: c.recentAddress.zipCode || "",
+        zipCode: pin,
         country: c.recentAddress.country || "India",
       });
+
+      if (pin.length === 6) {
+        setPincodeLoading(true);
+        fetchPincodeDetails(pin)
+          .then((result) => {
+            if (result.success && result.localities.length > 0) {
+              setAvailableLocalities(result.localities);
+              if (!c.recentAddress?.locality) {
+                if (result.localities.length === 1) {
+                  setAddress((p) => ({ ...p, locality: result.localities[0] }));
+                } else {
+                  const fullLower = (c.recentAddress?.fullAddress || "").toLowerCase();
+                  const matched = result.localities.find((loc) => fullLower.includes(loc.toLowerCase()));
+                  if (matched) {
+                    setAddress((p) => ({ ...p, locality: matched }));
+                  }
+                }
+              }
+            }
+          })
+          .catch(() => {})
+          .finally(() => setPincodeLoading(false));
+      }
       toast.success(`Auto-filled address from ${c.username}'s previous order!`, { id: "customer-address-autofill" });
     }
   };
@@ -575,10 +674,40 @@ export default function AdminOrderPage() {
       if (stateDropdownRef.current && !stateDropdownRef.current.contains(e.target as Node)) {
         setStateDropdownOpen(false);
       }
+      if (localityDropdownRef.current && !localityDropdownRef.current.contains(e.target as Node)) {
+        setLocalityDropdownOpen(false);
+      }
     };
     document.addEventListener("mousedown", onClickOutside);
     return () => document.removeEventListener("mousedown", onClickOutside);
   }, []);
+
+  // Auto-resolve localities whenever a valid 6-digit pincode is present and localities aren't loaded yet
+  useEffect(() => {
+    const cleanPin = (address.zipCode || "").replace(/\D/g, "").slice(0, 6);
+    if (cleanPin.length === 6 && availableLocalities.length === 0) {
+      setPincodeLoading(true);
+      fetchPincodeDetails(cleanPin)
+        .then((result) => {
+          if (result.success && result.localities.length > 0) {
+            setAvailableLocalities(result.localities);
+            if (!address.locality) {
+              if (result.localities.length === 1) {
+                setAddress((p) => ({ ...p, locality: result.localities[0] }));
+              } else if (address.fullAddress) {
+                const fullLower = address.fullAddress.toLowerCase();
+                const matched = result.localities.find((loc) => fullLower.includes(loc.toLowerCase()));
+                if (matched) {
+                  setAddress((p) => ({ ...p, locality: matched }));
+                }
+              }
+            }
+          }
+        })
+        .catch(() => {})
+        .finally(() => setPincodeLoading(false));
+    }
+  }, [address.zipCode, availableLocalities.length, address.fullAddress]);
 
   // ─── Product fetch ────────────────────────────────────────────────────────
   const fetchProducts = useCallback(async (search: string, page: number) => {
@@ -893,6 +1022,34 @@ export default function AdminOrderPage() {
     }
   };
 
+  const handleResetForNewOrder = () => {
+    setPlacedOrder(null);
+    setShippedInfo(null);
+    setShipModalOpen(false);
+    setInvoiceModalOpen(false);
+    setConflictCustomer(null);
+    setConflictModalOpen(false);
+    setConflictSubmitting(false);
+    setConflictReason("");
+    setInlineMatchedCustomer(null);
+    setCurrentStep("customer");
+    setSelectedCustomer(null);
+    setNewCustomer({ username: "", phone: "", email: "" });
+    setCart([]);
+    setSelectedVariantByProduct({});
+    setCouponCode("");
+    setAppliedCoupon(null);
+    if (pincodeLookupAbortRef.current) pincodeLookupAbortRef.current.abort();
+    setPincodeLoading(false);
+    setAddress({ fullAddress: "", locality: "", city: "", state: "", zipCode: "", country: "India" });
+    setPaymentMethod("POD");
+    setPaymentNote("");
+    setRecentOrderWarning(null);
+    setRecentOrderModalOpen(false);
+    setRecentOrderChecking(false);
+    setBypassRecentOrder(false);
+  };
+
   // ─── Render ───────────────────────────────────────────────────────────────
   const stepIndex = STEP_ORDER.indexOf(currentStep);
 
@@ -906,8 +1063,8 @@ export default function AdminOrderPage() {
           <p className="text-gray-500 text-sm mb-1">Order ID:</p>
           <p className="font-mono text-indigo-600 font-semibold text-sm break-all mb-6">{placedOrder.id}</p>
 
-          {shippedInfo ? (
-            <div className="flex items-center gap-3 p-4 mb-6 bg-blue-50 border border-blue-200 rounded-xl text-left">
+          {shippedInfo && (
+            <div className="flex items-center gap-3 p-4 mb-5 bg-blue-50 border border-blue-200 rounded-xl text-left">
               <TruckIcon className="w-6 h-6 text-blue-600 shrink-0" />
               <div>
                 <p className="text-sm font-semibold text-blue-800">Order shipped</p>
@@ -917,59 +1074,53 @@ export default function AdminOrderPage() {
                 </p>
               </div>
             </div>
-          ) : (
-            <div className="flex flex-col sm:flex-row gap-3 mb-6">
+          )}
+
+          {/* Action Buttons */}
+          <div className="space-y-3 mb-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <button
                 type="button"
-                onClick={() => navigate(`/invoice/${placedOrder.id}`)}
-                className="flex-1 inline-flex items-center justify-center gap-2 bg-white text-gray-700 border border-gray-300 px-4 py-2.5 rounded-xl font-semibold text-sm hover:bg-gray-50 transition-colors"
+                onClick={() => setInvoiceModalOpen(true)}
+                className="inline-flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-xl font-semibold text-sm transition-colors shadow-xs cursor-pointer active:scale-98"
+              >
+                <ArrowDownTrayIcon className="w-4 h-4" />
+                Download Invoice
+              </button>
+              <button
+                type="button"
+                onClick={() => window.open(`/invoice/${placedOrder.id}`, "_blank")}
+                className="inline-flex items-center justify-center gap-2 bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 px-4 py-2.5 rounded-xl font-semibold text-sm transition-colors cursor-pointer active:scale-98"
               >
                 <DocumentTextIcon className="w-4 h-4" />
                 View Invoice
               </button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <button
                 type="button"
                 onClick={() => setShipModalOpen(true)}
-                className="flex-1 inline-flex items-center justify-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-xl font-semibold text-sm hover:bg-blue-700 transition-colors"
+                disabled={!!shippedInfo}
+                className={`inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-sm transition-colors cursor-pointer ${
+                  shippedInfo
+                    ? "bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed"
+                    : "bg-blue-600 hover:bg-blue-700 text-white shadow-xs active:scale-98"
+                }`}
               >
                 <TruckIcon className="w-4 h-4" />
-                Ship Order
+                {shippedInfo ? "Dispatched" : "Ship Order"}
+              </button>
+              <button
+                type="button"
+                onClick={handleResetForNewOrder}
+                className="inline-flex items-center justify-center gap-2 bg-slate-900 hover:bg-slate-800 text-white px-4 py-2.5 rounded-xl font-semibold text-sm transition-colors cursor-pointer shadow-xs active:scale-98"
+              >
+                <PlusIcon className="w-4 h-4" />
+                + New Order
               </button>
             </div>
-          )}
-
-          <button
-            onClick={() => {
-              setPlacedOrder(null);
-              setShippedInfo(null);
-              setShipModalOpen(false);
-              setConflictCustomer(null);
-              setConflictModalOpen(false);
-              setConflictSubmitting(false);
-              setConflictReason("");
-              setInlineMatchedCustomer(null);
-              setCurrentStep("customer");
-              setSelectedCustomer(null);
-              setNewCustomer({ username: "", phone: "", email: "" });
-              setCart([]);
-              setSelectedVariantByProduct({});
-              setCouponCode("");
-              setAppliedCoupon(null);
-              if (pincodeLookupAbortRef.current) pincodeLookupAbortRef.current.abort();
-              setPincodeLoading(false);
-              setAddress({ fullAddress: "", city: "", state: "", zipCode: "", country: "India" });
-              setPaymentMethod("POD");
-              setPaymentNote("");
-              setRecentOrderWarning(null);
-              setRecentOrderModalOpen(false);
-              setRecentOrderChecking(false);
-              setBypassRecentOrder(false);
-            }}
-            className="inline-flex items-center gap-2 bg-indigo-600 text-white px-6 py-2.5 rounded-xl font-semibold hover:bg-indigo-700 transition-colors"
-          >
-            <PlusIcon className="w-4 h-4" />
-            New Order
-          </button>
+          </div>
         </div>
 
         <ShipOrderModal
@@ -978,20 +1129,28 @@ export default function AdminOrderPage() {
           onClose={() => setShipModalOpen(false)}
           onConfirm={handleShipOrder}
         />
+
+        {invoiceModalOpen && placedOrder && (
+          <BulkInvoiceModal
+            orderIds={[placedOrder.id]}
+            onClose={() => setInvoiceModalOpen(false)}
+            onSuccess={() => {}}
+          />
+        )}
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-[calc(100vh-4rem)] bg-gray-50 flex flex-col justify-between">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-4 sm:px-8 py-5 tracking-tight">
+      <div className="bg-white border-b border-gray-200 px-4 sm:px-8 py-5 tracking-tight shrink-0">
         <h1 className="text-3xl font-bold text-gray-900">Place Order on Behalf of Customer</h1>
         <p className="text-sm text-gray-500 mt-0.5">Walk-in / cash counter order entry</p>
       </div>
 
       {/* Step indicator */}
-      <div className="bg-white border-b border-gray-100 px-4 sm:px-8 py-4">
+      <div className="bg-white border-b border-gray-100 px-4 sm:px-8 py-4 shrink-0">
         <ol className="flex items-center gap-0 overflow-x-auto">
           {STEPS.map((step, i) => {
             const done = STEP_ORDER.indexOf(step.id) < stepIndex;
@@ -1022,7 +1181,7 @@ export default function AdminOrderPage() {
       </div>
 
       {/* Body */}
-      <div className="w-full px-8 py-8 space-y-6">
+      <div className="flex-1 w-full px-4 sm:px-8 py-8 space-y-6">
 
         {/* ── STEP 1: Customer ── */}
         {currentStep === "customer" && (
@@ -1503,7 +1662,7 @@ export default function AdminOrderPage() {
             </div>
 
             <div className="space-y-5">
-              {/* Zip / PIN & Country */}
+              {/* Row 1: Zip / PIN & Post Office / Locality */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
                 {/* Zip / PIN Code */}
                 <div className="space-y-1.5">
@@ -1541,7 +1700,7 @@ export default function AdminOrderPage() {
                       <button
                         type="button"
                         onClick={handleClearPincode}
-                        className="absolute right-3 text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-200/50 transition-colors"
+                        className="absolute right-3 text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-200/50 transition-colors cursor-pointer"
                         title="Clear PIN code"
                       >
                         <XMarkIcon className="w-3.5 h-3.5" />
@@ -1549,46 +1708,171 @@ export default function AdminOrderPage() {
                     ) : null}
                   </div>
                   <p className="text-[11px] text-gray-400">
-                    Enter 6-digit PIN code to auto-detect City / District and State, or enter details manually below.
+                    Enter 6-digit PIN code to auto-detect Post Office, City and State, or enter manually.
                   </p>
                 </div>
 
-                {/* Country */}
-                <div className="space-y-1.5">
+                {/* Post Office / Locality */}
+                <div className="space-y-1.5" ref={localityDropdownRef}>
                   <div className="flex items-center justify-between">
                     <label className="flex items-center gap-1.5 text-xs font-bold text-gray-700 uppercase tracking-wider">
-                      <GlobeAmericasIcon className="w-3.5 h-3.5 text-indigo-600" />
-                      Country <span className="text-gray-400 font-normal lowercase tracking-normal">(optional)</span>
+                      <MapPinIcon className="w-3.5 h-3.5 text-indigo-600" />
+                      Post Office / Locality <span className="text-gray-400 font-normal lowercase tracking-normal">(optional)</span>
                     </label>
-                    <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider bg-gray-100 px-2 py-0.5 rounded-full border border-gray-200/60">
-                      Domestic
-                    </span>
+                    {address.locality?.trim() ? (
+                      <span className="text-[11px] font-semibold text-emerald-600 flex items-center gap-1 animate-fadeIn">
+                        <CheckCircleSolid className="w-3.5 h-3.5" /> Selected
+                      </span>
+                    ) : availableLocalities.length > 1 ? (
+                      <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 border border-indigo-200/80 px-2 py-0.5 rounded-full animate-fadeIn">
+                        {availableLocalities.length} under PIN
+                      </span>
+                    ) : null}
                   </div>
-                  <div className="relative flex items-center bg-gray-50/60 hover:bg-gray-50/20 focus-within:bg-white border border-gray-200 hover:border-gray-300 focus-within:border-indigo-500 rounded-xl shadow-xs focus-within:shadow-md focus-within:ring-4 focus-within:ring-indigo-500/15 transition-all duration-200 group">
-                    <span className="ml-3.5 text-base leading-none select-none pointer-events-none">🇮🇳</span>
-                    <input
-                      type="text"
-                      placeholder="India"
-                      value={address.country}
-                      onChange={e => setAddress(p => ({ ...p, country: e.target.value }))}
-                      className="w-full pl-3 pr-9 h-11 text-sm font-medium text-gray-900 placeholder:text-gray-400 placeholder:font-normal bg-transparent focus:outline-none"
-                    />
-                    {address.country && address.country !== "India" && (
+                  {availableLocalities.length > 0 ? (
+                    <div className="relative">
+                      {/* Trigger Button */}
                       <button
                         type="button"
-                        onClick={() => setAddress(p => ({ ...p, country: "India" }))}
-                        className="absolute right-3 text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-200/50 transition-colors"
-                        title="Reset to India"
+                        onClick={() => {
+                          setLocalityDropdownOpen(prev => !prev);
+                          setLocalityFilter("");
+                        }}
+                        className={`w-full flex items-center justify-between px-3.5 h-11 rounded-xl border text-sm font-medium transition-all duration-200 text-left cursor-pointer ${
+                          localityDropdownOpen
+                            ? "border-indigo-500 bg-white ring-4 ring-indigo-500/15 shadow-md"
+                            : "bg-gray-50/60 hover:bg-gray-50/20 hover:border-gray-300 border-gray-200 shadow-xs"
+                        }`}
                       >
-                        <XMarkIcon className="w-3.5 h-3.5" />
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <MapPinIcon
+                            className={`w-4 h-4 shrink-0 transition-colors ${
+                              localityDropdownOpen || address.locality ? "text-indigo-600" : "text-gray-400"
+                            }`}
+                          />
+                          <span className={`truncate ${address.locality ? "text-gray-900 font-semibold" : "text-gray-400 font-normal"}`}>
+                            {address.locality || "-- Select Post Office / Area --"}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0">
+                          {address.locality && (
+                            <span
+                              role="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setAddress(p => ({ ...p, locality: "" }));
+                              }}
+                              className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
+                              title="Clear post office"
+                            >
+                              <XMarkIcon className="w-3.5 h-3.5" />
+                            </span>
+                          )}
+                          <ChevronDownIcon
+                            className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${
+                              localityDropdownOpen ? "rotate-180 text-indigo-600" : ""
+                            }`}
+                          />
+                        </div>
                       </button>
-                    )}
-                  </div>
+
+                      {/* Dropdown Menu */}
+                      {localityDropdownOpen && (
+                        <div className="absolute left-0 right-0 z-30 mt-1.5 bg-white border border-gray-100 rounded-2xl shadow-xl shadow-indigo-950/10 p-2 animate-fadeIn">
+                          {/* Search filter inside dropdown */}
+                          <div className="relative mb-2">
+                            <MagnifyingGlassIcon className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                            <input
+                              type="text"
+                              autoFocus
+                              placeholder="Type to filter post office…"
+                              value={localityFilter}
+                              onChange={e => setLocalityFilter(e.target.value)}
+                              className="w-full pl-8 pr-3 py-1.5 text-xs font-medium text-gray-800 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all"
+                            />
+                          </div>
+
+                          {/* Options List */}
+                          <div className="max-h-56 overflow-y-auto space-y-0.5">
+                            {availableLocalities
+                              .filter(loc => loc.toLowerCase().includes(localityFilter.trim().toLowerCase()))
+                              .map(loc => {
+                                const isSelected = address.locality === loc;
+                                return (
+                                  <button
+                                    key={loc}
+                                    type="button"
+                                    onClick={() => {
+                                      setAddress(p => ({ ...p, locality: loc }));
+                                      setLocalityDropdownOpen(false);
+                                      setLocalityFilter("");
+                                    }}
+                                    className={`w-full flex items-center justify-between px-3 py-2 text-xs font-medium rounded-xl transition-colors text-left cursor-pointer ${
+                                      isSelected
+                                        ? "bg-indigo-50 text-indigo-700 font-bold"
+                                        : "text-gray-700 hover:bg-gray-50 hover:text-indigo-600"
+                                    }`}
+                                  >
+                                    <div className="flex items-center gap-2 truncate">
+                                      <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${isSelected ? "bg-indigo-600" : "bg-slate-300"}`} />
+                                      <span className="truncate">{loc}</span>
+                                    </div>
+                                    {isSelected && <CheckIcon className="w-4 h-4 text-indigo-600 shrink-0" />}
+                                  </button>
+                                );
+                              })}
+                            {localityFilter.trim() && !availableLocalities.some(loc => loc.toLowerCase() === localityFilter.trim().toLowerCase()) && (
+                              <div className="pt-1.5 border-t border-gray-100">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setAddress(p => ({ ...p, locality: localityFilter.trim() }));
+                                    setLocalityDropdownOpen(false);
+                                    setLocalityFilter("");
+                                  }}
+                                  className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-indigo-600 hover:bg-indigo-50 rounded-xl transition-colors text-left cursor-pointer"
+                                >
+                                  <span>Use custom:</span>
+                                  <strong className="truncate font-bold">"{localityFilter.trim()}"</strong>
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="relative flex items-center bg-gray-50/60 hover:bg-gray-50/20 focus-within:bg-white border border-gray-200 hover:border-gray-300 focus-within:border-indigo-500 rounded-xl shadow-xs focus-within:shadow-md focus-within:ring-4 focus-within:ring-indigo-500/15 transition-all duration-200 group">
+                      <MapPinIcon className="w-4 h-4 ml-3.5 text-gray-400 group-focus-within:text-indigo-600 transition-colors pointer-events-none shrink-0" />
+                      <input
+                        type="text"
+                        placeholder="e.g. Ayathil B.O, Pattathanam S.O"
+                        value={address.locality || ""}
+                        onChange={e => setAddress(p => ({ ...p, locality: e.target.value }))}
+                        className="w-full pl-3 pr-9 h-11 text-sm font-medium text-gray-900 placeholder:text-gray-400 placeholder:font-normal bg-transparent focus:outline-none"
+                      />
+                      {address.locality && (
+                        <button
+                          type="button"
+                          onClick={() => setAddress(p => ({ ...p, locality: "" }))}
+                          className="absolute right-3 text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-200/50 transition-colors cursor-pointer"
+                          title="Clear post office"
+                        >
+                          <XMarkIcon className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  )}
+                  <p className="text-[11px] text-gray-400">
+                    {availableLocalities.length > 0
+                      ? `${availableLocalities.length} post office(s) under PIN ${address.zipCode}. Select branch for delivery.`
+                      : "Enter 6-digit PIN to load official post offices, or type manually."}
+                  </p>
                 </div>
               </div>
 
-              {/* City & State */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
+              {/* Row 2: City / District, State & Country */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-5">
                 {/* City */}
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
@@ -1615,7 +1899,7 @@ export default function AdminOrderPage() {
                       <button
                         type="button"
                         onClick={() => setAddress(p => ({ ...p, city: "" }))}
-                        className="absolute right-3 text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-200/50 transition-colors"
+                        className="absolute right-3 text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-200/50 transition-colors cursor-pointer"
                         title="Clear city"
                       >
                         <XMarkIcon className="w-3.5 h-3.5" />
@@ -1645,7 +1929,7 @@ export default function AdminOrderPage() {
                         setStateDropdownOpen(prev => !prev);
                         setStateFilter("");
                       }}
-                      className={`w-full flex items-center justify-between px-3.5 h-11 rounded-xl border text-sm font-medium transition-all duration-200 text-left ${
+                      className={`w-full flex items-center justify-between px-3.5 h-11 rounded-xl border text-sm font-medium transition-all duration-200 text-left cursor-pointer ${
                         stateDropdownOpen
                           ? "border-indigo-500 bg-white ring-4 ring-indigo-500/15 shadow-md"
                           : "bg-gray-50/60 hover:bg-gray-50/20 hover:border-gray-300 border-gray-200 shadow-xs"
@@ -1714,7 +1998,7 @@ export default function AdminOrderPage() {
                                   setStateDropdownOpen(false);
                                   setStateFilter("");
                                 }}
-                                className={`w-full flex items-center justify-between px-3 py-2 text-xs font-medium rounded-xl transition-colors text-left ${
+                                className={`w-full flex items-center justify-between px-3 py-2 text-xs font-medium rounded-xl transition-colors text-left cursor-pointer ${
                                   isSelected
                                     ? "bg-indigo-50 text-indigo-700 font-bold"
                                     : "text-gray-700 hover:bg-gray-50 hover:text-indigo-600"
@@ -1738,7 +2022,7 @@ export default function AdminOrderPage() {
                                     setStateDropdownOpen(false);
                                     setStateFilter("");
                                   }}
-                                  className="text-xs font-semibold text-indigo-600 hover:text-indigo-700 underline"
+                                  className="text-xs font-semibold text-indigo-600 hover:text-indigo-700 underline cursor-pointer"
                                 >
                                   Use "{stateFilter.trim()}"
                                 </button>
@@ -1747,6 +2031,39 @@ export default function AdminOrderPage() {
                           )}
                         </div>
                       </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Country */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <label className="flex items-center gap-1.5 text-xs font-bold text-gray-700 uppercase tracking-wider">
+                      <GlobeAmericasIcon className="w-3.5 h-3.5 text-indigo-600" />
+                      Country <span className="text-gray-400 font-normal lowercase tracking-normal">(optional)</span>
+                    </label>
+                    <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider bg-gray-100 px-2 py-0.5 rounded-full border border-gray-200/60">
+                      Domestic
+                    </span>
+                  </div>
+                  <div className="relative flex items-center bg-gray-50/60 hover:bg-gray-50/20 focus-within:bg-white border border-gray-200 hover:border-gray-300 focus-within:border-indigo-500 rounded-xl shadow-xs focus-within:shadow-md focus-within:ring-4 focus-within:ring-indigo-500/15 transition-all duration-200 group">
+                    <span className="ml-3.5 text-base leading-none select-none pointer-events-none">🇮🇳</span>
+                    <input
+                      type="text"
+                      placeholder="India"
+                      value={address.country}
+                      onChange={e => setAddress(p => ({ ...p, country: e.target.value }))}
+                      className="w-full pl-3 pr-9 h-11 text-sm font-medium text-gray-900 placeholder:text-gray-400 placeholder:font-normal bg-transparent focus:outline-none"
+                    />
+                    {address.country && address.country !== "India" && (
+                      <button
+                        type="button"
+                        onClick={() => setAddress(p => ({ ...p, country: "India" }))}
+                        className="absolute right-3 text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-200/50 transition-colors cursor-pointer"
+                        title="Reset to India"
+                      >
+                        <XMarkIcon className="w-3.5 h-3.5" />
+                      </button>
                     )}
                   </div>
                 </div>
@@ -1956,17 +2273,17 @@ export default function AdminOrderPage() {
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wide">Delivery Address</h3>
-                {!(address.fullAddress.trim() || address.city.trim() || address.state.trim() || address.zipCode.trim()) && (
+                {!(address.fullAddress.trim() || address.locality?.trim() || address.city.trim() || address.state.trim() || address.zipCode.trim()) && (
                   <span className="text-xs text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-0.5 rounded-full font-medium">
                     Store / Counter Pickup
                   </span>
                 )}
               </div>
-              {address.fullAddress.trim() || address.city.trim() || address.state.trim() || address.zipCode.trim() ? (
+              {address.fullAddress.trim() || address.locality?.trim() || address.city.trim() || address.state.trim() || address.zipCode.trim() ? (
                 <div>
                   {address.fullAddress.trim() && <p className="text-sm font-medium text-gray-800">{address.fullAddress}</p>}
                   <p className="text-sm text-gray-500">
-                    {[address.city, address.state].filter(Boolean).join(", ")}
+                    {[address.locality ? `PO: ${address.locality}` : "", address.city, address.state].filter(Boolean).join(", ")}
                     {address.zipCode ? ` ${address.zipCode}` : ""}
                     {address.country ? `, ${address.country}` : ""}
                   </p>
@@ -1991,9 +2308,11 @@ export default function AdminOrderPage() {
             </div>
           </div>
         )}
+      </div>
 
-        {/* ── Navigation buttons ── */}
-        <div className="flex justify-between pt-2">
+      {/* ── Sticky Bottom Navigation Bar ── */}
+      <div className="sticky bottom-0 z-30 bg-white/95 backdrop-blur-md border-t border-gray-200 px-4 sm:px-8 py-3.5 shadow-[0_-4px_16px_rgba(0,0,0,0.04)] shrink-0">
+        <div className="w-full flex items-center justify-between">
           <button
             type="button"
             onClick={goBack}
@@ -2008,7 +2327,7 @@ export default function AdminOrderPage() {
               type="button"
               onClick={goNext}
               disabled={!canProceed()}
-              className="flex items-center gap-2 px-6 py-2.5 text-sm font-semibold text-white bg-indigo-600 rounded-xl hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              className="flex items-center gap-2 px-6 py-2.5 text-sm font-semibold text-white bg-indigo-600 rounded-xl hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
             >
               Next <ChevronRightIcon className="w-4 h-4" />
             </button>
@@ -2154,9 +2473,7 @@ export default function AdminOrderPage() {
             {/* Modal Header */}
             <div className="flex items-start justify-between px-6 pt-6 pb-5 bg-gradient-to-br from-amber-50 via-amber-50/40 to-white border-b border-amber-100 shrink-0">
               <div className="flex items-center gap-3">
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-500 to-amber-600 text-white shadow-lg shadow-amber-500/25">
-                  <ClockIcon className="h-6 w-6 stroke-[2]" />
-                </div>
+                
                 <div>
                   <h2 className="text-lg font-black text-gray-950 tracking-tight">Recent Order Detected</h2>
                   <span className="inline-block mt-0.5 text-[11px] font-bold text-amber-800 bg-amber-100 border border-amber-200 px-2.5 py-0.5 rounded-full">

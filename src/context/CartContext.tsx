@@ -33,6 +33,10 @@ interface CartContextValue {
   cartTotal: string;
   loading: boolean;
   error: string | null;
+  isDrawerOpen: boolean;
+  openCartDrawer: () => void;
+  closeCartDrawer: () => void;
+  toggleCartDrawer: () => void;
   fetchCart: () => Promise<void>;
   addToCart: (
     productId: string,
@@ -90,7 +94,33 @@ const fetchCartFromServer = async (): Promise<{
 export const CartProvider = ({ children }: { children: ReactNode }) => {
   const queryClient = useQueryClient();
   const { user } = useAuth();
-  const { items, total, loading, setItems, setLoading, clear } = useCartStore();
+  const {
+    items,
+    total,
+    loading,
+    isDrawerOpen,
+    setItems,
+    setLoading,
+    clear,
+    openDrawer,
+    closeDrawer,
+    toggleDrawer,
+  } = useCartStore();
+
+  useEffect(() => {
+    const handleOpen = () => openDrawer();
+    const handleClose = () => closeDrawer();
+    window.addEventListener("open-cart-drawer", handleOpen);
+    window.addEventListener("openCartDrawer", handleOpen);
+    window.addEventListener("close-cart-drawer", handleClose);
+    window.addEventListener("closeCartDrawer", handleClose);
+    return () => {
+      window.removeEventListener("open-cart-drawer", handleOpen);
+      window.removeEventListener("openCartDrawer", handleOpen);
+      window.removeEventListener("close-cart-drawer", handleClose);
+      window.removeEventListener("closeCartDrawer", handleClose);
+    };
+  }, [openDrawer, closeDrawer]);
 
   // Only fetch the cart when the user is authenticated (avoids 401 for guests)
   const isCustomerLoggedIn =
@@ -186,9 +216,10 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
       } catch {
         // refetch failure is non-critical; query will self-heal
       }
+      openDrawer();
       return result;
     },
-    [addMutation, user.isAuthenticated, refetch],
+    [addMutation, user.isAuthenticated, refetch, openDrawer],
   );
 
   // ── Mutation: remove from cart ───────────────────────────────────────────────
@@ -314,6 +345,10 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
     () => ({
       cartItems: items,
       cartTotal: total,
+      isDrawerOpen,
+      openCartDrawer: openDrawer,
+      closeCartDrawer: closeDrawer,
+      toggleCartDrawer: toggleDrawer,
       // removeMutation uses optimistic updates, so exclude its pending state from
       // the full-page loading flag to avoid a flash spinner after removal.
       loading: loading || addMutation.isPending,
@@ -327,6 +362,10 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
     [
       items,
       total,
+      isDrawerOpen,
+      openDrawer,
+      closeDrawer,
+      toggleDrawer,
       loading,
       addMutation.isPending,
       queryError,

@@ -36,6 +36,7 @@ import {
   PrinterIcon,
   CalendarIcon,
   MagnifyingGlassIcon,
+  ExclamationTriangleIcon,
 } from "@heroicons/react/24/outline";
 import { Printer } from "lucide-react";
 import toast from "react-hot-toast";
@@ -83,6 +84,7 @@ interface Order {
     city?: string;
     state?: string;
     zipCode?: string;
+    locality?: string;
     country?: string;
     lat?: number;
     lng?: number;
@@ -191,9 +193,42 @@ const getStatusClasses = (status: string) => {
 const statusOptions = ["PROCESSING", "CONFIRMED", "SHIPPED", "DELIVERED", "CANCELLED"];
 const statusLabel = (s: string) => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
 
+// Clean WhatsApp Brand Icon
+const WhatsAppIcon: React.FC<{ className?: string }> = ({ className = "size-4" }) => (
+  <svg viewBox="0 0 24 24" className={className} fill="currentColor">
+    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.197 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
+  </svg>
+);
+
+// Formatter to build direct WhatsApp wa.me links with customer mobile number
+const getWhatsAppUrl = (phone?: string, customerName?: string) => {
+  if (!phone) return null;
+  const digits = phone.replace(/\D/g, "");
+  if (!digits) return null;
+
+  let formatted = digits;
+  // If standard 10-digit Indian phone number, prepend India country code 91
+  if (digits.length === 10) {
+    formatted = `91${digits}`;
+  } else if (digits.length === 11 && digits.startsWith("0")) {
+    formatted = `91${digits.slice(1)}`;
+  }
+
+  const name = customerName?.trim() || "";
+  const greeting = name ? `Hello ${name}` : "Hello";
+  const message = encodeURIComponent(greeting);
+
+  return `https://wa.me/${formatted}?text=${message}`;
+};
+
 // DELIVERED, CANCELLED, and RETURNED are terminal states — once an order lands there, no
 // further status change is offered. Also, the active status chip is disabled (cannot re-select itself).
-const isStatusChipDisabled = (currentStatus: string, targetStatus: string, canUpdateOrder: boolean): boolean => {
+const isStatusChipDisabled = (
+  currentStatus: string,
+  targetStatus: string,
+  canUpdateOrder: boolean,
+  _order?: { paymentMethod?: string; paymentStatus?: string } | null
+): boolean => {
   if (!canUpdateOrder) return true;
   if (currentStatus === targetStatus) return true;
   if (currentStatus === "CANCELLED" || currentStatus === "DELIVERED" || currentStatus === "RETURNED") return true;
@@ -203,7 +238,18 @@ const isStatusChipDisabled = (currentStatus: string, targetStatus: string, canUp
 // DELIVERED can only be reached from SHIPPED — but the chip itself stays visible and
 // normally styled rather than greyed out; clicking it early just explains why instead
 // of silently doing nothing.
-const blockedStatusMessage = (currentStatus: string, targetStatus: string): string | null => {
+// Online/QR orders that have NOT been paid cannot be confirmed, shipped, or delivered.
+const blockedStatusMessage = (
+  currentStatus: string,
+  targetStatus: string,
+  order?: { paymentMethod?: string; paymentStatus?: string } | null
+): string | null => {
+  const isOnlinePayment = order?.paymentMethod === "ONLINE" || order?.paymentMethod === "QR";
+  if (isOnlinePayment && order?.paymentStatus !== "PAID") {
+    if (targetStatus === "CONFIRMED" || targetStatus === "SHIPPED" || targetStatus === "DELIVERED") {
+      return `Online payment has NOT been received yet (Payment Status is ${order?.paymentStatus || "PENDING"}). Online orders cannot be marked as ${statusLabel(targetStatus)} until payment is received.`;
+    }
+  }
   if (targetStatus === "DELIVERED" && currentStatus !== "SHIPPED" && currentStatus !== "DELIVERED") {
     return "Mark the order as Shipped before marking it Delivered.";
   }
@@ -1731,6 +1777,12 @@ export default function AdminOrderManagementPage() {
     const currentOrder = orders.find((o) => o.id === orderId);
     if (!currentOrder || currentOrder.orderStatus === newStatus) return;
 
+    const blocked = blockedStatusMessage(currentOrder.orderStatus, newStatus, currentOrder);
+    if (blocked) {
+      setBlockedMessage(blocked);
+      return;
+    }
+
     const willBePaidOnDelivery = newStatus === "DELIVERED" && currentOrder.paymentStatus === "PENDING";
     const originalOrders = [...orders];
     setOrders((prev) =>
@@ -1788,7 +1840,14 @@ export default function AdminOrderManagementPage() {
   // just with the extra fields included in the request body.
   const handleShipOrder = async (payload: ShipOrderPayload) => {
     const orderId = shipModalOrder?.id;
-    if (!orderId) return;
+    if (!orderId || !shipModalOrder) return;
+
+    const blocked = blockedStatusMessage(shipModalOrder.orderStatus, "SHIPPED", shipModalOrder);
+    if (blocked) {
+      setBlockedMessage(blocked);
+      setShipModalOrder(null);
+      return;
+    }
 
     setShipSubmitting(true);
     try {
@@ -2392,6 +2451,31 @@ export default function AdminOrderManagementPage() {
                               </span>
                             )}
 
+                            {/* Payment status badge for active orders */}
+                            {order.orderStatus !== "CANCELLED" && (
+                              <>
+                                {order.paymentStatus === "PAID" ? (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/90 shadow-2xs">
+                                    <CheckCircleIcon className="size-3.5 text-emerald-600" />
+                                    Paid
+                                  </span>
+                                ) : order.paymentStatus === "FAILED" ? (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200/90 shadow-2xs">
+                                    <XCircleIcon className="size-3.5 text-rose-600" />
+                                    Payment Failed
+                                  </span>
+                                ) : (order.paymentMethod === "ONLINE" || order.paymentMethod === "QR") ? (
+                                  <span
+                                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-black bg-amber-100 text-amber-900 border border-amber-300 shadow-2xs"
+                                    title="Online payment not yet received. Do not pack or ship!"
+                                  >
+                                    <ExclamationTriangleIcon className="size-3.5 text-amber-700 shrink-0 animate-pulse" />
+                                    Unpaid (Pending)
+                                  </span>
+                                ) : null}
+                              </>
+                            )}
+
                             {/* Small, clean Refund Pending status & Mark Refunded action */}
                             {order.orderStatus === "CANCELLED" && order.paymentStatus === "PAID" && (
                               <div className="inline-flex items-center gap-1.5">
@@ -2436,46 +2520,87 @@ export default function AdminOrderManagementPage() {
 
                       {/* 5. Update Status Column */}
                       <td className="px-6 py-5">
-                        <div className="relative inline-flex flex-wrap gap-1.5 items-center bg-slate-100/90 p-1.5 rounded-xl border border-slate-200/70 shadow-2xs">
-                          {statusOptions.map((status) => {
-                            const isCurrent = order.orderStatus === status;
-                            const targetClasses = getStatusClasses(status);
-                            const chipDisabled = isStatusChipDisabled(order.orderStatus, status, canUpdateOrder);
+                        <div className="flex items-center gap-2.5">
+                          <div className="relative inline-flex flex-wrap gap-1.5 items-center bg-slate-100/90 p-1.5 rounded-xl border border-slate-200/70 shadow-2xs">
+                            {statusOptions.map((status) => {
+                              const isCurrent = order.orderStatus === status;
+                              const targetClasses = getStatusClasses(status);
+                              const chipDisabled = isStatusChipDisabled(order.orderStatus, status, canUpdateOrder, order);
+                              const isOnlineUnpaid = (order.paymentMethod === "ONLINE" || order.paymentMethod === "QR") && order.paymentStatus !== "PAID" && order.orderStatus !== "CANCELLED";
+                              const isBlockedByPayment = isOnlineUnpaid && (status === "CONFIRMED" || status === "SHIPPED" || status === "DELIVERED");
+
+                              return (
+                                <button
+                                  key={status}
+                                  type="button"
+                                  disabled={chipDisabled}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (order.orderStatus === status) return;
+                                    if (order.orderStatus === "CANCELLED" || order.orderStatus === "DELIVERED" || order.orderStatus === "RETURNED") return;
+                                    const blocked = blockedStatusMessage(order.orderStatus, status, order);
+                                    if (blocked) {
+                                      setBlockedMessage(blocked);
+                                      return;
+                                    }
+                                    if (status === "SHIPPED") {
+                                      setShipModalOrder(order);
+                                    } else if (status === "CANCELLED") {
+                                      setCancelModalOrder(order);
+                                    } else {
+                                      handleUpdateStatus(order.id, status);
+                                    }
+                                  }}
+                                  title={
+                                    isBlockedByPayment
+                                      ? `Cannot mark as ${statusLabel(status)}: Online payment has not been received (Pending)`
+                                      : undefined
+                                  }
+                                  className={`px-3.5 py-1.5 text-xs font-black uppercase tracking-wider rounded-lg border transition-all duration-150 ${
+                                    isCurrent
+                                      ? `${targetClasses.chipActive} cursor-default opacity-100`
+                                      : chipDisabled
+                                        ? "bg-transparent text-slate-300 border-transparent cursor-not-allowed opacity-40"
+                                        : isBlockedByPayment
+                                          ? "bg-amber-50/70 text-amber-800/80 border-amber-200/90 hover:bg-amber-100 hover:border-amber-300 shadow-2xs cursor-pointer active:scale-95"
+                                          : "bg-white text-slate-700 border-slate-200/90 hover:text-slate-950 hover:border-slate-300 shadow-2xs hover:shadow-xs cursor-pointer active:scale-95"
+                                  }`}
+                                >
+                                  {statusLabel(status)}
+                                </button>
+                              );
+                            })}
+                          </div>
+
+                          {/* WhatsApp Direct Action Button */}
+                          {(() => {
+                            const rawPhone = order.user?.phone || (order.shippingAddress as any)?.phone || (order as any).phone;
+                            const waUrl = getWhatsAppUrl(rawPhone, order.user?.username);
+
+                            if (!rawPhone || !waUrl) {
+                              return (
+                                <span
+                                  className="inline-flex items-center justify-center size-9 rounded-xl bg-slate-100 text-slate-300 border border-slate-200/60 cursor-not-allowed shrink-0"
+                                  title="No mobile number registered for this customer"
+                                >
+                                  <WhatsAppIcon className="size-4.5" />
+                                </span>
+                              );
+                            }
 
                             return (
-                              <button
-                                key={status}
-                                type="button"
-                                disabled={chipDisabled}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  if (order.orderStatus === status) return;
-                                  if (order.orderStatus === "CANCELLED" || order.orderStatus === "DELIVERED" || order.orderStatus === "RETURNED") return;
-                                  const blocked = blockedStatusMessage(order.orderStatus, status);
-                                  if (blocked) {
-                                    setBlockedMessage(blocked);
-                                    return;
-                                  }
-                                  if (status === "SHIPPED") {
-                                    setShipModalOrder(order);
-                                  } else if (status === "CANCELLED") {
-                                    setCancelModalOrder(order);
-                                  } else {
-                                    handleUpdateStatus(order.id, status);
-                                  }
-                                }}
-                                className={`px-3.5 py-1.5 text-xs font-black uppercase tracking-wider rounded-lg border transition-all duration-150 ${
-                                  isCurrent
-                                    ? `${targetClasses.chipActive} cursor-default opacity-100`
-                                    : chipDisabled
-                                      ? "bg-transparent text-slate-300 border-transparent cursor-not-allowed opacity-40"
-                                      : "bg-white text-slate-700 border-slate-200/90 hover:text-slate-950 hover:border-slate-300 shadow-2xs hover:shadow-xs cursor-pointer active:scale-95"
-                                }`}
+                              <a
+                                href={waUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={(e) => e.stopPropagation()}
+                                className="inline-flex items-center justify-center size-9 rounded-xl bg-[#25D366] hover:bg-[#20bd5a] text-white shadow-2xs hover:shadow-xs transition-all active:scale-95 group shrink-0 cursor-pointer"
+                                title={`Chat with ${order.user?.username || "Customer"} on WhatsApp (${rawPhone})`}
                               >
-                                {statusLabel(status)}
-                              </button>
+                                <WhatsAppIcon className="size-5" />
+                              </a>
                             );
-                          })}
+                          })()}
                         </div>
                       </td>
 
@@ -2647,11 +2772,30 @@ export default function AdminOrderManagementPage() {
                         <p className="text-xs text-slate-500 truncate mt-0.5">
                           {selectedOrder.user?.email || "No email provided"}
                         </p>
-                        {selectedOrder.user?.phone && (
-                          <p className="text-xs text-slate-500 truncate mt-0.5">
-                            {selectedOrder.user.phone}
-                          </p>
-                        )}
+                        {(() => {
+                          const rawPhone = selectedOrder.user?.phone || (selectedOrder.shippingAddress as any)?.phone || (selectedOrder as any).phone;
+                          const waUrl = getWhatsAppUrl(rawPhone, selectedOrder.user?.username);
+                          if (!rawPhone) return null;
+                          return (
+                            <div className="flex items-center gap-2 mt-1">
+                              <p className="text-xs font-semibold text-slate-700 truncate">
+                                {rawPhone}
+                              </p>
+                              {waUrl && (
+                                <a
+                                  href={waUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#25D366] hover:bg-[#20bd5a] text-white text-[11px] font-bold shadow-2xs transition-all active:scale-95 cursor-pointer"
+                                  title={`Chat on WhatsApp (${rawPhone})`}
+                                >
+                                  <WhatsAppIcon className="size-3" />
+                                  <span>WhatsApp</span>
+                                </a>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </div>
                     </div>
 
@@ -2745,13 +2889,34 @@ export default function AdminOrderManagementPage() {
 
                   {/* Drawer Level Action Chips */}
                   <section className="space-y-3 rounded-2xl border border-slate-200/80 p-5 bg-white">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">State Routing Segment</p>
+                    <div className="flex items-center justify-between">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">State Routing Segment</p>
+                      {(() => {
+                        const rawPhone = selectedOrder.user?.phone || (selectedOrder.shippingAddress as any)?.phone || (selectedOrder as any).phone;
+                        const waUrl = getWhatsAppUrl(rawPhone, selectedOrder.user?.username);
+                        if (!rawPhone || !waUrl) return null;
+                        return (
+                          <a
+                            href={waUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#25D366] hover:bg-[#20bd5a] text-white text-[11px] font-bold shadow-2xs transition-all active:scale-95 cursor-pointer"
+                            title={`Chat with ${selectedOrder.user?.username || "Customer"} on WhatsApp (${rawPhone})`}
+                          >
+                            <WhatsAppIcon className="size-3.5" />
+                            <span>WhatsApp ({rawPhone})</span>
+                          </a>
+                        );
+                      })()}
+                    </div>
                     <div className="flex flex-col gap-3 pt-1">
                       <div className="relative inline-flex flex-wrap gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200/40">
                         {statusOptions.map((status) => {
                           const isCurrent = selectedOrder.orderStatus === status;
                           const targetClasses = getStatusClasses(status);
-                          const chipDisabled = isStatusChipDisabled(selectedOrder.orderStatus, status, canUpdateOrder);
+                          const chipDisabled = isStatusChipDisabled(selectedOrder.orderStatus, status, canUpdateOrder, selectedOrder);
+                          const isOnlineUnpaid = (selectedOrder.paymentMethod === "ONLINE" || selectedOrder.paymentMethod === "QR") && selectedOrder.paymentStatus !== "PAID" && selectedOrder.orderStatus !== "CANCELLED";
+                          const isBlockedByPayment = isOnlineUnpaid && (status === "CONFIRMED" || status === "SHIPPED" || status === "DELIVERED");
 
                           return (
                             <button
@@ -2761,7 +2926,7 @@ export default function AdminOrderManagementPage() {
                               onClick={() => {
                                 if (selectedOrder.orderStatus === status) return;
                                 if (selectedOrder.orderStatus === "CANCELLED" || selectedOrder.orderStatus === "DELIVERED" || selectedOrder.orderStatus === "RETURNED") return;
-                                const blocked = blockedStatusMessage(selectedOrder.orderStatus, status);
+                                const blocked = blockedStatusMessage(selectedOrder.orderStatus, status, selectedOrder);
                                 if (blocked) {
                                   setBlockedMessage(blocked);
                                   return;
@@ -2774,11 +2939,18 @@ export default function AdminOrderManagementPage() {
                                   handleUpdateStatus(selectedOrder.id, status);
                                 }
                               }}
+                              title={
+                                isBlockedByPayment
+                                  ? `Cannot mark as ${statusLabel(status)}: Online payment has not been received (Pending)`
+                                  : undefined
+                              }
                               className={`flex-1 text-center px-2 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-lg border transition-all duration-200 ${isCurrent
                                 ? `${targetClasses.chipActive} cursor-default opacity-100`
                                 : chipDisabled
                                   ? "bg-slate-50 text-slate-300 border-transparent cursor-not-allowed opacity-40"
-                                  : "bg-white text-slate-600 border-slate-200 hover:text-slate-900 hover:border-slate-300 shadow-xs cursor-pointer"
+                                  : isBlockedByPayment
+                                    ? "bg-amber-50/70 text-amber-800/80 border-amber-200/90 hover:bg-amber-100 hover:border-amber-300 shadow-xs cursor-pointer"
+                                    : "bg-white text-slate-600 border-slate-200 hover:text-slate-900 hover:border-slate-300 shadow-xs cursor-pointer"
                                 }`}
                             >
                               {statusLabel(status)}
@@ -2813,14 +2985,50 @@ export default function AdminOrderManagementPage() {
                       </span>
                     </div>
 
+                    {/* Unpaid Online/QR Alert Callout */}
+                    {(selectedOrder.paymentMethod === "ONLINE" || selectedOrder.paymentMethod === "QR") &&
+                      selectedOrder.paymentStatus !== "PAID" &&
+                      selectedOrder.orderStatus !== "CANCELLED" && (
+                      <div className="rounded-xl border border-amber-300 bg-amber-50/90 p-3.5 flex items-start gap-2.5 text-xs text-amber-950">
+                        <ExclamationTriangleIcon className="size-5 text-amber-600 shrink-0 mt-0.5" />
+                        <div className="min-w-0">
+                          <p className="font-bold text-amber-900">Awaiting Online Payment</p>
+                          <p className="mt-0.5 text-amber-800 leading-relaxed text-[11px]">
+                            Customer selected online payment but hasn't completed it yet. Do NOT ship this order until payment is confirmed and status is marked <strong>PAID</strong>.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
                     <div className="grid grid-cols-2 gap-4 text-xs">
                       <div>
                         <p className="font-bold text-slate-400 uppercase tracking-wider text-[10px]">Payment Status</p>
-                        <p className="mt-1 font-semibold text-slate-800">
-                          {selectedOrder.orderStatus === "CANCELLED" && (!selectedOrder.paymentStatus || selectedOrder.paymentStatus === "PENDING") && (selectedOrder.paymentMethod === "POD" || selectedOrder.paymentMethod === "COD" || selectedOrder.paymentMethod === "CASH")
-                            ? "No Payment Made"
-                            : selectedOrder.paymentStatus || "PENDING"}
-                        </p>
+                        <div className="mt-1">
+                          {selectedOrder.orderStatus === "CANCELLED" && (!selectedOrder.paymentStatus || selectedOrder.paymentStatus === "PENDING") && (selectedOrder.paymentMethod === "POD" || selectedOrder.paymentMethod === "COD" || selectedOrder.paymentMethod === "CASH") ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-semibold bg-slate-100 text-slate-600 border border-slate-200">
+                              No Payment Made
+                            </span>
+                          ) : selectedOrder.paymentStatus === "PAID" ? (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-2xs">
+                              <CheckCircleIcon className="size-3.5 text-emerald-600" />
+                              PAID
+                            </span>
+                          ) : selectedOrder.paymentStatus === "FAILED" ? (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200 shadow-2xs">
+                              <XCircleIcon className="size-3.5 text-rose-600" />
+                              FAILED
+                            </span>
+                          ) : (selectedOrder.paymentMethod === "ONLINE" || selectedOrder.paymentMethod === "QR") ? (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-black bg-amber-100 text-amber-900 border border-amber-300 shadow-2xs">
+                              <ExclamationTriangleIcon className="size-3.5 text-amber-700 shrink-0 animate-pulse" />
+                              UNPAID (PENDING)
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+                              {selectedOrder.paymentStatus || "PENDING"}
+                            </span>
+                          )}
+                        </div>
                       </div>
 
                       {selectedOrder.transactionId && (
@@ -2962,6 +3170,9 @@ export default function AdminOrderManagementPage() {
                         </p>
                       )}
                       <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-slate-500 font-medium">
+                        {selectedOrder.shippingAddress.locality && (
+                          <span><span className="text-slate-400">Post Office: </span><strong className="text-slate-800">{selectedOrder.shippingAddress.locality}</strong></span>
+                        )}
                         {selectedOrder.shippingAddress.city && (
                           <span><span className="text-slate-400">City: </span>{selectedOrder.shippingAddress.city}</span>
                         )}
@@ -3053,12 +3264,18 @@ export default function AdminOrderManagementPage() {
             <div className="w-full max-w-sm rounded-2xl bg-white shadow-2xl border border-gray-100 overflow-hidden">
               <div className="p-5">
                 <div className="flex items-start gap-3">
-                  <div className="p-2 rounded-xl bg-sky-50 text-sky-600 shrink-0">
-                    <InformationCircleIcon className="h-5 w-5" />
+                  <div className={`p-2 rounded-xl shrink-0 ${blockedMessage.toLowerCase().includes("payment") ? "bg-amber-100 text-amber-700" : "bg-sky-50 text-sky-600"}`}>
+                    {blockedMessage.toLowerCase().includes("payment") ? (
+                      <ExclamationTriangleIcon className="h-5 w-5" />
+                    ) : (
+                      <InformationCircleIcon className="h-5 w-5" />
+                    )}
                   </div>
                   <div className="min-w-0">
-                    <h3 className="font-semibold text-gray-900 text-sm">Can't skip ahead</h3>
-                    <p className="text-xs text-gray-500 mt-1">{blockedMessage}</p>
+                    <h3 className="font-semibold text-gray-900 text-sm">
+                      {blockedMessage.toLowerCase().includes("payment") ? "Payment Not Received" : "Can't skip ahead"}
+                    </h3>
+                    <p className="text-xs text-gray-600 mt-1 leading-relaxed">{blockedMessage}</p>
                   </div>
                 </div>
               </div>

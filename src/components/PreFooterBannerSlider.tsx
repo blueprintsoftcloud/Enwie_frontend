@@ -96,13 +96,15 @@ export default function PreFooterBannerSlider({ config: propConfig }: PreFooterB
               }`}
               onClick={() => handleBannerClick(b)}
             >
-              <img
-                src={b.image}
-                alt={b.title || `Promotional banner ${idx + 1}`}
-                className="w-full h-auto block object-contain transition-transform duration-500 group-hover:scale-[1.005]"
-                loading={idx === 0 ? "eager" : "lazy"}
-                draggable={false}
-              />
+              <div className="w-full aspect-[2.73/1] min-h-[170px] sm:min-h-[260px] md:min-h-[360px] lg:min-h-[440px] max-h-[720px] relative overflow-hidden bg-gray-100">
+                <img
+                  src={b.image}
+                  alt={b.title || `Promotional banner ${idx + 1}`}
+                  className="w-full h-full object-cover object-center block transition-transform duration-500 group-hover:scale-[1.008]"
+                  loading={idx === 0 ? "eager" : "lazy"}
+                  draggable={false}
+                />
+              </div>
               {/* Optional Subtle Link Indicator on Hover */}
               {hasLink && (
                 <div className="absolute top-3 right-3 sm:top-5 sm:right-5 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none">

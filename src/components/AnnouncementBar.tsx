@@ -240,12 +240,12 @@ const Template1 = ({ items }: TemplateProps) => {
   const marqueeItems = [...items, ...items];
 
   return (
-    <div className="bg-gray-900 text-white overflow-hidden py-1.5 sm:py-2.5 select-none">
-      <div className="flex animate-marquee whitespace-nowrap">
+    <div className="bg-gray-900 text-white overflow-hidden py-1.5 sm:py-2 select-none">
+      <div className="flex animate-marquee whitespace-nowrap items-center min-h-[22px] sm:min-h-[24px]">
         {marqueeItems.map((text, i) => (
           <span
             key={i}
-            className="inline-flex items-center gap-2 sm:gap-3 mx-4 sm:mx-8 text-[10px] sm:text-xs font-bold tracking-widest uppercase"
+            className="inline-flex items-center gap-2 sm:gap-3 mx-4 sm:mx-8 text-[10.5px] sm:text-xs font-bold tracking-wider sm:tracking-widest uppercase shrink-0"
           >
             <span className="text-yellow-400">✦</span>
             {text}
@@ -291,19 +291,19 @@ const useCyclingIndex = (count: number, intervalMs = 3500) => {
 const Template2 = ({ items }: TemplateProps) => {
   const index = useCyclingIndex(items.length);
   return (
-    <div className="bg-gray-900 text-white py-2 sm:py-2.5 select-none overflow-hidden">
-      <div className="relative h-4 flex items-center justify-center px-4">
+    <div className="bg-gray-900 text-white py-1.5 sm:py-2 select-none overflow-hidden">
+      <div className="min-h-[26px] sm:min-h-[30px] flex items-center justify-center px-3 sm:px-6">
         <AnimatePresence mode="wait">
-          <motion.span
+          <motion.div
             key={index}
-            initial={{ opacity: 0, y: 6 }}
+            initial={{ opacity: 0, y: 4 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -6 }}
-            transition={{ duration: 0.4 }}
-            className="absolute text-[10px] sm:text-xs font-bold tracking-widest uppercase text-center"
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: 0.3 }}
+            className="flex items-center justify-center text-[10.5px] sm:text-xs font-bold tracking-wide sm:tracking-widest uppercase text-center leading-tight sm:leading-normal"
           >
-            {items[index]}
-          </motion.span>
+            <span className="text-center">{items[index]}</span>
+          </motion.div>
         </AnimatePresence>
       </div>
     </div>
@@ -319,17 +319,17 @@ const Template3 = ({ items }: TemplateProps) => {
   if (dismissed || items.length === 0) return null;
 
   return (
-    <div className="flex justify-center bg-white py-2 px-4 select-none">
+    <div className="flex justify-center bg-white py-1.5 sm:py-2 px-3 sm:px-4 select-none">
       <div
-        className="inline-flex items-center gap-2.5 rounded-full pl-4 pr-2 py-1.5 text-[10px] sm:text-xs font-bold tracking-wide uppercase shadow-sm"
+        className="inline-flex items-center gap-2 rounded-full pl-3.5 pr-2 py-1 text-[10px] sm:text-xs font-bold tracking-wide uppercase shadow-xs max-w-[95vw]"
         style={{ background: "color-mix(in srgb, var(--theme-primary) 10%, white)", color: "var(--theme-primary)" }}
       >
-        <span>{items[0]}</span>
+        <span className="truncate max-w-[70vw] sm:max-w-none">{items[0]}</span>
         <button
           type="button"
           onClick={() => setDismissed(true)}
           aria-label="Dismiss announcement"
-          className="flex items-center justify-center w-4 h-4 rounded-full hover:bg-black/10 transition-colors"
+          className="flex items-center justify-center w-4 h-4 rounded-full hover:bg-black/10 transition-colors shrink-0 cursor-pointer"
         >
           <X className="w-3 h-3" />
         </button>
@@ -346,22 +346,22 @@ const Template4 = ({ items }: TemplateProps) => {
   const index = useCyclingIndex(items.length);
   return (
     <div
-      className="py-2 sm:py-2.5 select-none overflow-hidden"
+      className="py-1.5 sm:py-2 select-none overflow-hidden"
       style={{ background: "var(--theme-accent)", color: "var(--theme-accent-ink)" }}
     >
-      <div className="relative h-4 flex items-center justify-center px-4">
+      <div className="min-h-[26px] sm:min-h-[30px] flex items-center justify-center px-3 sm:px-6">
         <AnimatePresence mode="wait">
-          <motion.span
+          <motion.div
             key={index}
-            initial={{ opacity: 0, y: 6 }}
+            initial={{ opacity: 0, y: 4 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -6 }}
-            transition={{ duration: 0.4 }}
-            className="absolute flex items-center gap-2 text-[10px] sm:text-xs font-bold tracking-widest uppercase text-center"
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: 0.3 }}
+            className="flex items-center justify-center gap-1.5 sm:gap-2 text-[10.5px] sm:text-xs font-bold tracking-wide sm:tracking-widest uppercase text-center leading-tight sm:leading-normal"
           >
-            <Megaphone className="w-3.5 h-3.5 shrink-0" />
-            {items[index]}
-          </motion.span>
+            <Megaphone className="w-3.5 h-3.5 shrink-0 self-center" />
+            <span className="text-center">{items[index]}</span>
+          </motion.div>
         </AnimatePresence>
       </div>
     </div>

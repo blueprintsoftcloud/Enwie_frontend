@@ -22,6 +22,7 @@ import {
   ArrowsUpDownIcon,
   TagIcon,
   ChartBarIcon,
+  CalendarIcon,
   PlusIcon,
   MinusIcon,
   FolderIcon,
@@ -110,16 +111,31 @@ interface StockSummary {
   totalInventoryValue: number;
 }
 
+interface MonthlyBreakdownItem {
+  month: string;
+  monthName: string;
+  unitsSold: number;
+  revenue: number;
+  ordersCount: number;
+}
+
 interface SalesStats {
   totalUnitsSold: number;
   totalRevenue: number;
   totalOrdersCount: number;
+  lifetimeUnitsSold?: number;
+  lifetimeRevenue?: number;
+  lifetimeOrdersCount?: number;
+  isFiltered?: boolean;
+  fromDate?: string | null;
+  toDate?: string | null;
 }
 
 interface ProductDetailResponse {
   product: ProductItem;
   variants: ProductVariant[];
   salesStats: SalesStats;
+  monthlyBreakdown?: MonthlyBreakdownItem[];
 }
 
 export default function AdminProductStockManagement() {
@@ -160,6 +176,15 @@ export default function AdminProductStockManagement() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailData, setDetailData] = useState<ProductDetailResponse | null>(null);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
+
+  // Sales date filter states for drawer
+  const [salesDateFilter, setSalesDateFilter] = useState<
+    "all" | "this_month" | "last_month" | "last_3_months" | "this_year" | "custom"
+  >("all");
+  const [customStartDate, setCustomStartDate] = useState("");
+  const [customEndDate, setCustomEndDate] = useState("");
+  const [salesLoading, setSalesLoading] = useState(false);
+  const [showMonthlyBreakdown, setShowMonthlyBreakdown] = useState(true);
 
   // Custom dropdown states
   const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
@@ -299,6 +324,10 @@ export default function AdminProductStockManagement() {
     setDetailDrawerOpen(true);
     setDetailLoading(true);
     setActiveImageIndex(0);
+    setSalesDateFilter("all");
+    setCustomStartDate("");
+    setCustomEndDate("");
+    setShowMonthlyBreakdown(true);
     try {
       const res = await api.get(`/product/detail/${productId}`);
       setDetailData(res.data);
@@ -318,6 +347,69 @@ export default function AdminProductStockManagement() {
       setDetailDrawerOpen(false);
     } finally {
       setDetailLoading(false);
+    }
+  };
+
+  // ── Sales Date Filter Change Handler ─────────────────────────────────────────
+  const handleSalesFilterChange = async (
+    mode: "all" | "this_month" | "last_month" | "last_3_months" | "this_year" | "custom",
+    start?: string,
+    end?: string
+  ) => {
+    setSalesDateFilter(mode);
+    if (!selectedProductId) return;
+
+    if (mode === "custom" && (!start || !end)) {
+      // Don't auto-fetch if both custom dates are not yet chosen
+      return;
+    }
+
+    setSalesLoading(true);
+    try {
+      let queryParams = "";
+      const now = new Date();
+
+      if (mode === "this_month") {
+        const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+        queryParams = `?from=${firstDay.toISOString().split("T")[0]}&to=${now.toISOString().split("T")[0]}`;
+      } else if (mode === "last_month") {
+        const firstDay = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        const lastDay = new Date(now.getFullYear(), now.getMonth(), 0);
+        queryParams = `?from=${firstDay.toISOString().split("T")[0]}&to=${lastDay.toISOString().split("T")[0]}`;
+      } else if (mode === "last_3_months") {
+        const firstDay = new Date(now.getFullYear(), now.getMonth() - 2, 1);
+        queryParams = `?from=${firstDay.toISOString().split("T")[0]}&to=${now.toISOString().split("T")[0]}`;
+      } else if (mode === "this_year") {
+        const firstDay = new Date(now.getFullYear(), 0, 1);
+        queryParams = `?from=${firstDay.toISOString().split("T")[0]}&to=${now.toISOString().split("T")[0]}`;
+      } else if (mode === "custom") {
+        const s = start || customStartDate;
+        const e = end || customEndDate;
+        if (s && e) {
+          queryParams = `?from=${s}&to=${e}`;
+        } else if (s) {
+          queryParams = `?from=${s}`;
+        } else if (e) {
+          queryParams = `?to=${e}`;
+        }
+      }
+
+      const res = await api.get(`/product/detail/${selectedProductId}${queryParams}`);
+      if (res.data) {
+        setDetailData((prev) => {
+          if (!prev) return res.data;
+          return {
+            ...prev,
+            salesStats: res.data.salesStats,
+            monthlyBreakdown: res.data.monthlyBreakdown,
+          };
+        });
+      }
+    } catch (err) {
+      console.error("Failed to update sales metrics", err);
+      toast.error("Failed to load sales data for selected period");
+    } finally {
+      setSalesLoading(false);
     }
   };
 
@@ -1384,31 +1476,226 @@ export default function AdminProductStockManagement() {
                         </div>
                       </div>
 
-                      {/* Sales Demand Performance Cards */}
-                      <div>
-                        <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3 flex items-center gap-1.5">
-                          <ChartBarIcon className="w-4 h-4 text-indigo-600" />
-                          Sales Performance & Demand
-                        </h4>
-                        <div className="grid grid-cols-3 gap-3">
-                          <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-xs">
-                            <div className="text-[11px] font-semibold text-slate-500">Lifetime Units Sold</div>
+                      {/* Sales Demand Performance & Monthly Sales Breakdown */}
+                      <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs space-y-4">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-2 border-b border-slate-100">
+                          <div className="flex items-center gap-2">
+                            <div className="w-7 h-7 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600">
+                              <ChartBarIcon className="w-4 h-4" />
+                            </div>
+                            <div>
+                              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-800">
+                                Sales Performance & Demand
+                              </h4>
+                              <p className="text-[11px] text-slate-400">
+                                Net sales & orders excluding returns & cancellations
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* Quick Filter Dropdown / Select */}
+                          <div className="flex items-center gap-1.5 self-start sm:self-auto">
+                            <CalendarIcon className="w-3.5 h-3.5 text-slate-400" />
+                            <select
+                              value={salesDateFilter}
+                              onChange={(e) => {
+                                const mode = e.target.value as any;
+                                handleSalesFilterChange(mode);
+                              }}
+                              className="text-xs font-semibold bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
+                            >
+                              <option value="all">All Time</option>
+                              <option value="this_month">This Month</option>
+                              <option value="last_month">Last Month</option>
+                              <option value="last_3_months">Last 3 Months</option>
+                              <option value="this_year">This Year</option>
+                              <option value="custom">Custom Date Range...</option>
+                            </select>
+                          </div>
+                        </div>
+
+                        {/* Custom Date Pickers (visible if custom is selected) */}
+                        {salesDateFilter === "custom" && (
+                          <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex flex-wrap items-center gap-2 text-xs">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[11px] font-semibold text-slate-500">From:</span>
+                              <input
+                                type="date"
+                                value={customStartDate}
+                                onChange={(e) => setCustomStartDate(e.target.value)}
+                                className="border border-slate-200 rounded-md px-2 py-1 text-xs bg-white text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                              />
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[11px] font-semibold text-slate-500">To:</span>
+                              <input
+                                type="date"
+                                value={customEndDate}
+                                onChange={(e) => setCustomEndDate(e.target.value)}
+                                className="border border-slate-200 rounded-md px-2 py-1 text-xs bg-white text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                              />
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleSalesFilterChange("custom", customStartDate, customEndDate)}
+                              disabled={!customStartDate || !customEndDate || salesLoading}
+                              className="px-3 py-1 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-semibold rounded-md text-xs transition"
+                            >
+                              Apply
+                            </button>
+                            {(customStartDate || customEndDate) && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setCustomStartDate("");
+                                  setCustomEndDate("");
+                                  handleSalesFilterChange("all");
+                                }}
+                                className="text-[11px] text-slate-500 hover:text-slate-800 underline ml-1"
+                              >
+                                Reset
+                              </button>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Metrics Cards (Units Sold, Revenue, Orders) */}
+                        <div className={`grid grid-cols-3 gap-3 transition-opacity ${salesLoading ? "opacity-50 pointer-events-none" : "opacity-100"}`}>
+                          <div className="bg-slate-50/70 border border-slate-200/80 rounded-xl p-3 shadow-2xs">
+                            <div className="text-[11px] font-semibold text-slate-500 flex items-center justify-between">
+                              <span>{salesDateFilter === "all" ? "Lifetime Sold" : "Period Units"}</span>
+                              {salesDateFilter !== "all" && (
+                                <span className="text-[9px] uppercase px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 font-bold">
+                                  Filter
+                                </span>
+                              )}
+                            </div>
                             <div className="text-xl font-bold text-slate-900 mt-1">
                               {detailData.salesStats?.totalUnitsSold ?? 0}
                             </div>
+                            {salesDateFilter !== "all" && detailData.salesStats?.lifetimeUnitsSold !== undefined && (
+                              <div className="text-[10px] text-slate-400 mt-0.5">
+                                Lifetime: <span className="font-semibold text-slate-600">{detailData.salesStats.lifetimeUnitsSold}</span>
+                              </div>
+                            )}
                           </div>
-                          <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-xs">
-                            <div className="text-[11px] font-semibold text-slate-500">Total Revenue</div>
+
+                          <div className="bg-slate-50/70 border border-slate-200/80 rounded-xl p-3 shadow-2xs">
+                            <div className="text-[11px] font-semibold text-slate-500 flex items-center justify-between">
+                              <span>{salesDateFilter === "all" ? "Total Revenue" : "Period Revenue"}</span>
+                            </div>
                             <div className="text-xl font-bold text-emerald-700 mt-1">
                               ₹{(detailData.salesStats?.totalRevenue ?? 0).toLocaleString("en-IN")}
                             </div>
+                            {salesDateFilter !== "all" && detailData.salesStats?.lifetimeRevenue !== undefined && (
+                              <div className="text-[10px] text-slate-400 mt-0.5">
+                                Lifetime: <span className="font-semibold text-slate-600">₹{detailData.salesStats.lifetimeRevenue.toLocaleString("en-IN")}</span>
+                              </div>
+                            )}
                           </div>
-                          <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-xs">
-                            <div className="text-[11px] font-semibold text-slate-500">Orders Count</div>
+
+                          <div className="bg-slate-50/70 border border-slate-200/80 rounded-xl p-3 shadow-2xs">
+                            <div className="text-[11px] font-semibold text-slate-500 flex items-center justify-between">
+                              <span>{salesDateFilter === "all" ? "Orders Count" : "Period Orders"}</span>
+                            </div>
                             <div className="text-xl font-bold text-indigo-700 mt-1">
                               {detailData.salesStats?.totalOrdersCount ?? 0}
                             </div>
+                            {salesDateFilter !== "all" && detailData.salesStats?.lifetimeOrdersCount !== undefined && (
+                              <div className="text-[10px] text-slate-400 mt-0.5">
+                                Lifetime: <span className="font-semibold text-slate-600">{detailData.salesStats.lifetimeOrdersCount}</span>
+                              </div>
+                            )}
                           </div>
+                        </div>
+
+                        {/* Month-by-Month Sales Breakdown */}
+                        <div className="pt-2 border-t border-slate-100">
+                          <div className="flex items-center justify-between mb-2">
+                            <button
+                              type="button"
+                              onClick={() => setShowMonthlyBreakdown(!showMonthlyBreakdown)}
+                              className="text-xs font-bold text-slate-700 hover:text-indigo-600 flex items-center gap-1.5 transition"
+                            >
+                              <ChevronDownIcon
+                                className={`w-3.5 h-3.5 transition-transform ${showMonthlyBreakdown ? "rotate-0" : "-rotate-90"}`}
+                              />
+                              Monthly Sales Breakdown
+                              {detailData.monthlyBreakdown && detailData.monthlyBreakdown.length > 0 && (
+                                <span className="text-[10px] font-semibold px-1.5 py-0.2 rounded-full bg-indigo-100 text-indigo-700">
+                                  {detailData.monthlyBreakdown.length} {detailData.monthlyBreakdown.length === 1 ? "month" : "months"}
+                                </span>
+                              )}
+                            </button>
+                            <span className="text-[10px] text-slate-400">
+                              {salesDateFilter === "all" ? "All active months" : "Selected period"}
+                            </span>
+                          </div>
+
+                          {showMonthlyBreakdown && (
+                            <div className="space-y-2">
+                              {salesLoading ? (
+                                <div className="py-6 flex flex-col items-center justify-center text-slate-400 text-xs">
+                                  <ArrowPathIcon className="w-5 h-5 animate-spin text-indigo-500 mb-1" />
+                                  Calculating monthly sales...
+                                </div>
+                              ) : detailData.monthlyBreakdown && detailData.monthlyBreakdown.length > 0 ? (
+                                <div className="overflow-hidden border border-slate-200 rounded-xl">
+                                  <table className="w-full text-left text-xs">
+                                    <thead className="bg-slate-50 text-slate-500 uppercase font-bold text-[10px] border-b border-slate-200">
+                                      <tr>
+                                        <th className="p-2.5">Month</th>
+                                        <th className="p-2.5 text-center">Units Sold</th>
+                                        <th className="p-2.5 text-center">Orders</th>
+                                        <th className="p-2.5 text-right">Revenue</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100 bg-white">
+                                      {detailData.monthlyBreakdown.map((mb) => {
+                                        const maxUnits = Math.max(...(detailData.monthlyBreakdown?.map((m) => m.unitsSold) || [1]));
+                                        const pct = maxUnits > 0 ? Math.min(100, Math.round((mb.unitsSold / maxUnits) * 100)) : 0;
+                                        return (
+                                          <tr key={mb.month} className="hover:bg-indigo-50/30 transition-colors">
+                                            <td className="p-2.5 font-semibold text-slate-800">
+                                              <div className="flex items-center gap-1.5">
+                                                <span className="w-2 h-2 rounded-full bg-indigo-500"></span>
+                                                {mb.monthName || mb.month}
+                                              </div>
+                                            </td>
+                                            <td className="p-2.5 text-center">
+                                              <div className="inline-flex items-center gap-1.5">
+                                                <span className="font-bold text-slate-900">{mb.unitsSold}</span>
+                                                <div className="w-12 h-1.5 bg-slate-100 rounded-full overflow-hidden hidden sm:block">
+                                                  <div
+                                                    className="h-full bg-indigo-500 rounded-full"
+                                                    style={{ width: `${pct}%` }}
+                                                  />
+                                                </div>
+                                              </div>
+                                            </td>
+                                            <td className="p-2.5 text-center text-slate-600 font-medium">
+                                              {mb.ordersCount}
+                                            </td>
+                                            <td className="p-2.5 text-right font-bold text-emerald-700">
+                                              ₹{mb.revenue.toLocaleString("en-IN")}
+                                            </td>
+                                          </tr>
+                                        );
+                                      })}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              ) : (
+                                <div className="py-6 px-4 bg-slate-50/60 border border-dashed border-slate-200 rounded-xl text-center">
+                                  <ChartBarIcon className="w-6 h-6 text-slate-300 mx-auto mb-1.5" />
+                                  <p className="text-xs font-semibold text-slate-600">No sales recorded for this timeframe</p>
+                                  <p className="text-[11px] text-slate-400 mt-0.5">
+                                    Try selecting &apos;All Time&apos; or a broader date range.
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </div>
                       </div>
 
@@ -1643,22 +1930,42 @@ export default function AdminProductStockManagement() {
                     </a>
                   )}
 
-                  <div className="flex items-center gap-2">
-                    <Link
-                      to={`${dashboardPrefix}/manage-catalog`}
-                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-100"
-                    >
-                      <PencilSquareIcon className="w-3.5 h-3.5" />
-                      <span>Edit in Catalog</span>
-                    </Link>
+                  {(() => {
+                    const prod = detailData?.product;
+                    const targetCatId =
+                      prod?.categoryId ||
+                      prod?.category?.id ||
+                      (prod?.category as any)?._id ||
+                      "";
+                    const targetProdId = prod?.id || prod?._id || "";
+                    const editUrl = targetCatId
+                      ? `${dashboardPrefix}/manage-catalog?folder=${targetCatId}&editProduct=${targetProdId}`
+                      : targetProdId
+                      ? `${dashboardPrefix}/manage-catalog?editProduct=${targetProdId}`
+                      : `${dashboardPrefix}/manage-catalog`;
 
-                    <button
-                      onClick={() => setDetailDrawerOpen(false)}
-                      className="px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-bold hover:bg-slate-800"
-                    >
-                      Close
-                    </button>
-                  </div>
+                    return (
+                      <div className="flex items-center gap-2">
+                        {prod && (
+                          <Link
+                            to={editUrl}
+                            onClick={() => setDetailDrawerOpen(false)}
+                            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-100 hover:text-indigo-600 transition-colors shadow-2xs"
+                          >
+                            <PencilSquareIcon className="w-3.5 h-3.5" />
+                            <span>Edit in Catalog</span>
+                          </Link>
+                        )}
+
+                        <button
+                          onClick={() => setDetailDrawerOpen(false)}
+                          className="px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-bold hover:bg-slate-800 transition-colors"
+                        >
+                          Close
+                        </button>
+                      </div>
+                    );
+                  })()}
                 </div>
               </motion.div>
             </div>

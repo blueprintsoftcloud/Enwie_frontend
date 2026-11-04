@@ -20,6 +20,7 @@ export interface FeaturedCategorySlot {
   customSubtitle?: string;
   limit?: number;
   isActive?: boolean;
+  template?: number;
 }
 
 export interface FeaturedCategoriesConfig {
@@ -28,8 +29,8 @@ export interface FeaturedCategoriesConfig {
 
 export const DEFAULT_FEATURED_CATEGORIES_CONFIG: FeaturedCategoriesConfig = {
   slots: [
-    { id: "slot-1", categoryId: "", customTitle: "", customSubtitle: "", limit: 8, isActive: true },
-    { id: "slot-2", categoryId: "", customTitle: "", customSubtitle: "", limit: 8, isActive: true },
+    { id: "slot-1", categoryId: "", customTitle: "", customSubtitle: "", limit: 8, isActive: true, template: 1 },
+    { id: "slot-2", categoryId: "", customTitle: "", customSubtitle: "", limit: 8, isActive: true, template: 1 },
   ],
 };
 
@@ -47,6 +48,7 @@ interface LoadedCategorySection {
   subtitle?: string;
   products: Product[];
   viewAllLink: string;
+  template?: number;
 }
 
 const FullWidthBanner = ({ banner, index }: { banner: PreFooterBannerItem; index: number }) => {
@@ -73,13 +75,15 @@ const FullWidthBanner = ({ banner, index }: { banner: PreFooterBannerItem; index
         }`}
         onClick={handleBannerClick}
       >
-        <img
-          src={banner.image}
-          alt={banner.title || `Promotional banner ${index + 1}`}
-          className="w-full h-auto block object-contain transition-transform duration-500 group-hover:scale-[1.005]"
-          loading={index === 0 ? "eager" : "lazy"}
-          draggable={false}
-        />
+        <div className="w-full aspect-[2.73/1] min-h-[170px] sm:min-h-[260px] md:min-h-[360px] lg:min-h-[440px] max-h-[720px] relative overflow-hidden bg-gray-100">
+          <img
+            src={banner.image}
+            alt={banner.title || `Promotional banner ${index + 1}`}
+            className="w-full h-full object-cover object-center block transition-transform duration-500 group-hover:scale-[1.008]"
+            loading={index === 0 ? "eager" : "lazy"}
+            draggable={false}
+          />
+        </div>
         {hasLink && (
           <div className="absolute top-3 right-3 sm:top-5 sm:right-5 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none">
             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-white/90 text-gray-900 shadow-md backdrop-blur-sm">
@@ -101,6 +105,7 @@ export default function AlternatingShowcase({
 }: AlternatingShowcaseProps) {
   const [banners, setBanners] = useState<PreFooterBannerItem[]>([]);
   const [categorySections, setCategorySections] = useState<LoadedCategorySection[]>([]);
+  const [section1Template, setSection1Template] = useState<number>(1);
 
   useEffect(() => {
     let isMounted = true;
@@ -109,6 +114,10 @@ export default function AlternatingShowcase({
       .get("/home-banners/homepage-config")
       .then(async ({ data }) => {
         if (!isMounted) return;
+
+        if (typeof data?.featuredTemplate === "number") {
+          setSection1Template(data.featuredTemplate);
+        }
 
         // 1. Extract active full-width banners (max 3)
         if (data?.preFooterConfig?.enabled !== false && Array.isArray(data?.preFooterConfig?.banners)) {
@@ -154,6 +163,7 @@ export default function AlternatingShowcase({
               subtitle: slot.customSubtitle?.trim(),
               products: normalized,
               viewAllLink: `/categories/${slot.categoryId}`,
+              template: Number(slot.template) || 1,
             } as LoadedCategorySection;
           })
         );
@@ -184,6 +194,7 @@ export default function AlternatingShowcase({
     viewAllLink?: string;
     loading: boolean;
     error: string | null;
+    template?: number;
   }[] = [];
 
   // Section 1: Handpicked Featured Products (renders if products exist or currently loading)
@@ -196,6 +207,7 @@ export default function AlternatingShowcase({
       viewAllLink: "/products",
       loading: productsLoading,
       error: productsError,
+      template: section1Template,
     });
   }
 
@@ -209,6 +221,7 @@ export default function AlternatingShowcase({
       viewAllLink: catSec.viewAllLink,
       loading: false,
       error: null,
+      template: catSec.template,
     });
   }
 
@@ -232,6 +245,7 @@ export default function AlternatingShowcase({
                 sectionTitle={allSections[i].title}
                 sectionSubtitle={allSections[i].subtitle}
                 viewAllLink={allSections[i].viewAllLink}
+                template={allSections[i].template}
               />
             </div>
           )}

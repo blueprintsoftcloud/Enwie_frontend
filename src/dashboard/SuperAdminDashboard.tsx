@@ -13,6 +13,7 @@ import logo123 from "../assets/logo.png";
 import { useNotifications } from "../context/NotificationContext";
 import NotificationBell from "../components/NotificationBell";
 import OrderToast from "../components/OrderToast";
+import Loader from "../components/Loader";
 
 import {
   Dialog,
@@ -782,12 +783,7 @@ export default function SuperAdminDashboard() {
               <Suspense
                 fallback={
                   <div className="flex items-center justify-center py-20 min-h-[350px]">
-                    <div className="flex flex-col items-center gap-3">
-                      <div className="h-6 w-6 animate-spin rounded-full border-2 border-indigo-600 border-t-transparent" />
-                      <p className="text-xs font-semibold tracking-wider uppercase text-slate-400 font-mono select-none">
-                        Loading...
-                      </p>
-                    </div>
+                    <Loader fullScreen={false} />
                   </div>
                 }
               >

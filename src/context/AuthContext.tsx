@@ -154,6 +154,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       "crm_seo_cache",
       "crm_theme_cache",
       "crm_hero_cache",
+      "crm_hero_config_cache",
+      "crm_footer_config_cache",
       "CACHED_TRACKING_CONFIG",
       "storra_theme_tokens",
     ];

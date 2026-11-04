@@ -11,8 +11,12 @@ import { SeoProvider } from "./context/SeoContext";
 import AnalyticsScripts from "./components/seo/AnalyticsScripts";
 import { ThemeProvider } from "./context/ThemeContext";
 import AppRoutes from "./AppRoutes";
+import ErrorBoundary from "./components/ErrorBoundary";
 import NoInternet from "./pages/NoInternet";
 import ScrollToTop from "./components/ScrollToTop";
+import CartDrawer from "./cart/CartDrawer";
+import ProfileDrawer from "./components/ProfileDrawer";
+import Loader from "./components/Loader";
 import { WishlistProvider } from "./context/WishlistContext";
 import { UserNotificationProvider } from "./context/UserNotificationContext";
 
@@ -83,15 +87,15 @@ function AppContent() {
                 }}
               />
               <ToastDeduplicator />
+              <CartDrawer />
+              <ProfileDrawer />
               {isOnline ? (
                 user.isInitialLoad ? (
-                  <div className="flex h-screen w-screen flex-col items-center justify-center bg-slate-50 font-sans">
-                    <p className="text-sm uppercase font-bold tracking-widest text-slate-400 font-mono text-center select-none">
-                      Loading...
-                    </p>
-                  </div>
+                  <Loader />
                 ) : (
-                  <AppRoutes />
+                  <ErrorBoundary>
+                    <AppRoutes />
+                  </ErrorBoundary>
                 )
               ) : (
                 <NoInternet />

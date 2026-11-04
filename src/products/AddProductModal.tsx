@@ -32,11 +32,11 @@ import {
   Maximize2,
   RotateCcw,
   SlidersHorizontal,
-  Bold,
 } from "lucide-react";
 import { compressImage } from "../utils/compressImage";
 import { calculateDiscountDetails, calculateDiscountedPrice, calculateDiscountAmount } from "../utils/product";
 import { convertClipboardHtmlToText } from "../utils/sanitizeHtml";
+import ProductSpecificationsEditor, { ProductSpecification, ProductCustomSection } from "./ProductSpecificationsEditor";
 
 interface ValidationField {
   isValid: boolean;
@@ -51,6 +51,7 @@ interface ProductFormData {
   description: string;
   metaTitle: string;
   metaDescription: string;
+  materialCare: string;
   purchasePrice: string;
   price: string;
   stock: string;
@@ -139,14 +140,32 @@ const computeOptionsKeyClient = (options: Record<string, string>): string =>
     .map(([k, v]) => `${k}:${v}`)
     .join("|");
 
-const ValidationIndicator = ({ isValid, message }: { isValid: boolean; message: string }) => (
-  <div className="flex items-center gap-2 mt-1">
+const ValidationIndicator = ({
+  isValid,
+  message,
+  isError,
+}: {
+  isValid: boolean;
+  message: string;
+  isError?: boolean;
+}) => (
+  <div className="flex items-center gap-1.5 mt-1 animate-fadeIn">
     {isValid ? (
-      <CheckCircle className="h-3 w-3 text-emerald-500" />
+      <>
+        <CheckCircle className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+        <span className="text-xs text-slate-500">{message}</span>
+      </>
+    ) : isError ? (
+      <>
+        <AlertCircle className="h-3.5 w-3.5 text-rose-500 shrink-0" />
+        <span className="text-xs font-semibold text-rose-600">{message}</span>
+      </>
     ) : (
-      <AlertCircle className="h-3 w-3 text-amber-500" />
+      <>
+        <AlertCircle className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+        <span className="text-xs text-slate-400">{message}</span>
+      </>
     )}
-    <span className="text-xs text-slate-500">{message}</span>
   </div>
 );
 
@@ -158,6 +177,7 @@ const emptyForm = (categoryCode: string): ProductFormData => ({
   description: "",
   metaTitle: "",
   metaDescription: "",
+  materialCare: "",
   purchasePrice: "",
   price: "",
   stock: "",
@@ -193,6 +213,8 @@ export default function AddProductModal({
   const [categoryAttrs, setCategoryAttrs] = useState<CategoryAttr[]>([]);
   const [attrsLoading, setAttrsLoading] = useState(false);
   const [attrValues, setAttrValues] = useState<Record<string, string>>({});
+  const [customSections, setCustomSections] = useState<ProductCustomSection[]>([]);
+  const [specifications, setSpecifications] = useState<ProductSpecification[]>([]);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [additionalPreviews, setAdditionalPreviews] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
@@ -218,6 +240,10 @@ export default function AddProductModal({
   const [comboCardTabs, setComboCardTabs] = useState<Record<string, "pricing" | "images">>({});
   const [globalComboTab, setGlobalComboTab] = useState<"pricing" | "images">("pricing");
 
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
+  const [serverErrors, setServerErrors] = useState<Record<string, string>>({});
+  const [submitAttempted, setSubmitAttempted] = useState(false);
+
   const [validation, setValidation] = useState<ProductValidation>({
     category: { isValid: false, message: "Category is required" },
     productCode: { isValid: false, message: "Alphanumeric only" },
@@ -234,6 +260,8 @@ export default function AddProductModal({
   useEffect(() => {
     if (isOpen) {
       setFormData(emptyForm(categoryId ?? ""));
+      setCustomSections([]);
+      setSpecifications([]);
       setAttrValues({});
       setCategoryAttrs([]);
       setImagePreview(null);
@@ -248,6 +276,9 @@ export default function AddProductModal({
       setActivePreviewSlot("primary");
       setComboCardTabs({});
       setGlobalComboTab("pricing");
+      setTouched({});
+      setServerErrors({});
+      setSubmitAttempted(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, categoryId]);
@@ -696,10 +727,56 @@ export default function AddProductModal({
         const url = URL.createObjectURL(compressed);
         setFormData((prev) => ({ ...prev, image: compressed }));
         setImagePreview(url);
+        setTouched((prev) => ({ ...prev, image: true }));
+        if (serverErrors.image) {
+          setServerErrors((prev) => {
+            const next = { ...prev };
+            delete next.image;
+            return next;
+          });
+        }
       }
     } else {
       setFormData((prev) => ({ ...prev, [name]: value }));
+      if (serverErrors[name]) {
+        setServerErrors((prev) => {
+          const next = { ...prev };
+          delete next[name];
+          return next;
+        });
+      }
     }
+  };
+
+  const markTouched = (field: string) => setTouched((prev) => ({ ...prev, [field]: true }));
+
+  const focusFirstInvalidField = (errs?: Record<string, string>) => {
+    setTimeout(() => {
+      if (errs?.productCode || !validation.productCode.isValid) {
+        document.getElementById("addProductCode")?.focus();
+        document.getElementById("addProductCode")?.scrollIntoView({ behavior: "smooth", block: "center" });
+      } else if (errs?.productName || !validation.productName.isValid) {
+        document.getElementById("addProductName")?.focus();
+        document.getElementById("addProductName")?.scrollIntoView({ behavior: "smooth", block: "center" });
+      } else if (errs?.description || !validation.description.isValid) {
+        descriptionTextareaRef.current?.focus();
+        descriptionTextareaRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      } else if (variantMode === "none" && (errs?.price || !validation.price.isValid)) {
+        document.getElementById("addProductPrice")?.focus();
+        document.getElementById("addProductPrice")?.scrollIntoView({ behavior: "smooth", block: "center" });
+      } else if (variantMode === "none" && (errs?.purchasePrice || !validation.purchasePrice.isValid)) {
+        document.getElementById("addProductPurchasePrice")?.focus();
+        document.getElementById("addProductPurchasePrice")?.scrollIntoView({ behavior: "smooth", block: "center" });
+      } else if (variantMode === "none" && (errs?.stock || !validation.stock.isValid)) {
+        document.getElementById("addProductStock")?.focus();
+        document.getElementById("addProductStock")?.scrollIntoView({ behavior: "smooth", block: "center" });
+      } else if (variantMode === "none" && (errs?.discount || !validation.discount.isValid)) {
+        document.getElementById("addProductDiscount")?.focus();
+        document.getElementById("addProductDiscount")?.scrollIntoView({ behavior: "smooth", block: "center" });
+      } else if (variantMode === "none" && (errs?.image || !validation.image.isValid)) {
+        document.getElementById("addProductImageUpload")?.parentElement?.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    }, 60);
   };
 
   const handleAdditionalImages = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -735,6 +812,8 @@ export default function AddProductModal({
       if (d.secondaryImagePreview) URL.revokeObjectURL(d.secondaryImagePreview);
     });
     setFormData(emptyForm(categoryId ?? ""));
+    setCustomSections([]);
+    setSpecifications([]);
     setAttrValues({});
     setCategoryAttrs([]);
     setImagePreview(null);
@@ -859,6 +938,7 @@ export default function AddProductModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSubmitAttempted(true);
 
     if (variantMode === "variants" && previewCombos.length === 0) {
       toast.error("Add at least one option (a name and its values) below, or switch back to “Single item”.", {
@@ -889,8 +969,19 @@ export default function AddProductModal({
       (key) => !validation[key].isValid,
     );
     if (invalidFields.length > 0) {
+      setTouched({
+        productCode: true,
+        productName: true,
+        description: true,
+        price: true,
+        purchasePrice: true,
+        stock: true,
+        discount: true,
+        image: true,
+      });
+      focusFirstInvalidField();
       const names = invalidFields.map((key) => FIELD_LABELS[key]).join(", ");
-      toast.error(`Please fix the following before submitting: ${names}.`, { id: "fill all feilds" });
+      toast.error(`Please fix the highlighted field(s): ${names}.`, { id: "fill all feilds" });
       return;
     }
 
@@ -905,6 +996,15 @@ export default function AddProductModal({
       data.append("description", formData.description);
       if (formData.metaTitle.trim()) data.append("metaTitle", formData.metaTitle.trim());
       if (formData.metaDescription.trim()) data.append("metaDescription", formData.metaDescription.trim());
+      if (formData.materialCare.trim()) data.append("materialCare", formData.materialCare.trim());
+      const validSections = customSections.filter((s) => s.heading.trim() && s.content.trim());
+      if (validSections.length > 0) {
+        data.append("customSections", JSON.stringify(validSections));
+      }
+      const validSpecs = specifications.filter((s) => s.key.trim() && s.value.trim());
+      if (validSpecs.length > 0) {
+        data.append("specifications", JSON.stringify(validSpecs));
+      }
 
       if (variantMode === "variants") {
         // Auto-assign the first active variant's image as the initial product image
@@ -1023,14 +1123,64 @@ export default function AddProductModal({
       onSuccess();
     } catch (err) {
       const _e = err as any;
-      toast.error(
-        _e.response?.data?.message || _e.response?.data?.Error || "Error adding product. Please try again.",
-        { id: "error adding product" },
-      );
+      const backendErrors = _e.response?.data?.errors;
+      const firstError = backendErrors ? (Object.values(backendErrors).flat()[0] as string) : undefined;
+      const rawMsg =
+        firstError ||
+        _e.response?.data?.message ||
+        _e.response?.data?.Error ||
+        _e.response?.data?.error ||
+        "Error adding product. Please try again.";
+
+      const newServerErrors: Record<string, string> = {};
+      const lower = rawMsg.toLowerCase();
+
+      if (lower.includes("code") || lower.includes("exists")) {
+        newServerErrors.productCode = rawMsg;
+      } else if (lower.includes("name")) {
+        newServerErrors.productName = rawMsg;
+      } else if (lower.includes("price") || lower.includes("cost")) {
+        if (lower.includes("purchase") || lower.includes("cost")) {
+          newServerErrors.purchasePrice = rawMsg;
+        } else {
+          newServerErrors.price = rawMsg;
+        }
+      } else if (lower.includes("stock") || lower.includes("quantity")) {
+        newServerErrors.stock = rawMsg;
+      } else if (lower.includes("discount")) {
+        newServerErrors.discount = rawMsg;
+      } else if (lower.includes("image")) {
+        newServerErrors.image = rawMsg;
+      } else if (lower.includes("description")) {
+        newServerErrors.description = rawMsg;
+      }
+
+      setServerErrors(newServerErrors);
+      setTouched({
+        productCode: true,
+        productName: true,
+        description: true,
+        price: true,
+        purchasePrice: true,
+        stock: true,
+        discount: true,
+        image: true,
+      });
+      focusFirstInvalidField(newServerErrors);
+      toast.error(rawMsg, { id: "error adding product" });
     } finally {
       setLoading(false);
     }
   };
+
+  const isCodeError = Boolean(((submitAttempted || touched.productCode) && !validation.productCode.isValid) || serverErrors.productCode);
+  const isNameError = Boolean(((submitAttempted || touched.productName) && !validation.productName.isValid) || serverErrors.productName);
+  const isDescError = Boolean(((submitAttempted || touched.description) && !validation.description.isValid) || serverErrors.description);
+  const isPurchasePriceError = Boolean(((submitAttempted || touched.purchasePrice) && !validation.purchasePrice.isValid) || serverErrors.purchasePrice);
+  const isPriceError = Boolean(((submitAttempted || touched.price) && !validation.price.isValid) || serverErrors.price);
+  const isStockError = Boolean(((submitAttempted || touched.stock) && !validation.stock.isValid) || serverErrors.stock);
+  const isDiscountError = Boolean(((submitAttempted || touched.discount) && !validation.discount.isValid) || serverErrors.discount);
+  const isImageError = Boolean(variantMode === "none" && (((submitAttempted || touched.image) && !validation.image.isValid) || serverErrors.image));
 
   // Ancestor chain for the header breadcrumb — falls back to just the category name
   // if the caller didn't pass the full path (e.g. a direct categoryName-only usage).
@@ -1134,23 +1284,35 @@ export default function AddProductModal({
                 </div>
                 <div className="relative">
                   <input
+                    id="addProductCode"
                     type="text"
                     name="productCode"
                     maxLength={20}
                     value={formData.productCode}
                     onChange={handleChange}
+                    onBlur={() => markTouched("productCode")}
                     placeholder="PROD-1001"
-                    className="w-full pl-4 pr-10 py-3.5 rounded-xl border border-slate-200 bg-white/50 text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-300 focus:border-transparent transition-all duration-200"
+                    className={`w-full pl-4 pr-10 py-3.5 rounded-xl border transition-all duration-200 ${
+                      isCodeError
+                        ? "border-rose-500 ring-2 ring-rose-100 bg-rose-50/10 focus:ring-rose-200 focus:border-rose-500 text-slate-900"
+                        : "border-slate-200 bg-white/50 text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-300 focus:border-transparent"
+                    }`}
                   />
                   <div className="absolute right-3 top-1/2 -translate-y-1/2">
                     {validation.productCode.isValid ? (
                       <CheckCircle className="h-4 w-4 text-emerald-500" />
+                    ) : isCodeError ? (
+                      <AlertCircle className="h-4 w-4 text-rose-500 animate-pulse" />
                     ) : formData.productCode ? (
                       <AlertCircle className="h-4 w-4 text-amber-500" />
                     ) : null}
                   </div>
                 </div>
-                <ValidationIndicator isValid={validation.productCode.isValid} message={validation.productCode.message} />
+                <ValidationIndicator
+                  isValid={validation.productCode.isValid}
+                  message={serverErrors.productCode || validation.productCode.message}
+                  isError={isCodeError}
+                />
               </div>
 
               {/* Product Name */}
@@ -1161,23 +1323,35 @@ export default function AddProductModal({
                 </div>
                 <div className="relative">
                   <input
+                    id="addProductName"
                     type="text"
                     name="productName"
                     maxLength={100}
                     value={formData.productName}
                     onChange={handleChange}
+                    onBlur={() => markTouched("productName")}
                     placeholder="Eg: Cotton Silk Saree with Zari Border"
-                    className="w-full pl-4 pr-10 py-3.5 rounded-xl border border-slate-200 bg-white/50 text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-300 focus:border-transparent transition-all duration-200"
+                    className={`w-full pl-4 pr-10 py-3.5 rounded-xl border transition-all duration-200 ${
+                      isNameError
+                        ? "border-rose-500 ring-2 ring-rose-100 bg-rose-50/10 focus:ring-rose-200 focus:border-rose-500 text-slate-900"
+                        : "border-slate-200 bg-white/50 text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-300 focus:border-transparent"
+                    }`}
                   />
                   <div className="absolute right-3 top-1/2 -translate-y-1/2">
                     {validation.productName.isValid ? (
                       <CheckCircle className="h-4 w-4 text-emerald-500" />
+                    ) : isNameError ? (
+                      <AlertCircle className="h-4 w-4 text-rose-500 animate-pulse" />
                     ) : formData.productName ? (
                       <AlertCircle className="h-4 w-4 text-amber-500" />
                     ) : null}
                   </div>
                 </div>
-                <ValidationIndicator isValid={validation.productName.isValid} message={validation.productName.message} />
+                <ValidationIndicator
+                  isValid={validation.productName.isValid}
+                  message={serverErrors.productName || validation.productName.message}
+                  isError={isNameError}
+                />
               </div>
 
               {/* Brand */}
@@ -1199,43 +1373,44 @@ export default function AddProductModal({
               {/* Description */}
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <label className="block text-sm font-semibold text-slate-800">Description</label>
-                    <button
-                      type="button"
-                      onClick={applyBoldToDescription}
-                      title="Bold (Ctrl+B) - Select text to bold"
-                      className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded transition-colors shadow-xs cursor-pointer"
-                    >
-                      <Bold className="w-3 h-3" />
-                      <span>Bold</span>
-                    </button>
-                  </div>
+                  <label className="block text-sm font-semibold text-slate-800">Description</label>
                   <span className={`text-xs font-medium ${charCount >= 10 ? "text-emerald-600" : "text-slate-500"}`}>
                     {charCount}/10 characters
                   </span>
                 </div>
                 <div className="relative">
                   <textarea
+                    id="addProductDescription"
                     ref={descriptionTextareaRef}
                     name="description"
                     value={formData.description}
                     onChange={handleChange}
+                    onBlur={() => markTouched("description")}
                     onKeyDown={handleDescriptionKeyDown}
                     onPaste={handleDescriptionPaste}
                     rows={4}
-                    placeholder="Describe this product in detail... (Select text and click Bold, paste rich text, or use **word** / <b>word</b>)"
-                    className="w-full px-4 py-3.5 rounded-xl border border-slate-200 bg-white/50 text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-300 focus:border-transparent transition-all duration-200 resize-y"
+                    placeholder="Describe this product in detail..."
+                    className={`w-full px-4 py-3.5 rounded-xl border transition-all duration-200 resize-y ${
+                      isDescError
+                        ? "border-rose-500 ring-2 ring-rose-100 bg-rose-50/10 focus:ring-rose-200 focus:border-rose-500 text-slate-900"
+                        : "border-slate-200 bg-white/50 text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-300 focus:border-transparent"
+                    }`}
                   />
                   <div className="absolute right-3 top-3">
                     {validation.description.isValid ? (
                       <CheckCircle className="h-4 w-4 text-emerald-500" />
+                    ) : isDescError ? (
+                      <AlertCircle className="h-4 w-4 text-rose-500 animate-pulse" />
                     ) : formData.description ? (
                       <AlertCircle className="h-4 w-4 text-amber-500" />
                     ) : null}
                   </div>
                 </div>
-                <ValidationIndicator isValid={validation.description.isValid} message={validation.description.message} />
+                <ValidationIndicator
+                  isValid={validation.description.isValid}
+                  message={serverErrors.description || validation.description.message}
+                  isError={isDescError}
+                />
               </div>
 
               {/* SEO */}
@@ -1288,6 +1463,7 @@ export default function AddProductModal({
                         </div>
                         <div className="relative">
                           <input
+                            id="addProductPurchasePrice"
                             type="number"
                             name="purchasePrice"
                             min={0}
@@ -1295,12 +1471,19 @@ export default function AddProductModal({
                             step="any"
                             value={formData.purchasePrice}
                             onChange={handleChange}
+                            onBlur={() => markTouched("purchasePrice")}
                             placeholder="Eg: 1200"
-                            className="w-full pl-4 pr-10 py-3.5 rounded-xl border border-amber-100 bg-amber-50/30 text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-200 focus:border-transparent transition-all duration-200"
+                            className={`w-full pl-4 pr-10 py-3.5 rounded-xl border transition-all duration-200 ${
+                              isPurchasePriceError
+                                ? "border-rose-500 ring-2 ring-rose-100 bg-rose-50/10 focus:ring-rose-200 focus:border-rose-500 text-slate-900"
+                                : "border-amber-100 bg-amber-50/30 text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-200 focus:border-transparent"
+                            }`}
                           />
                           <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1">
                             {validation.purchasePrice.isValid && formData.purchasePrice ? (
                               <CheckCircle className="h-4 w-4 text-emerald-500" />
+                            ) : isPurchasePriceError ? (
+                              <AlertCircle className="h-4 w-4 text-rose-500 animate-pulse" />
                             ) : formData.purchasePrice ? (
                               <AlertCircle className="h-4 w-4 text-amber-500" />
                             ) : (
@@ -1308,7 +1491,11 @@ export default function AddProductModal({
                             )}
                           </div>
                         </div>
-                        <ValidationIndicator isValid={validation.purchasePrice.isValid} message={validation.purchasePrice.message} />
+                        <ValidationIndicator
+                          isValid={validation.purchasePrice.isValid}
+                          message={serverErrors.purchasePrice || validation.purchasePrice.message}
+                          isError={isPurchasePriceError}
+                        />
                       </div>
 
                       {/* Selling Price */}
@@ -1321,6 +1508,7 @@ export default function AddProductModal({
                         </div>
                         <div className="relative">
                           <input
+                            id="addProductPrice"
                             type="number"
                             name="price"
                             min={0}
@@ -1328,12 +1516,19 @@ export default function AddProductModal({
                             step="any"
                             value={formData.price}
                             onChange={handleChange}
+                            onBlur={() => markTouched("price")}
                             placeholder="Eg: 2499"
-                            className="w-full pl-4 pr-10 py-3.5 rounded-xl border border-slate-200 bg-white/50 text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-300 focus:border-transparent transition-all duration-200"
+                            className={`w-full pl-4 pr-10 py-3.5 rounded-xl border transition-all duration-200 ${
+                              isPriceError
+                                ? "border-rose-500 ring-2 ring-rose-100 bg-rose-50/10 focus:ring-rose-200 focus:border-rose-500 text-slate-900"
+                                : "border-slate-200 bg-white/50 text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-300 focus:border-transparent"
+                            }`}
                           />
                           <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1">
                             {validation.price.isValid ? (
                               <CheckCircle className="h-4 w-4 text-emerald-500" />
+                            ) : isPriceError ? (
+                              <AlertCircle className="h-4 w-4 text-rose-500 animate-pulse" />
                             ) : formData.price ? (
                               <AlertCircle className="h-4 w-4 text-amber-500" />
                             ) : (
@@ -1341,7 +1536,11 @@ export default function AddProductModal({
                             )}
                           </div>
                         </div>
-                        <ValidationIndicator isValid={validation.price.isValid} message={validation.price.message} />
+                        <ValidationIndicator
+                          isValid={validation.price.isValid}
+                          message={serverErrors.price || validation.price.message}
+                          isError={isPriceError}
+                        />
                       </div>
                     </div>
 
@@ -1414,19 +1613,27 @@ export default function AddProductModal({
                         </div>
                         <div className="relative">
                           <input
+                            id="addProductDiscount"
                             type="number"
                             name="discount"
                             value={formData.discount}
                             onChange={handleChange}
+                            onBlur={() => markTouched("discount")}
                             placeholder="Eg: 23.85"
                             min={0}
                             max={100}
                             step="any"
-                            className="w-full pl-4 pr-10 py-3.5 rounded-xl border border-slate-200 bg-white/50 text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-300 focus:border-transparent transition-all duration-200"
+                            className={`w-full pl-4 pr-10 py-3.5 rounded-xl border transition-all duration-200 ${
+                              isDiscountError
+                                ? "border-rose-500 ring-2 ring-rose-100 bg-rose-50/10 focus:ring-rose-200 focus:border-rose-500 text-slate-900"
+                                : "border-slate-200 bg-white/50 text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-300 focus:border-transparent"
+                            }`}
                           />
                           <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1">
                             {validation.discount.isValid && formData.discount ? (
                               <CheckCircle className="h-4 w-4 text-emerald-500" />
+                            ) : isDiscountError ? (
+                              <AlertCircle className="h-4 w-4 text-rose-500 animate-pulse" />
                             ) : formData.discount ? (
                               <AlertCircle className="h-4 w-4 text-amber-500" />
                             ) : (
@@ -1434,7 +1641,11 @@ export default function AddProductModal({
                             )}
                           </div>
                         </div>
-                        <ValidationIndicator isValid={validation.discount.isValid} message={validation.discount.message} />
+                        <ValidationIndicator
+                          isValid={validation.discount.isValid}
+                          message={serverErrors.discount || validation.discount.message}
+                          isError={isDiscountError}
+                        />
                       </div>
 
                       {/* Discount Amount */}
@@ -1674,9 +1885,9 @@ export default function AddProductModal({
                       Add option
                     </button>
                     {previewCombos.length > 0 && (
-                      <span className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 text-white text-xs font-semibold shadow-xs">
-                        <Plus className="h-3.5 w-3.5" />
-                        Add Combinations ({previewCombos.length})
+                      <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-indigo-50 border border-indigo-200/80 text-indigo-700 text-xs font-bold shadow-2xs">
+                        <Layers className="h-3.5 w-3.5 text-indigo-600" />
+                        {previewCombos.length} Combinations Generated
                       </span>
                     )}
                   </div>
@@ -1685,26 +1896,34 @@ export default function AddProductModal({
                 {/* Combinations List Section */}
                 {previewCombos.length > 0 && (
                   <div className="space-y-4 pt-2">
-                    <div className="flex items-center justify-between text-xs font-bold text-slate-500 uppercase tracking-wider px-1">
-                      <span>PREVIEW — {previewCombos.length} COMBINATIONS, {previewTotalStock} UNITS TOTAL</span>
+                    <div className="flex items-center justify-between px-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                          Variant Combinations
+                        </span>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200/60">
+                          {previewCombos.length} Variants
+                        </span>
+                        <span className="text-xs text-slate-400 font-medium">
+                          · {previewTotalStock} units total
+                        </span>
+                      </div>
                     </div>
 
                     {/* Top Batch Toolbar for Shared Images */}
                     {previewCombos.length > 1 && (
-                      <div className="rounded-2xl border border-indigo-200/80 bg-gradient-to-r from-indigo-50/90 via-sky-50/70 to-indigo-50/90 p-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-2xs">
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-xs">
-                            <Layers className="h-4 w-4" />
-                          </div>
+                      <div className="rounded-2xl border border-indigo-100 bg-gradient-to-r from-indigo-50/70 via-sky-50/40 to-white p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-2xs">
+                        <div className="flex items-center gap-3 min-w-0">
+                         
                           <div>
-                            <p className="text-xs font-bold text-slate-800">Same photo for all the variants?</p>
-                            <p className="text-[11px] text-slate-500">
+                            <p className="text-xs font-bold text-slate-900">Same photo for all the variants?</p>
+                            <p className="text-[11px] text-slate-500 mt-0.5">
                               Upload once to quickly apply the same photo across all {previewCombos.length} variants.
                             </p>
                           </div>
                         </div>
                         <div className="flex items-center gap-2 shrink-0 flex-wrap">
-                          <label className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-xs transition-all">
+                          <label className="cursor-pointer inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-xs transition-all active:scale-95">
                             <Upload className="h-3.5 w-3.5" />
                             <span>1st image for All</span>
                             <input
@@ -1718,7 +1937,7 @@ export default function AddProductModal({
                               }}
                             />
                           </label>
-                          <label className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-semibold shadow-2xs transition-all">
+                          <label className="cursor-pointer inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-semibold shadow-2xs transition-all active:scale-95">
                             <Upload className="h-3.5 w-3.5 text-slate-400" />
                             <span>2nd image (All)</span>
                             <input
@@ -1752,12 +1971,22 @@ export default function AddProductModal({
                         <div
                           key={combo.key}
                           className={`rounded-2xl border p-4 sm:p-5 space-y-4 transition-all ${
-                            isActive ? "border-slate-200 bg-white shadow-2xs" : "border-slate-200 bg-slate-50/60 opacity-70"
+                            isActive ? "border-slate-200/90 bg-white shadow-2xs hover:shadow-xs" : "border-slate-200 bg-slate-50/60 opacity-60"
                           }`}
                         >
                           {/* Header: Label and Switch */}
-                          <div className="flex items-center justify-between">
-                            <span className="font-bold text-slate-900 text-sm">{label}</span>
+                          <div className="flex items-center justify-between pb-1">
+                            <div className="flex items-center gap-2">
+                              <span className={`h-2 w-2 rounded-full ${isActive ? "bg-indigo-600" : "bg-slate-300"}`} />
+                              <span className="font-bold text-slate-900 text-sm">{label}</span>
+                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                                isActive
+                                  ? "bg-indigo-50 text-indigo-700 border-indigo-200/70"
+                                  : "bg-slate-100 text-slate-500 border-slate-200"
+                              }`}>
+                                {isActive ? "Active" : "Inactive"}
+                              </span>
+                            </div>
                             <button
                               type="button"
                               onClick={() =>
@@ -1782,7 +2011,7 @@ export default function AddProductModal({
                           {/* 4 Clean Columns: STOCK, SELLING PRICE, PURCHASE PRICE, DISCOUNT % */}
                           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                             <div>
-                              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1">
+                              <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
                                 STOCK
                               </label>
                               <input
@@ -1791,11 +2020,11 @@ export default function AddProductModal({
                                 placeholder="0"
                                 value={draft.stock ?? ""}
                                 onChange={(e) => setField("stock", e.target.value)}
-                                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-200 transition-all"
+                                className="w-full px-3.5 py-2 rounded-xl border border-slate-200 bg-slate-50/40 hover:bg-white focus:bg-white text-slate-800 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 transition-all"
                               />
                             </div>
                             <div>
-                              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1">
+                              <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
                                 SELLING PRICE
                               </label>
                               <input
@@ -1804,11 +2033,11 @@ export default function AddProductModal({
                                 placeholder="Base price"
                                 value={draft.priceOverride ?? ""}
                                 onChange={(e) => setField("priceOverride", e.target.value)}
-                                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-200 transition-all"
+                                className="w-full px-3.5 py-2 rounded-xl border border-slate-200 bg-slate-50/40 hover:bg-white focus:bg-white text-slate-800 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 transition-all"
                               />
                             </div>
                             <div>
-                              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1">
+                              <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
                                 PURCHASE PRICE
                               </label>
                               <input
@@ -1817,11 +2046,11 @@ export default function AddProductModal({
                                 placeholder="Base cost"
                                 value={draft.purchasePriceOverride ?? ""}
                                 onChange={(e) => setField("purchasePriceOverride", e.target.value)}
-                                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-200 transition-all"
+                                className="w-full px-3.5 py-2 rounded-xl border border-slate-200 bg-slate-50/40 hover:bg-white focus:bg-white text-slate-800 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 transition-all"
                               />
                             </div>
                             <div>
-                              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1">
+                              <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
                                 DISCOUNT %
                               </label>
                               <input
@@ -1832,124 +2061,121 @@ export default function AddProductModal({
                                 placeholder="0"
                                 value={draft.discountOverride ?? ""}
                                 onChange={(e) => setField("discountOverride", e.target.value)}
-                                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-200 transition-all"
+                                className="w-full px-3.5 py-2 rounded-xl border border-slate-200 bg-slate-50/40 hover:bg-white focus:bg-white text-slate-800 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 transition-all"
                               />
                             </div>
                           </div>
 
                           {/* Dual Image Slots: 1st image (Required) & 2nd image (Optional) */}
                           <div className="pt-3 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                            {/* 1st image: Empty State (Small Box) */}
-                            {draft.imagePreview ? (
-                              <div className="relative group/slot rounded-2xl border-2 border-slate-200 bg-white p-3 shadow-2xs hover:shadow-xs hover:border-indigo-300 transition-all space-y-2.5 flex flex-col justify-between">
-                                <div className="flex items-center justify-between">
-                                  <div className="flex items-center gap-1.5">
-                                    <span className="flex h-5 w-5 items-center justify-center rounded-md text-[11px] font-bold bg-emerald-600 text-white shadow-2xs">
-                                      1
-                                    </span>
-                                    <span className="text-xs font-bold text-slate-800">1st image *</span>
-                                  </div>
+                            {/* 1st image Slot */}
+                            <div className="relative rounded-2xl border border-slate-200/90 bg-slate-50/30 hover:bg-white p-3.5 transition-all space-y-3 flex flex-col justify-between min-h-[175px]">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-1.5">
+                                  <span className={`flex h-5 w-5 items-center justify-center rounded-md text-[11px] font-bold shadow-2xs ${
+                                    draft.imagePreview ? "bg-emerald-600 text-white" : "bg-slate-200/80 text-slate-700"
+                                  }`}>
+                                    1
+                                  </span>
+                                  <span className="text-xs font-bold text-slate-800">1st image</span>
+                                </div>
+                                {draft.imagePreview ? (
                                   <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
                                     <CheckCircle className="h-3 w-3 text-emerald-600" />
                                     Ready
                                   </span>
-                                </div>
-
-                                {/* Square Photo Preview Box */}
-                                <div
-                                  className="relative aspect-4/3 sm:aspect-square w-full rounded-xl overflow-hidden border border-slate-200 bg-slate-50 flex items-center justify-center group/thumb cursor-pointer"
-                                  onClick={() =>
-                                    setPreviewModalImage({
-                                      url: draft.imagePreview!,
-                                      title: `${label} — 1st image`,
-                                      subtitle: draft.imageFile?.name,
-                                    })
-                                  }
-                                >
-                                  <img
-                                    src={draft.imagePreview}
-                                    alt={`${label} - 1st image`}
-                                    className="w-full h-full object-contain p-2 transition-transform duration-300 group-hover/thumb:scale-105"
-                                  />
-                                  <div className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-slate-900/80 text-white text-[10px] font-bold backdrop-blur-sm pointer-events-none shadow-xs">
-                                    #1
-                                  </div>
-                                  <div className="absolute inset-0 bg-black/40 text-white flex items-center justify-center opacity-0 group-hover/thumb:opacity-100 transition-all duration-200">
-                                    <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/25 backdrop-blur-md text-white text-xs font-semibold shadow-lg">
-                                      <Maximize2 className="h-3.5 w-3.5" />
-                                      <span>Full Preview</span>
-                                    </div>
-                                  </div>
-                                </div>
-
-                                {/* Actions footer */}
-                                <div className="pt-0.5 flex flex-wrap items-center justify-between gap-1.5">
-                                  <label className="cursor-pointer inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold border border-slate-200 transition shadow-2xs">
-                                    <Upload className="h-3 w-3 text-slate-500" />
-                                    Replace
-                                    <input
-                                      type="file"
-                                      accept="image/*"
-                                      className="hidden"
-                                      onChange={(e) => {
-                                        const file = e.target.files?.[0];
-                                        if (file) handleVariantImageUpload(combo.key, "primary", file);
-                                        e.target.value = "";
-                                      }}
-                                    />
-                                  </label>
-                                  {previewCombos.length > 1 && (
-                                    <button
-                                      type="button"
-                                      onClick={() => handleApplyToAllVariants(combo.key, "primary")}
-                                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-semibold border border-indigo-200/60 transition shadow-2xs cursor-pointer"
-                                      title="Apply this 1st image to all options"
-                                    >
-                                      <Layers className="h-3 w-3" />
-                                      <span>Apply to all</span>
-                                    </button>
-                                  )}
-                                  {draft.secondaryImagePreview && (
-                                    <button
-                                      type="button"
-                                      onClick={() => handleSwapVariantImages(combo.key)}
-                                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-semibold border border-indigo-200/60 transition shadow-2xs cursor-pointer"
-                                      title="Swap with 2nd image"
-                                    >
-                                      <ArrowLeftRight className="h-3 w-3" />
-                                      Swap
-                                    </button>
-                                  )}
-                                  <button
-                                    type="button"
-                                    onClick={() => handleRemoveVariantImage(combo.key, "primary")}
-                                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-semibold border border-rose-200/60 transition shadow-2xs ml-auto cursor-pointer"
-                                    title="Remove 1st image"
-                                  >
-                                    <Trash2 className="h-3 w-3" />
-                                  </button>
-                                </div>
-                              </div>
-                            ) : (
-                              <div className="relative rounded-xl border border-dashed border-slate-200 bg-slate-50/40 hover:bg-slate-50 hover:border-indigo-300 transition-all p-3 space-y-2 flex flex-col justify-between">
-                                <div className="flex items-center justify-between">
-                                  <div className="flex items-center gap-1.5">
-                                    <span className="flex h-5 w-5 items-center justify-center rounded-md text-[11px] font-bold bg-indigo-100 text-indigo-700">
-                                      1
-                                    </span>
-                                    <span className="text-xs font-semibold text-slate-700">1st image *</span>
-                                  </div>
-                                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border text-slate-600 bg-slate-100 border-slate-200">
+                                ) : (
+                                  <span className="inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200/80">
                                     Required *
                                   </span>
-                                </div>
+                                )}
+                              </div>
 
-                                <label className="cursor-pointer border-2 border-dashed border-slate-200 hover:border-indigo-400 bg-white hover:bg-indigo-50/20 rounded-xl py-2.5 px-3 transition-all duration-200 flex items-center justify-center gap-2 group">
-                                  <div className="p-1 rounded-lg bg-indigo-50 text-indigo-600 group-hover:scale-105 group-hover:bg-indigo-600 group-hover:text-white transition-all">
-                                    <Upload className="h-3.5 w-3.5" />
+                              {draft.imagePreview ? (
+                                <>
+                                  <div
+                                    className="relative aspect-4/3 sm:aspect-square w-full rounded-xl overflow-hidden border border-slate-200 bg-white flex items-center justify-center group/thumb cursor-pointer shadow-2xs"
+                                    onClick={() =>
+                                      setPreviewModalImage({
+                                        url: draft.imagePreview!,
+                                        title: `${label} — 1st image`,
+                                        subtitle: draft.imageFile?.name,
+                                      })
+                                    }
+                                  >
+                                    <img
+                                      src={draft.imagePreview}
+                                      alt={`${label} - 1st image`}
+                                      className="w-full h-full object-contain p-2 transition-transform duration-300 group-hover/thumb:scale-105"
+                                    />
+                                    <div className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-slate-900/80 text-white text-[10px] font-bold backdrop-blur-sm pointer-events-none shadow-xs">
+                                      #1
+                                    </div>
+                                    <div className="absolute inset-0 bg-black/40 text-white flex items-center justify-center opacity-0 group-hover/thumb:opacity-100 transition-all duration-200">
+                                      <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/25 backdrop-blur-md text-white text-xs font-semibold shadow-lg">
+                                        <Maximize2 className="h-3.5 w-3.5" />
+                                        <span>Full Preview</span>
+                                      </div>
+                                    </div>
                                   </div>
-                                  <span className="text-xs font-bold text-slate-700 group-hover:text-indigo-700">
+
+                                  <div className="pt-0.5 flex flex-wrap items-center justify-between gap-1.5">
+                                    <label className="cursor-pointer inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold border border-slate-200/80 transition shadow-2xs">
+                                      <Upload className="h-3 w-3 text-slate-500" />
+                                      Replace
+                                      <input
+                                        type="file"
+                                        accept="image/*"
+                                        className="hidden"
+                                        onChange={(e) => {
+                                          const file = e.target.files?.[0];
+                                          if (file) handleVariantImageUpload(combo.key, "primary", file);
+                                          e.target.value = "";
+                                        }}
+                                      />
+                                    </label>
+                                    {previewCombos.length > 1 && (
+                                      <button
+                                        type="button"
+                                        onClick={() => handleApplyToAllVariants(combo.key, "primary")}
+                                        className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-semibold border border-indigo-200/60 transition shadow-2xs cursor-pointer"
+                                        title="Apply this 1st image to all options"
+                                      >
+                                        <Layers className="h-3 w-3" />
+                                        <span>Apply to all</span>
+                                      </button>
+                                    )}
+                                    {draft.secondaryImagePreview && (
+                                      <button
+                                        type="button"
+                                        onClick={() => handleSwapVariantImages(combo.key)}
+                                        className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-semibold border border-indigo-200/60 transition shadow-2xs cursor-pointer"
+                                        title="Swap with 2nd image"
+                                      >
+                                        <ArrowLeftRight className="h-3 w-3" />
+                                        Swap
+                                      </button>
+                                    )}
+                                    <button
+                                      type="button"
+                                      onClick={() => handleRemoveVariantImage(combo.key, "primary")}
+                                      className="inline-flex items-center gap-1 p-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 text-xs font-semibold border border-rose-200/60 transition shadow-2xs ml-auto cursor-pointer"
+                                      title="Remove 1st image"
+                                    >
+                                      <Trash2 className="h-3.5 w-3.5" />
+                                    </button>
+                                  </div>
+                                </>
+                              ) : (
+                                <label className="flex-1 cursor-pointer border-2 border-dashed border-slate-200 hover:border-indigo-400 bg-white hover:bg-indigo-50/25 rounded-xl py-6 px-4 transition-all duration-200 flex flex-col items-center justify-center text-center gap-1.5 group">
+                                  <div className="p-2 rounded-xl bg-slate-100 group-hover:bg-indigo-600 text-slate-500 group-hover:text-white transition-all shadow-2xs group-hover:scale-105">
+                                    <Upload className="h-4 w-4" />
+                                  </div>
+                                  <span className="text-xs font-bold text-slate-700 group-hover:text-indigo-700 transition-colors">
                                     Upload 1st Image *
+                                  </span>
+                                  <span className="text-[10px] text-slate-400">
+                                    PNG, JPG, WEBP
                                   </span>
                                   <input
                                     type="file"
@@ -1962,109 +2188,106 @@ export default function AddProductModal({
                                     }}
                                   />
                                 </label>
-                              </div>
-                            )}
+                              )}
+                            </div>
 
-                            {/* 2nd image: Empty State (Small Box) */}
-                            {draft.secondaryImagePreview ? (
-                              <div className="relative group/slot rounded-2xl border-2 border-slate-200 bg-white p-3 shadow-2xs hover:shadow-xs hover:border-indigo-300 transition-all space-y-2.5 flex flex-col justify-between">
-                                <div className="flex items-center justify-between">
-                                  <div className="flex items-center gap-1.5">
-                                    <span className="flex h-5 w-5 items-center justify-center rounded-md text-[11px] font-bold bg-indigo-600 text-white shadow-2xs">
-                                      2
-                                    </span>
-                                    <span className="text-xs font-bold text-slate-800">2nd image</span>
-                                  </div>
+                            {/* 2nd image Slot */}
+                            <div className="relative rounded-2xl border border-slate-200/90 bg-slate-50/30 hover:bg-white p-3.5 transition-all space-y-3 flex flex-col justify-between min-h-[175px]">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-1.5">
+                                  <span className={`flex h-5 w-5 items-center justify-center rounded-md text-[11px] font-bold shadow-2xs ${
+                                    draft.secondaryImagePreview ? "bg-indigo-600 text-white" : "bg-slate-200/80 text-slate-700"
+                                  }`}>
+                                    2
+                                  </span>
+                                  <span className="text-xs font-bold text-slate-800">2nd image</span>
+                                </div>
+                                {draft.secondaryImagePreview ? (
                                   <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
                                     <CheckCircle className="h-3 w-3 text-emerald-600" />
                                     Ready
                                   </span>
-                                </div>
-
-                                {/* Square Photo Preview Box */}
-                                <div
-                                  className="relative aspect-4/3 sm:aspect-square w-full rounded-xl overflow-hidden border border-slate-200 bg-slate-50 flex items-center justify-center group/thumb cursor-pointer"
-                                  onClick={() =>
-                                    setPreviewModalImage({
-                                      url: draft.secondaryImagePreview!,
-                                      title: `${label} — 2nd image`,
-                                      subtitle: draft.secondaryImageFile?.name,
-                                    })
-                                  }
-                                >
-                                  <img
-                                    src={draft.secondaryImagePreview}
-                                    alt={`${label} - 2nd image`}
-                                    className="w-full h-full object-contain p-2 transition-transform duration-300 group-hover/thumb:scale-105"
-                                  />
-                                  <div className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-slate-900/80 text-white text-[10px] font-bold backdrop-blur-sm pointer-events-none shadow-xs">
-                                    #2
-                                  </div>
-                                  <div className="absolute inset-0 bg-black/40 text-white flex items-center justify-center opacity-0 group-hover/thumb:opacity-100 transition-all duration-200">
-                                    <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/25 backdrop-blur-md text-white text-xs font-semibold shadow-lg">
-                                      <Maximize2 className="h-3.5 w-3.5" />
-                                      <span>Full Preview</span>
-                                    </div>
-                                  </div>
-                                </div>
-
-                                {/* Actions footer */}
-                                <div className="pt-0.5 flex flex-wrap items-center justify-between gap-1.5">
-                                  <label className="cursor-pointer inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold border border-slate-200 transition shadow-2xs">
-                                    <Upload className="h-3 w-3 text-slate-500" />
-                                    Replace
-                                    <input
-                                      type="file"
-                                      accept="image/*"
-                                      className="hidden"
-                                      onChange={(e) => {
-                                        const file = e.target.files?.[0];
-                                        if (file) handleVariantImageUpload(combo.key, "secondary", file);
-                                        e.target.value = "";
-                                      }}
-                                    />
-                                  </label>
-                                  {previewCombos.length > 1 && (
-                                    <button
-                                      type="button"
-                                      onClick={() => handleApplyToAllVariants(combo.key, "secondary")}
-                                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-semibold border border-indigo-200/60 transition shadow-2xs cursor-pointer"
-                                      title="Apply this 2nd image to all options"
-                                    >
-                                      <Layers className="h-3 w-3" />
-                                      <span>Apply to all</span>
-                                    </button>
-                                  )}
-                                  <button
-                                    type="button"
-                                    onClick={() => handleRemoveVariantImage(combo.key, "secondary")}
-                                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-semibold border border-rose-200/60 transition shadow-2xs ml-auto cursor-pointer"
-                                    title="Remove 2nd image"
-                                  >
-                                    <Trash2 className="h-3 w-3" />
-                                  </button>
-                                </div>
-                              </div>
-                            ) : (
-                              <div className="relative rounded-xl border border-dashed border-slate-200 bg-slate-50/40 hover:bg-slate-50 hover:border-indigo-300 transition-all p-3 space-y-2 flex flex-col justify-between">
-                                <div className="flex items-center justify-between">
-                                  <div className="flex items-center gap-1.5">
-                                    <span className="flex h-5 w-5 items-center justify-center rounded-md text-[11px] font-bold bg-indigo-100 text-indigo-700">
-                                      2
-                                    </span>
-                                    <span className="text-xs font-semibold text-slate-700">2nd image</span>
-                                  </div>
-                                  <span className="text-[10px] font-medium text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
+                                ) : (
+                                  <span className="inline-flex items-center text-[10px] font-medium text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
                                     Optional
                                   </span>
-                                </div>
+                                )}
+                              </div>
 
-                                <label className="cursor-pointer border-2 border-dashed border-slate-200 hover:border-indigo-400 bg-white hover:bg-indigo-50/20 rounded-xl py-2.5 px-3 transition-all duration-200 flex items-center justify-center gap-2 group">
-                                  <div className="p-1 rounded-lg bg-indigo-50 text-indigo-600 group-hover:scale-105 group-hover:bg-indigo-600 group-hover:text-white transition-all">
-                                    <Upload className="h-3.5 w-3.5" />
+                              {draft.secondaryImagePreview ? (
+                                <>
+                                  <div
+                                    className="relative aspect-4/3 sm:aspect-square w-full rounded-xl overflow-hidden border border-slate-200 bg-white flex items-center justify-center group/thumb cursor-pointer shadow-2xs"
+                                    onClick={() =>
+                                      setPreviewModalImage({
+                                        url: draft.secondaryImagePreview!,
+                                        title: `${label} — 2nd image`,
+                                        subtitle: draft.secondaryImageFile?.name,
+                                      })
+                                    }
+                                  >
+                                    <img
+                                      src={draft.secondaryImagePreview}
+                                      alt={`${label} - 2nd image`}
+                                      className="w-full h-full object-contain p-2 transition-transform duration-300 group-hover/thumb:scale-105"
+                                    />
+                                    <div className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-slate-900/80 text-white text-[10px] font-bold backdrop-blur-sm pointer-events-none shadow-xs">
+                                      #2
+                                    </div>
+                                    <div className="absolute inset-0 bg-black/40 text-white flex items-center justify-center opacity-0 group-hover/thumb:opacity-100 transition-all duration-200">
+                                      <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/25 backdrop-blur-md text-white text-xs font-semibold shadow-lg">
+                                        <Maximize2 className="h-3.5 w-3.5" />
+                                        <span>Full Preview</span>
+                                      </div>
+                                    </div>
                                   </div>
-                                  <span className="text-xs font-bold text-slate-700 group-hover:text-indigo-700">
+
+                                  <div className="pt-0.5 flex flex-wrap items-center justify-between gap-1.5">
+                                    <label className="cursor-pointer inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold border border-slate-200/80 transition shadow-2xs">
+                                      <Upload className="h-3 w-3 text-slate-500" />
+                                      Replace
+                                      <input
+                                        type="file"
+                                        accept="image/*"
+                                        className="hidden"
+                                        onChange={(e) => {
+                                          const file = e.target.files?.[0];
+                                          if (file) handleVariantImageUpload(combo.key, "secondary", file);
+                                          e.target.value = "";
+                                        }}
+                                      />
+                                    </label>
+                                    {previewCombos.length > 1 && (
+                                      <button
+                                        type="button"
+                                        onClick={() => handleApplyToAllVariants(combo.key, "secondary")}
+                                        className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-semibold border border-indigo-200/60 transition shadow-2xs cursor-pointer"
+                                        title="Apply this 2nd image to all options"
+                                      >
+                                        <Layers className="h-3 w-3" />
+                                        <span>Apply to all</span>
+                                      </button>
+                                    )}
+                                    <button
+                                      type="button"
+                                      onClick={() => handleRemoveVariantImage(combo.key, "secondary")}
+                                      className="inline-flex items-center gap-1 p-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 text-xs font-semibold border border-rose-200/60 transition shadow-2xs ml-auto cursor-pointer"
+                                      title="Remove 2nd image"
+                                    >
+                                      <Trash2 className="h-3.5 w-3.5" />
+                                    </button>
+                                  </div>
+                                </>
+                              ) : (
+                                <label className="flex-1 cursor-pointer border-2 border-dashed border-slate-200 hover:border-indigo-400 bg-white hover:bg-indigo-50/25 rounded-xl py-6 px-4 transition-all duration-200 flex flex-col items-center justify-center text-center gap-1.5 group">
+                                  <div className="p-2 rounded-xl bg-slate-100 group-hover:bg-indigo-600 text-slate-500 group-hover:text-white transition-all shadow-2xs group-hover:scale-105">
+                                    <Upload className="h-4 w-4" />
+                                  </div>
+                                  <span className="text-xs font-bold text-slate-700 group-hover:text-indigo-700 transition-colors">
                                     Upload 2nd Image
+                                  </span>
+                                  <span className="text-[10px] text-slate-400">
+                                    PNG, JPG, WEBP
                                   </span>
                                   <input
                                     type="file"
@@ -2077,8 +2300,8 @@ export default function AddProductModal({
                                     }}
                                   />
                                 </label>
-                              </div>
-                            )}
+                              )}
+                            </div>
                           </div>
                         </div>
                       );
@@ -2096,27 +2319,28 @@ export default function AddProductModal({
             {variantMode === "none" && (
               <div className="space-y-6">
                 {/* PRIMARY IMAGE */}
-                <div className="rounded-2xl border border-slate-200 bg-slate-50/50 p-4 space-y-3">
+                <div className="rounded-2xl border border-slate-200/90 bg-white p-5 space-y-3.5 shadow-2xs">
                   <div className="flex items-center justify-between">
                     <div>
-                      <label className="block text-sm font-bold text-slate-800">
+                      <label className="block text-sm font-bold text-slate-900">
                         Primary Product Image
                       </label>
-                      <p className="text-xs text-slate-500">
+                      <p className="text-xs text-slate-500 mt-0.5">
                         Main thumbnail shown across catalog, storefront, and search
                       </p>
                     </div>
                     {formData.image && (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-700">
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/80">
+                        <CheckCircle className="h-3 w-3 text-emerald-600" />
                         Image selected
                       </span>
                     )}
                   </div>
 
                   {imagePreview ? (
-                    <div className="flex flex-col sm:flex-row items-center gap-4 p-3 bg-white rounded-xl border border-slate-200/80 shadow-xs">
+                    <div className="flex flex-col sm:flex-row items-center gap-4 p-3.5 bg-slate-50/50 rounded-xl border border-slate-200/80">
                       {/* Thumbnail container */}
-                      <div className="relative w-40 h-40 sm:w-48 sm:h-48 rounded-xl overflow-hidden border border-slate-200 bg-slate-50 group flex items-center justify-center shrink-0">
+                      <div className="relative w-40 h-40 sm:w-44 sm:h-44 rounded-xl overflow-hidden border border-slate-200 bg-white group flex items-center justify-center shrink-0 shadow-2xs">
                         <img
                           src={imagePreview}
                           alt={formData.productName || "Product"}
@@ -2128,7 +2352,7 @@ export default function AddProductModal({
                             })
                           }
                         />
-                        <div className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-slate-900/75 text-white text-[10px] font-semibold backdrop-blur-sm pointer-events-none">
+                        <div className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-slate-900/80 text-white text-[10px] font-semibold backdrop-blur-sm pointer-events-none">
                           Primary
                         </div>
                         <button
@@ -2149,13 +2373,13 @@ export default function AddProductModal({
                       {/* Controls and file info */}
                       <div className="space-y-3 flex-1 min-w-0 w-full">
                         <div>
-                          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                          <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
                             Current Selection
                           </p>
                           <p className="text-sm font-bold text-slate-800 truncate mt-0.5">
                             {formData.image ? formData.image.name : formData.productName ? `${formData.productName} main image` : "Product main image"}
                           </p>
-                          <p className="text-xs text-slate-400 mt-0.5">
+                          <p className="text-xs text-slate-500 mt-0.5">
                             {formData.image ? `Size: ${(formData.image.size / 1024).toFixed(0)} KB (Ready to upload)` : "Image ready"}
                           </p>
                         </div>
@@ -2202,20 +2426,38 @@ export default function AddProductModal({
                       </div>
                     </div>
                   ) : (
-                    <label
-                      htmlFor="addProductImageUpload"
-                      className="flex flex-col items-center justify-center w-full p-6 border-2 border-dashed border-slate-200 hover:border-indigo-300 rounded-xl bg-white hover:bg-indigo-50/20 cursor-pointer transition-all text-center group"
-                    >
-                      <div className="p-3 rounded-full bg-slate-100 group-hover:bg-indigo-100 transition mb-2">
-                        <Upload className="h-6 w-6 text-slate-400 group-hover:text-indigo-600 transition" />
-                      </div>
-                      <span className="text-sm font-semibold text-slate-700 group-hover:text-indigo-700">
-                        {variantMode === "variants" ? "Upload Custom Cover Image" : "Upload Primary Image"}
-                      </span>
-                      <span className="text-xs text-slate-400 mt-1">
-                        PNG, JPG, WEBP up to 5MB
-                      </span>
-                    </label>
+                    <>
+                      <label
+                        htmlFor="addProductImageUpload"
+                        className={`flex flex-col items-center justify-center w-full py-8 px-6 border-2 border-dashed rounded-2xl cursor-pointer transition-all duration-200 text-center group ${
+                          isImageError
+                            ? "border-rose-300 bg-rose-50/20 text-rose-600"
+                            : "border-slate-200/90 hover:border-indigo-400 bg-slate-50/40 hover:bg-indigo-50/25"
+                        }`}
+                      >
+                        <div className={`h-12 w-12 rounded-2xl flex items-center justify-center transition-all duration-200 mb-2.5 shadow-2xs ${
+                          isImageError
+                            ? "bg-white border border-rose-200 text-rose-500"
+                            : "bg-white border border-slate-200/80 text-slate-600 group-hover:text-indigo-600 group-hover:border-indigo-300 group-hover:scale-105 group-hover:shadow-xs"
+                        }`}>
+                          <Upload className="h-5 w-5" />
+                        </div>
+                        <span className={`text-sm font-bold ${isImageError ? "text-rose-700" : "text-slate-800 group-hover:text-indigo-700 transition-colors"}`}>
+                          {variantMode === "variants" ? "Upload Custom Cover Image" : "Upload Primary Image"}
+                        </span>
+                        <span className={`text-xs mt-1 ${isImageError ? "text-rose-500 font-medium" : "text-slate-400"}`}>
+                          PNG, JPG, WEBP up to 5MB
+                        </span>
+                      </label>
+                      {isImageError && (
+                        <div className="flex items-center gap-1.5 mt-2 animate-fadeIn text-rose-600">
+                          <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                          <span className="text-xs font-semibold">
+                            {serverErrors.image || validation.image.message || "Primary product image is required"}
+                          </span>
+                        </div>
+                      )}
+                    </>
                   )}
 
                   <input
@@ -2230,28 +2472,28 @@ export default function AddProductModal({
 
                 {/* GALLERY IMAGES (Only for Single Product Mode) */}
                 {variantMode === "none" && (
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50/50 p-4 space-y-3">
+                  <div className="rounded-2xl border border-slate-200/90 bg-white p-5 space-y-3.5 shadow-2xs">
                     <div className="flex items-center justify-between">
                       <div>
-                        <label className="block text-sm font-bold text-slate-800">
+                        <label className="block text-sm font-bold text-slate-900">
                           Gallery Images
                         </label>
-                        <p className="text-xs text-slate-500">
+                        <p className="text-xs text-slate-500 mt-0.5">
                           Additional angles and variation views. Hover or tap to preview full size or remove.
                         </p>
                       </div>
-                      <span className="text-xs font-bold text-slate-600 bg-slate-200/80 px-2.5 py-1 rounded-full">
+                      <span className="inline-flex items-center gap-1 text-xs font-bold text-slate-600 bg-slate-100 border border-slate-200/70 px-2.5 py-1 rounded-full">
                         {formData.additionalImages.length}/5
                       </span>
                     </div>
 
                     {/* Gallery Grid */}
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
                       {/* Uploaded Gallery Images */}
                       {additionalPreviews.map((url, i) => (
                         <div
                           key={`gallery-${i}`}
-                          className="relative group aspect-square rounded-2xl overflow-hidden border-2 border-slate-200 bg-white shadow-xs hover:shadow-md hover:border-indigo-300 transition-all flex items-center justify-center"
+                          className="relative group aspect-square rounded-xl overflow-hidden border border-slate-200 bg-white shadow-2xs hover:shadow-xs hover:border-indigo-300 transition-all flex items-center justify-center"
                         >
                           <img
                             src={url}
@@ -2264,7 +2506,7 @@ export default function AddProductModal({
                               })
                             }
                           />
-                          <div className="absolute bottom-2 left-2 px-2 py-0.5 rounded-md bg-slate-900/75 text-white text-[10px] font-semibold backdrop-blur-sm pointer-events-none">
+                          <div className="absolute bottom-2 left-2 px-1.5 py-0.5 rounded-md bg-slate-900/80 text-white text-[10px] font-bold backdrop-blur-sm pointer-events-none">
                             #{i + 1}
                           </div>
 
@@ -2277,20 +2519,20 @@ export default function AddProductModal({
                                 title: `Gallery Image #${i + 1} — ${formData.productName || "Product"}`,
                               })
                             }
-                            className="absolute top-2 left-2 p-2 rounded-xl bg-slate-900/80 hover:bg-slate-950 text-white shadow-md backdrop-blur-sm transition-all cursor-pointer hover:scale-110 flex items-center justify-center opacity-90 sm:opacity-0 sm:group-hover:opacity-100"
+                            className="absolute top-2 left-2 p-1.5 rounded-lg bg-slate-900/80 hover:bg-slate-950 text-white shadow-xs backdrop-blur-sm transition-all cursor-pointer hover:scale-110 flex items-center justify-center opacity-90 sm:opacity-0 sm:group-hover:opacity-100"
                             title="Full View Preview"
                           >
-                            <Maximize2 className="h-3.5 w-3.5" />
+                            <Maximize2 className="h-3 w-3" />
                           </button>
 
                           {/* Remove Button */}
                           <button
                             type="button"
                             onClick={() => removeAdditionalImage(i)}
-                            className="absolute top-2 right-2 p-2 rounded-xl bg-rose-500 hover:bg-rose-600 text-white shadow-md transition-all cursor-pointer hover:scale-110 flex items-center justify-center opacity-90 sm:opacity-0 sm:group-hover:opacity-100"
+                            className="absolute top-2 right-2 p-1.5 rounded-lg bg-rose-500 hover:bg-rose-600 text-white shadow-xs transition-all cursor-pointer hover:scale-110 flex items-center justify-center opacity-90 sm:opacity-0 sm:group-hover:opacity-100"
                             title="Remove this gallery image"
                           >
-                            <Trash2 className="h-3.5 w-3.5" />
+                            <Trash2 className="h-3 w-3" />
                           </button>
                         </div>
                       ))}
@@ -2299,12 +2541,12 @@ export default function AddProductModal({
                       {formData.additionalImages.length < 5 && (
                         <label
                           htmlFor="addProductAdditionalImagesUpload"
-                          className="relative aspect-square rounded-2xl border-2 border-dashed border-slate-300 hover:border-indigo-400 bg-white hover:bg-indigo-50/20 transition-all flex flex-col items-center justify-center gap-1.5 cursor-pointer text-center p-3 group"
+                          className="relative aspect-square rounded-xl border-2 border-dashed border-slate-200/90 hover:border-indigo-400 bg-slate-50/40 hover:bg-indigo-50/25 transition-all flex flex-col items-center justify-center gap-1 cursor-pointer text-center p-3 group"
                         >
-                          <div className="p-2.5 rounded-full bg-slate-100 group-hover:bg-indigo-100 transition text-slate-400 group-hover:text-indigo-600">
-                            <Upload className="h-5 w-5" />
+                          <div className="h-9 w-9 rounded-xl bg-white border border-slate-200/80 group-hover:border-indigo-300 text-slate-500 group-hover:text-indigo-600 flex items-center justify-center transition-all shadow-2xs group-hover:scale-105">
+                            <Upload className="h-4 w-4" />
                           </div>
-                          <span className="text-xs font-bold text-slate-700 group-hover:text-indigo-700">
+                          <span className="text-xs font-bold text-slate-700 group-hover:text-indigo-700 transition-colors mt-0.5">
                             Add Image
                           </span>
                           <span className="text-[10px] text-slate-400">
@@ -2336,6 +2578,16 @@ export default function AddProductModal({
                 {categoryFilterFields}
               </div>
             )}
+
+            {/* Product Specifications & Material/Care */}
+            <ProductSpecificationsEditor
+              customSections={customSections}
+              onCustomSectionsChange={setCustomSections}
+              materialCare={formData.materialCare}
+              onMaterialCareChange={(val) => setFormData((prev) => ({ ...prev, materialCare: val }))}
+              specifications={specifications}
+              onSpecificationsChange={setSpecifications}
+            />
           </div>
 
           {/* Footer actions */}

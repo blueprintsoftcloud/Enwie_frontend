@@ -5,6 +5,7 @@ import { useBodyScrollLock } from "../hooks/useBodyScrollLock";
 import DatePicker from "../components/DatePicker";
 import { useAuth } from "../context/AuthContext";
 import { useStaffPermissions } from "../context/StaffPermissionContext";
+import { Sparkles, Eye, EyeOff, Palette } from "lucide-react";
 
 // Local-date (not UTC) "YYYY-MM-DD" for tomorrow — matches DatePicker's own internal
 // toStr() convention. The save validation below rejects `new Date(expiresAt) <=
@@ -27,6 +28,8 @@ interface Coupon {
   maxUses: number | null;
   usedCount: number;
   isActive: boolean;
+  showToCustomer: boolean;
+  colorTheme?: string | null;
   expiresAt: string | null;
   createdAt: string;
 }
@@ -39,6 +42,8 @@ const emptyForm = {
   minOrderAmount: "",
   maxUses: "",
   expiresAt: "",
+  showToCustomer: true,
+  colorTheme: "rose",
 };
 
 export default function CouponManagement() {
@@ -110,6 +115,8 @@ export default function CouponManagement() {
       minOrderAmount: String(c.minOrderAmount),
       maxUses: c.maxUses != null ? String(c.maxUses) : "",
       expiresAt: c.expiresAt ? c.expiresAt.split("T")[0] : "",
+      showToCustomer: c.showToCustomer ?? false,
+      colorTheme: c.colorTheme || "indigo",
     });
     setShowModal(true);
   };
@@ -166,6 +173,8 @@ export default function CouponManagement() {
       minOrderAmount,
       maxUses,
       expiresAt: form.expiresAt || null,
+      showToCustomer: form.showToCustomer,
+      colorTheme: form.colorTheme || "indigo",
     };
     try {
       if (editCoupon) {
@@ -194,6 +203,24 @@ export default function CouponManagement() {
       setCoupons((prev) => prev.map((x) => (x.id === c.id ? res.data : x)));
     } catch {
       toast.error("Failed to toggle coupon");
+    }
+  };
+
+  const handleToggleVisibility = async (c: Coupon) => {
+    if (!canEdit) {
+      toast.error(NO_PERMISSION_MSG);
+      return;
+    }
+    try {
+      const res = await api.patch(`/coupon/admin/${c.id}/toggle-visibility`);
+      setCoupons((prev) => prev.map((x) => (x.id === c.id ? res.data : x)));
+      toast.success(
+        res.data.showToCustomer
+          ? `Coupon "${c.code}" is now visible to customers`
+          : `Coupon "${c.code}" is now hidden from customers`
+      );
+    } catch {
+      toast.error("Failed to toggle coupon visibility");
     }
   };
 
@@ -575,7 +602,7 @@ return (
             <table className="min-w-full divide-y divide-gray-200 text-sm">
               <thead className="bg-gray-50/70">
                 <tr>
-                  {["Code", "Discount", "Min Order", "Uses", "Expires", "Status", ""].map(
+                  {["Code", "Discount", "Min Order", "Uses", "Expires", "Status", "Storefront", ""].map(
                     (h) => (
                       <th
                         key={h}
@@ -626,6 +653,36 @@ return (
                         >
                           {expired ? "Expired" : c.isActive ? "Active" : "Inactive"}
                         </span>
+                      </td>
+                      <td className="px-5 py-4">
+                        <button
+                          type="button"
+                          onClick={() => handleToggleVisibility(c)}
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold transition-all shadow-2xs border ${
+                            c.showToCustomer
+                              ? "bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100"
+                              : "bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100"
+                          }`}
+                          title={
+                            c.showToCustomer
+                              ? "Visible on storefront coupon carousel. Click to hide."
+                              : "Hidden from storefront (Code only). Click to show."
+                          }
+                        >
+                          {c.showToCustomer ? (
+                            <>
+                              <span className="w-1.5 h-1.5 rounded-full bg-purple-600 animate-pulse" />
+                              <Eye className="w-3.5 h-3.5 text-purple-600" />
+                              <span>Visible</span>
+                            </>
+                          ) : (
+                            <>
+                              <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+                              <EyeOff className="w-3.5 h-3.5 text-slate-400" />
+                              <span>Hidden</span>
+                            </>
+                          )}
+                        </button>
                       </td>
                       <td className="px-5 py-4 text-right">
                         <div className="flex items-center justify-end gap-1.5">
@@ -773,6 +830,69 @@ return (
                   min={minExpiryStr()}
                 />
               </div>
+
+              {/* Storefront Carousel Visibility Toggle */}
+              <div className="bg-gradient-to-r from-purple-50/80 to-indigo-50/80 border border-purple-200/90 rounded-xl p-3.5 flex items-start justify-between gap-3 shadow-2xs">
+                <div className="min-w-0">
+                  <p className="text-xs font-bold text-purple-950 flex items-center gap-1.5">
+                   
+                    Show to Customers on Storefront
+                  </p>
+                  <p className="text-[11px] text-purple-700/90 mt-0.5 leading-relaxed">
+                    Display this coupon in the customer voucher carousel on the homepage and at checkout.
+                  </p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer shrink-0 mt-0.5">
+                  <input
+                    type="checkbox"
+                    checked={form.showToCustomer}
+                    onChange={(e) => setForm({ ...form, showToCustomer: e.target.checked })}
+                    className="sr-only peer"
+                  />
+                  <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-purple-600"></div>
+                </label>
+              </div>
+
+              {/* Voucher Card Color Theme */}
+              {form.showToCustomer && (
+                <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-3.5 space-y-2">
+                  <label className="block text-xs font-bold text-slate-800 flex items-center justify-between">
+                    <span className="flex items-center gap-1.5">
+                      <Palette className="w-3.5 h-3.5 text-purple-600" />
+                      Voucher Ticket Color
+                    </span>
+                    <span className="text-[11px] font-normal text-slate-500 capitalize">
+                      {form.colorTheme || "indigo"} theme
+                    </span>
+                  </label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { id: "rose", name: "Rose Luxury", bg: "bg-rose-500", border: "border-pink-300", dot: "bg-white" },
+                      { id: "indigo", name: "Royal Violet", bg: "bg-indigo-600", border: "border-purple-300", dot: "bg-white" },
+                      { id: "emerald", name: "Emerald Mint", bg: "bg-emerald-600", border: "border-teal-300", dot: "bg-white" },
+                      { id: "sapphire", name: "Ocean Blue", bg: "bg-blue-600", border: "border-sky-300", dot: "bg-white" },
+                      { id: "amber", name: "Sunset Coral", bg: "bg-amber-500", border: "border-orange-300", dot: "bg-white" },
+                      { id: "midnight", name: "Midnight Gold", bg: "bg-slate-900", border: "border-amber-400", dot: "bg-amber-400" },
+                    ].map((t) => (
+                      <button
+                        key={t.id}
+                        type="button"
+                        onClick={() => setForm({ ...form, colorTheme: t.id })}
+                        className={`flex items-center gap-2 p-2 rounded-xl border text-xs font-semibold transition ${
+                          form.colorTheme === t.id
+                            ? "border-purple-600 bg-purple-50 text-purple-950 ring-2 ring-purple-600/20"
+                            : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
+                        }`}
+                      >
+                        <div className={`w-4 h-4 rounded-full ${t.bg} border ${t.border} flex items-center justify-center shrink-0`}>
+                          <div className={`w-1.5 h-1.5 rounded-full ${t.dot}`} />
+                        </div>
+                        <span className="truncate">{t.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               </div>
 

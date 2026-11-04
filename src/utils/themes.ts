@@ -51,9 +51,9 @@ export const THEMES: ThemeTokens[] = [
     surface: "#FFFFFF",
     surfaceAlt: "#F5F3EF",
     border: "#E7E3DC",
-    fontHeading: "'General Sans', sans-serif",
-    fontBody: "'Inter', sans-serif",
-    googleFontFamilies: ["General+Sans:wght@500;700", "Inter:wght@400;500;600"],
+    fontHeading: "'Jost', sans-serif",
+    fontBody: "'Jost', sans-serif",
+    googleFontFamilies: ["Jost:wght@400;500;600;700"],
     radius: "4px",
   },
   {

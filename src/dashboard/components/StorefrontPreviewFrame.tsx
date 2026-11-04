@@ -19,6 +19,9 @@ interface StorefrontPreviewFrameProps {
   /** Previews this theme instantly via postMessage, without saving it or reloading the
    * frame. Falls back to the tenant's saved theme when omitted. */
   previewThemeId?: string;
+  previewButtonBg?: string | null;
+  previewButtonText?: string | null;
+  previewCategoryShape?: "square" | "circle";
   className?: string;
   /** Bump this (any changing value — a counter works well) after a save that changed
    * real storefront content (hero text, banners, footer, nav, ...). The frame's `src`
@@ -29,7 +32,15 @@ interface StorefrontPreviewFrameProps {
   reloadToken?: number | string;
 }
 
-const StorefrontPreviewFrame: React.FC<StorefrontPreviewFrameProps> = ({ anchor, previewThemeId, className, reloadToken }) => {
+const StorefrontPreviewFrame: React.FC<StorefrontPreviewFrameProps> = ({
+  anchor,
+  previewThemeId,
+  previewButtonBg,
+  previewButtonText,
+  previewCategoryShape,
+  className,
+  reloadToken,
+}) => {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [loaded, setLoaded] = useState(false);
 
@@ -40,6 +51,7 @@ const StorefrontPreviewFrame: React.FC<StorefrontPreviewFrameProps> = ({ anchor,
   const [src] = useState(() => {
     const params = new URLSearchParams({ preview: "1" });
     if (previewThemeId) params.set("previewTheme", previewThemeId);
+    if (previewCategoryShape) params.set("previewCategoryShape", previewCategoryShape);
     return `/?${params.toString()}`;
   });
 
@@ -48,10 +60,16 @@ const StorefrontPreviewFrame: React.FC<StorefrontPreviewFrameProps> = ({ anchor,
   };
 
   useEffect(() => {
-    if (!loaded || !previewThemeId) return;
-    postToFrame({ type: "STORRA_PREVIEW_THEME", themeId: previewThemeId });
+    if (!loaded) return;
+    postToFrame({
+      type: "STORRA_PREVIEW_THEME",
+      themeId: previewThemeId,
+      customButtonBg: previewButtonBg,
+      customButtonText: previewButtonText,
+      categoryShape: previewCategoryShape,
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loaded, previewThemeId]);
+  }, [loaded, previewThemeId, previewButtonBg, previewButtonText, previewCategoryShape]);
 
   useEffect(() => {
     if (!loaded || !anchor) return;

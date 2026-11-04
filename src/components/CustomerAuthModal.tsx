@@ -64,9 +64,9 @@ type Step = "form" | "otp";
 
 // ── OTP input style ───────────────────────────────────────────────────────────
 const OTP_CLASS =
-  "!w-11 !h-12 sm:!w-12 sm:!h-13 border border-slate-300 rounded-2xl text-center " +
+  "!w-11 !h-12 sm:!w-12 sm:!h-13 border border-slate-200 sm:border-slate-300 rounded-xl sm:rounded-2xl text-center " +
   "text-xl font-bold text-slate-800 bg-white focus:outline-none " +
-  "focus:border-[#0c6b5e] focus:ring-1 focus:ring-[#0c6b5e] transition-all duration-150";
+  "focus:border-[var(--theme-primary,#0c6b5e)] focus:ring-1 focus:ring-[var(--theme-primary,#0c6b5e)] transition-all duration-150";
 
 interface Props {
   open: boolean;
@@ -490,18 +490,19 @@ export default function CustomerAuthModal({ open, onClose }: Props) {
       <DialogBackdrop className="fixed inset-0 bg-slate-950/50 backdrop-blur-xs transition-opacity duration-300 animate-in fade-in" />
 
       <div className="fixed inset-0 flex items-center justify-center p-3 sm:p-4">
-        <DialogPanel className="w-full max-w-[620px] bg-white rounded-[26px] shadow-2xl border border-slate-100 relative overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col sm:flex-row items-stretch min-h-[300px]">
-          {/* Close Button */}
+        <DialogPanel className="w-full max-w-[360px] xs:max-w-[390px] sm:max-w-[620px] bg-white rounded-[26px] sm:rounded-[28px] shadow-2xl border border-slate-100 relative overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col sm:flex-row items-stretch">
+          {/* Desktop Close Button */}
           <button
+            type="button"
             onClick={handleClose}
-            className="absolute top-4 right-4 sm:top-5 sm:right-5 p-1 text-slate-400 hover:text-slate-600 transition-colors z-20 cursor-pointer"
+            className="hidden sm:block absolute top-4 right-4 sm:top-5 sm:right-5 p-1 text-slate-400 hover:text-slate-600 transition-colors z-20 cursor-pointer"
             aria-label="Close"
           >
             <XMarkIcon className="h-5 w-5" strokeWidth={2.2} />
           </button>
 
-          {/* Left Column: Branding Logo & Name */}
-          <div className="w-full sm:w-[210px] md:w-[230px] bg-[#f8faff] flex flex-col items-center justify-center p-6 sm:p-7 text-center select-none sm:border-r border-slate-100 shrink-0">
+          {/* Left Column: Branding Logo & Name (Desktop only) */}
+          <div className="hidden sm:flex sm:w-[210px] md:w-[230px] bg-[#f8faff] flex-col items-center justify-center p-6 sm:p-7 text-center select-none border-r border-slate-100 shrink-0">
             <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full p-1 bg-white ring-2 ring-[#eedc9e] shadow-xs flex items-center justify-center overflow-hidden">
               <img
                 src={logoSrc}
@@ -515,10 +516,43 @@ export default function CustomerAuthModal({ open, onClose }: Props) {
             <h3 className="mt-4 font-serif font-bold text-slate-800 text-base sm:text-lg leading-tight px-2">
               {companyDisplayName}
             </h3>
+            <p className="mt-1 text-xs text-slate-400 font-medium">Fast & Secure Login</p>
           </div>
 
           {/* Right Column: Auth Content */}
-          <div className="flex-1 min-w-0 p-6 sm:p-7 md:p-8 flex flex-col justify-center bg-white relative">
+          <div className="flex-1 min-w-0 p-5 sm:p-7 md:p-8 flex flex-col justify-center bg-white relative">
+            {/* Mobile Header: Logo + Store Name + Subtitle + Close Button (Matches referral image) */}
+            <div className="flex sm:hidden items-start justify-between mb-5">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-11 h-11 rounded-full p-0.5 bg-white ring-2 ring-[#eedc9e] shadow-xs flex items-center justify-center overflow-hidden shrink-0">
+                  <img
+                    src={logoSrc}
+                    alt={companyDisplayName}
+                    className="w-full h-full object-contain rounded-full"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = logo123;
+                    }}
+                  />
+                </div>
+                <div className="min-w-0 text-left">
+                  <h3 className="font-serif font-bold text-slate-900 text-[15px] leading-tight truncate">
+                    {companyDisplayName}
+                  </h3>
+                  <p className="text-xs text-slate-400 font-medium mt-0.5">
+                    Fast & Secure Login
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleClose}
+                className="p-1 text-slate-400 hover:text-slate-600 transition-colors shrink-0 cursor-pointer -mr-1 -mt-1"
+                aria-label="Close"
+              >
+                <XMarkIcon className="h-5 w-5" strokeWidth={2.2} />
+              </button>
+            </div>
+
             {/* ── Admin account blocked screen ──────────────────────────────── */}
             {adminBlocked ? (
               <div className="flex flex-col items-center text-center gap-3 py-2">
@@ -555,7 +589,7 @@ export default function CustomerAuthModal({ open, onClose }: Props) {
                     onClick={() => switchMode("sign-in")}
                     className={`text-xs font-bold uppercase tracking-wider pb-1 transition-all cursor-pointer ${
                       mode === "sign-in"
-                        ? "text-[#0c6b5e] border-b-2 border-[#0c6b5e]"
+                        ? "text-[var(--theme-primary,#0c6b5e)] border-b-2 border-[var(--theme-primary,#0c6b5e)]"
                         : "text-slate-400 hover:text-slate-600 border-b-2 border-transparent"
                     }`}
                   >
@@ -566,7 +600,7 @@ export default function CustomerAuthModal({ open, onClose }: Props) {
                     onClick={() => switchMode("register")}
                     className={`text-xs font-bold uppercase tracking-wider pb-1 transition-all cursor-pointer ${
                       mode === "register"
-                        ? "text-[#0c6b5e] border-b-2 border-[#0c6b5e]"
+                        ? "text-[var(--theme-primary,#0c6b5e)] border-b-2 border-[var(--theme-primary,#0c6b5e)]"
                         : "text-slate-400 hover:text-slate-600 border-b-2 border-transparent"
                     }`}
                   >
@@ -579,7 +613,7 @@ export default function CustomerAuthModal({ open, onClose }: Props) {
                   <div className="space-y-4">
                     <div className="flex flex-col gap-1">
                       <div className="flex items-center gap-2 sm:gap-2.5">
-                        <div className="w-14 sm:w-16 h-12 flex items-center justify-center rounded-2xl border border-slate-300 text-slate-700 font-semibold text-sm bg-white shrink-0">
+                        <div className="w-14 sm:w-16 h-12 flex items-center justify-center rounded-xl sm:rounded-2xl border border-slate-200 sm:border-slate-300 text-slate-800 font-bold text-sm bg-white shrink-0">
                           +91
                         </div>
                         <input
@@ -591,10 +625,10 @@ export default function CustomerAuthModal({ open, onClose }: Props) {
                           onChange={(e) => handlePhoneChange(e.target.value)}
                           onBlur={() => phone.length > 0 && validatePhone(phone)}
                           placeholder="Enter Mobile Number"
-                          className={`flex-1 min-w-0 h-12 px-4 rounded-2xl border transition-all text-sm outline-none bg-white text-slate-800 placeholder:text-slate-400 font-normal ${
+                          className={`flex-1 min-w-0 h-12 px-4 rounded-xl sm:rounded-2xl border transition-all text-sm outline-none bg-white text-slate-900 placeholder:text-slate-400 placeholder:font-normal font-bold tracking-wide ${
                             phoneError
                               ? "border-rose-400 focus:border-rose-500 focus:ring-1 focus:ring-rose-500/20"
-                              : "border-[#0c6b5e] focus:border-[#0c6b5e] focus:ring-1 focus:ring-[#0c6b5e]"
+                              : "border-slate-200 sm:border-slate-300 focus:border-[var(--theme-primary,#0c6b5e)] focus:ring-1 focus:ring-[var(--theme-primary,#0c6b5e)]"
                           }`}
                           onKeyDown={(e) => {
                             if (e.key === "Enter") {
@@ -617,9 +651,9 @@ export default function CustomerAuthModal({ open, onClose }: Props) {
                       type="button"
                       onClick={handleSendOtp}
                       disabled={loading}
-                      className="w-full h-12 bg-[#0c6b5e] hover:bg-[#09574c] active:scale-[0.99] text-white font-bold text-sm rounded-2xl transition-all duration-150 cursor-pointer flex items-center justify-center disabled:opacity-60 shadow-none mt-2"
+                      className="w-full h-12 bg-[var(--theme-primary,#0c6b5e)] hover:bg-[var(--theme-primary-hover,#09574c)] text-[var(--theme-primary-ink,#ffffff)] active:scale-[0.99] font-bold text-sm rounded-xl sm:rounded-2xl transition-all duration-150 cursor-pointer flex items-center justify-center disabled:opacity-60 shadow-none mt-2"
                     >
-                      {loading ? <ClipLoader color="white" size={18} /> : "Submit"}
+                      {loading ? <ClipLoader color="currentColor" size={18} /> : "Submit"}
                     </button>
                   </div>
                 )}
@@ -640,7 +674,7 @@ export default function CustomerAuthModal({ open, onClose }: Props) {
                           }
                         }}
                         placeholder="Enter Full Name *"
-                        className="w-full h-12 px-4 rounded-2xl border border-[#0c6b5e] focus:border-[#0c6b5e] focus:ring-1 focus:ring-[#0c6b5e] transition-all text-sm outline-none bg-white text-slate-800 placeholder:text-slate-400"
+                        className="w-full h-12 px-4 rounded-xl sm:rounded-2xl border border-slate-200 sm:border-slate-300 focus:border-[var(--theme-primary,#0c6b5e)] focus:ring-1 focus:ring-[var(--theme-primary,#0c6b5e)] transition-all text-sm outline-none bg-white text-slate-900 font-bold placeholder:font-normal placeholder:text-slate-400"
                         autoFocus
                       />
                     </div>
@@ -659,14 +693,14 @@ export default function CustomerAuthModal({ open, onClose }: Props) {
                           }
                         }}
                         placeholder="Enter Email Address (optional)"
-                        className="w-full h-12 px-4 rounded-2xl border border-slate-300 focus:border-[#0c6b5e] focus:ring-1 focus:ring-[#0c6b5e] transition-all text-sm outline-none bg-white text-slate-800 placeholder:text-slate-400"
+                        className="w-full h-12 px-4 rounded-xl sm:rounded-2xl border border-slate-200 sm:border-slate-300 focus:border-[var(--theme-primary,#0c6b5e)] focus:ring-1 focus:ring-[var(--theme-primary,#0c6b5e)] transition-all text-sm outline-none bg-white text-slate-900 font-bold placeholder:font-normal placeholder:text-slate-400"
                       />
                     </div>
 
                     {/* Mobile Number */}
                     <div className="flex flex-col gap-1">
                       <div className="flex items-center gap-2 sm:gap-2.5">
-                        <div className="w-14 sm:w-16 h-12 flex items-center justify-center rounded-2xl border border-slate-300 text-slate-700 font-semibold text-sm bg-white shrink-0">
+                        <div className="w-14 sm:w-16 h-12 flex items-center justify-center rounded-xl sm:rounded-2xl border border-slate-200 sm:border-slate-300 text-slate-800 font-bold text-sm bg-white shrink-0">
                           +91
                         </div>
                         <input
@@ -678,10 +712,10 @@ export default function CustomerAuthModal({ open, onClose }: Props) {
                           onChange={(e) => handlePhoneChange(e.target.value)}
                           onBlur={() => phone.length > 0 && validatePhone(phone)}
                           placeholder="Enter Mobile Number"
-                          className={`flex-1 min-w-0 h-12 px-4 rounded-2xl border transition-all text-sm outline-none bg-white text-slate-800 placeholder:text-slate-400 font-normal ${
+                          className={`flex-1 min-w-0 h-12 px-4 rounded-xl sm:rounded-2xl border transition-all text-sm outline-none bg-white text-slate-900 placeholder:text-slate-400 placeholder:font-normal font-bold tracking-wide ${
                             phoneError
                               ? "border-rose-400 focus:border-rose-500 focus:ring-1 focus:ring-rose-500/20"
-                              : "border-slate-300 focus:border-[#0c6b5e] focus:ring-1 focus:ring-[#0c6b5e]"
+                              : "border-slate-200 sm:border-slate-300 focus:border-[var(--theme-primary,#0c6b5e)] focus:ring-1 focus:ring-[var(--theme-primary,#0c6b5e)]"
                           }`}
                           onKeyDown={(e) => {
                             if (e.key === "Enter") {
@@ -704,9 +738,9 @@ export default function CustomerAuthModal({ open, onClose }: Props) {
                       type="button"
                       onClick={handleSendOtp}
                       disabled={loading}
-                      className="w-full h-12 bg-[#0c6b5e] hover:bg-[#09574c] active:scale-[0.99] text-white font-bold text-sm rounded-2xl transition-all duration-150 cursor-pointer flex items-center justify-center disabled:opacity-60 shadow-none mt-1"
+                      className="w-full h-12 bg-[var(--theme-primary,#0c6b5e)] hover:bg-[var(--theme-primary-hover,#09574c)] text-[var(--theme-primary-ink,#ffffff)] active:scale-[0.99] font-bold text-sm rounded-xl sm:rounded-2xl transition-all duration-150 cursor-pointer flex items-center justify-center disabled:opacity-60 shadow-none mt-1"
                     >
-                      {loading ? <ClipLoader color="white" size={18} /> : "Submit"}
+                      {loading ? <ClipLoader color="currentColor" size={18} /> : "Submit"}
                     </button>
                   </div>
                 )}
@@ -715,7 +749,7 @@ export default function CustomerAuthModal({ open, onClose }: Props) {
               /* ── Step 2: OTP Step ── */
               <div className="space-y-4">
                 <div className="flex items-center gap-6 mb-2">
-                  <span className="text-[#0c6b5e] font-bold text-xs uppercase tracking-wider pb-1 border-b-2 border-[#0c6b5e]">
+                  <span className="text-[var(--theme-primary,#0c6b5e)] font-bold text-xs uppercase tracking-wider pb-1 border-b-2 border-[var(--theme-primary,#0c6b5e)]">
                     VERIFY OTP
                   </span>
                 </div>
@@ -778,11 +812,11 @@ export default function CustomerAuthModal({ open, onClose }: Props) {
                     type="button"
                     onClick={() => handleVerifyOtp()}
                     disabled={loading || otp.length !== 4}
-                    className="w-full h-12 bg-[#0c6b5e] hover:bg-[#09574c] active:scale-[0.99] text-white font-bold text-sm rounded-2xl transition-all duration-150 cursor-pointer flex items-center justify-center disabled:opacity-60 shadow-none"
+                    className="w-full h-12 bg-[var(--theme-primary,#0c6b5e)] hover:bg-[var(--theme-primary-hover,#09574c)] text-[var(--theme-primary-ink,#ffffff)] active:scale-[0.99] font-bold text-sm rounded-xl sm:rounded-2xl transition-all duration-150 cursor-pointer flex items-center justify-center disabled:opacity-60 shadow-none"
                   >
                     {loading ? (
                       <div className="flex items-center gap-2">
-                        <ClipLoader color="white" size={16} />
+                        <ClipLoader color="currentColor" size={16} />
                         <span>Verifying...</span>
                       </div>
                     ) : (
@@ -808,7 +842,7 @@ export default function CustomerAuthModal({ open, onClose }: Props) {
                       type="button"
                       onClick={handleResend}
                       disabled={timer > 0 || loading}
-                      className="font-bold text-[#0c6b5e] hover:underline disabled:opacity-50 transition cursor-pointer inline-flex items-center gap-1"
+                      className="font-bold text-[var(--theme-primary,#0c6b5e)] hover:underline disabled:opacity-50 transition cursor-pointer inline-flex items-center gap-1"
                     >
                       {timer > 0 ? (
                         `Resend in ${formatTimer(timer)}`

@@ -20,13 +20,12 @@ import {
   PhotoIcon as HeroPhotoIcon,
   Squares2X2Icon,
   SparklesIcon,
-  Bars3Icon,
-  ChevronUpIcon,
   ChevronDownIcon,
   SwatchIcon,
   ComputerDesktopIcon,
   DevicePhoneMobileIcon,
   XMarkIcon,
+  ArrowPathIcon,
 } from "@heroicons/react/24/outline";
 import StorefrontPreviewFrame from "./components/StorefrontPreviewFrame";
 import { THEMES, DEFAULT_THEME_ID } from "../utils/themes";
@@ -46,7 +45,7 @@ import {
   DEFAULT_FEATURED_CATEGORIES_CONFIG,
 } from "../components/AlternatingShowcase";
 
-// ─── Custom UI Dropdown Select Component ───────────────────────────────────────
+// -¢------¬-¢------¬-¢------¬ Custom UI Dropdown Select Component -¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬
 interface CustomDropdownOption<T extends string | number> {
   value: T;
   label: string;
@@ -205,7 +204,7 @@ function CustomDropdownSelect<T extends string | number>({
   );
 }
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// -¢------¬-¢------¬-¢------¬ Types -¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬
 
 type BannerType = "DISCOUNT_PANEL" | "CAROUSEL_ITEM" | "PROMO_BANNER";
 type Tab =
@@ -215,17 +214,43 @@ type Tab =
   | "HERO"
   | "HEADER"
   | "FOOTER"
-  | "NAVIGATION"
   | "THEME"
   | "PRE_FOOTER"
-  | "OCCASIONS";
+  | "OCCASIONS"
+  | "CATEGORIES";
+
+interface NavbarTemplateData {
+  bgColor?: string;
+  textColor?: string;
+}
 
 interface NavbarConfig {
   activeTemplate: 1 | 2 | 3 | 4 | 5 | 6;
+  templates?: Record<string, NavbarTemplateData>;
 }
 
 const DEFAULT_NAVBAR: NavbarConfig = {
   activeTemplate: 1,
+  templates: {
+    "1": {},
+    "2": {},
+    "3": {},
+    "4": {},
+    "5": {},
+    "6": {},
+  },
+};
+
+const NAVBAR_DEFAULT_COLORS: Record<
+  string,
+  { bg: string; text: string; bgLabel: string; textLabel: string }
+> = {
+  "1": { bg: "#0a0a0a", text: "#ffffff", bgLabel: "Obsidian Noir (#0a0a0a)", textLabel: "White (#ffffff)" },
+  "2": { bg: "#fcfbf9", text: "#1c1917", bgLabel: "Off-white Editorial (#fcfbf9)", textLabel: "Stone-900 (#1c1917)" },
+  "3": { bg: "#0f172a", text: "#ffffff", bgLabel: "Indigo Aurora Gradient", textLabel: "White (#ffffff)" },
+  "4": { bg: "#ffffff", text: "#111827", bgLabel: "Pure White (#ffffff)", textLabel: "Gray-900 (#111827)" },
+  "5": { bg: "#ffffff", text: "#111827", bgLabel: "Pure White (#ffffff)", textLabel: "Gray-900 (#111827)" },
+  "6": { bg: "#ffffff", text: "#111827", bgLabel: "Pure White (#ffffff)", textLabel: "Gray-900 (#111827)" },
 };
 
 const NAVBAR_TEMPLATE_LABELS: Record<string, { name: string; desc: string; tag: string }> = {
@@ -261,18 +286,13 @@ const NAVBAR_TEMPLATE_LABELS: Record<string, { name: string; desc: string; tag: 
   },
 };
 
-interface NavCategory {
-  id: string;
-  name: string;
-  showInNav: boolean;
-  navOrder: number;
-}
 
 interface HomeBanner {
   id: string;
   type: BannerType;
   title: string;
   image: string;
+  link?: string | null;
   discount: string | null;
   description: string | null;
   sortOrder: number;
@@ -329,6 +349,7 @@ interface FooterLinkColumn {
 interface FooterTemplateData {
   tagline: string;
   showCompanyName?: boolean;
+  blendLogoWithBg?: boolean;
   newsletterTitle?: string;
   instagramLink?: string;
   facebookLink?: string;
@@ -337,6 +358,8 @@ interface FooterTemplateData {
   /** Templates 1/2/3/5/6's "Shop / Company / Support"-style link grid — always exactly
    * 3 columns to match those templates' fixed layouts. Template 4 has no link grid. */
   linkColumns?: FooterLinkColumn[];
+  bgColor?: string;
+  textColor?: string;
 }
 
 interface FooterConfig {
@@ -346,11 +369,11 @@ interface FooterConfig {
 
 const DEFAULT_LINK_COLUMNS: FooterLinkColumn[] = [
   { heading: "Shop", links: [{ label: "New Arrivals", url: "/products" }, { label: "Best Sellers", url: "/products" }] },
-  { heading: "Company", links: [{ label: "Our Story", url: "/about" }, { label: "Terms & Conditions", url: "/terms" }] },
+  { heading: "Company", links: [{ label: "Our Story", url: "/about" }, { label: "Terms & Conditions", url: "/terms" }, { label: "Privacy Policy", url: "/privacy" }] },
   { heading: "Support", links: [{ label: "Help Center", url: "/help" }, { label: "Contact Us", url: "/contact" }] },
 ];
 
-// â”€â”€â”€ Defaults â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬ Defaults ---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬
 
 const DEFAULT_HERO: HeroConfig = {
   activeTemplate: 1,
@@ -490,6 +513,7 @@ const DEFAULT_FOOTER: FooterConfig = {
       twitterLink: "https://twitter.com",
       mailLink: "info@yourbrand.com",
       linkColumns: DEFAULT_LINK_COLUMNS,
+      blendLogoWithBg: false,
     },
     "2": {
       tagline: "Crafting timeless Indian fashion for the modern world.",
@@ -498,6 +522,7 @@ const DEFAULT_FOOTER: FooterConfig = {
       twitterLink: "https://twitter.com",
       mailLink: "info@yourbrand.com",
       linkColumns: DEFAULT_LINK_COLUMNS,
+      blendLogoWithBg: true,
     },
     "3": {
       tagline: "From our looms to your wardrobe -- authentically Indian.",
@@ -507,6 +532,7 @@ const DEFAULT_FOOTER: FooterConfig = {
       twitterLink: "https://twitter.com",
       mailLink: "info@yourbrand.com",
       linkColumns: DEFAULT_LINK_COLUMNS,
+      blendLogoWithBg: false,
     },
     "4": {
       tagline: "Thank you for being part of our story.",
@@ -514,6 +540,7 @@ const DEFAULT_FOOTER: FooterConfig = {
       facebookLink: "https://facebook.com",
       twitterLink: "https://twitter.com",
       mailLink: "info@yourbrand.com",
+      blendLogoWithBg: true,
     },
     "5": {
       tagline: "Celebrate the season with us.",
@@ -522,6 +549,7 @@ const DEFAULT_FOOTER: FooterConfig = {
       twitterLink: "https://twitter.com",
       mailLink: "info@yourbrand.com",
       linkColumns: DEFAULT_LINK_COLUMNS,
+      blendLogoWithBg: false,
     },
     "6": {
       tagline: "Designed with care, worn with pride.",
@@ -530,6 +558,7 @@ const DEFAULT_FOOTER: FooterConfig = {
       twitterLink: "https://twitter.com",
       mailLink: "info@yourbrand.com",
       linkColumns: DEFAULT_LINK_COLUMNS,
+      blendLogoWithBg: true,
     },
   },
 };
@@ -540,6 +569,7 @@ const DEFAULT_ANNOUNCEMENT_TEXT =
 const emptyForm = {
   type: "DISCOUNT_PANEL" as BannerType,
   title: "",
+  link: "",
   discount: "",
   description: "",
   sortOrder: "0",
@@ -581,7 +611,7 @@ const HERO_TEMPLATE_LABELS: Record<string, { name: string; desc: string }> = {
   },
   "9": {
     name: "5-Banner Auto Carousel",
-    desc: "Full-screen carousel with 5 rotating banner images (cycles every 5 seconds) & optional CTA overlay",
+    desc: "Widescreen 5-banner auto carousel with referral aspect ratio (2.65:1 • 1920 × 720 px), curved edges, frosted arrows, counter pill & indicator dots",
   },
   "10": {
     name: "Festive Editorial Banner",
@@ -616,6 +646,18 @@ const FOOTER_TEMPLATE_LABELS: Record<string, { name: string; desc: string }> = {
   },
 };
 
+const FOOTER_DEFAULT_COLORS: Record<
+  string,
+  { bg: string; text: string; bgLabel: string; textLabel: string }
+> = {
+  "1": { bg: "#0a0a0a", text: "#ffffff", bgLabel: "Dark Charcoal (#0a0a0a)", textLabel: "White (#ffffff)" },
+  "2": { bg: "#f9fafb", text: "#1f2937", bgLabel: "Off-white (#f9fafb)", textLabel: "Dark Slate (#1f2937)" },
+  "3": { bg: "#0f172a", text: "#ffffff", bgLabel: "Indigo Navy Gradient", textLabel: "White (#ffffff)" },
+  "4": { bg: "#ffffff", text: "#1f2937", bgLabel: "Pure White (#ffffff)", textLabel: "Dark Slate (#1f2937)" },
+  "5": { bg: "#4f46e5", text: "#ffffff", bgLabel: "Theme Primary", textLabel: "Theme Contrast Ink" },
+  "6": { bg: "#ffffff", text: "#1f2937", bgLabel: "Pure White (#ffffff)", textLabel: "Dark Slate (#1f2937)" },
+};
+
 // Announcement Bar / Banner Carousel / Discount Panels / Featured Collections have no
 // per-template content (see saveSectionTemplate above) — only Template 1 exists so far,
 // more land here the same way Hero/Footer's label maps grew.
@@ -625,26 +667,60 @@ const ANNOUNCEMENT_TEMPLATE_LABELS: Record<string, { name: string; desc: string 
   "3": { name: "Dismissible Pill", desc: "A floating rounded pill the customer can close for the session -- shows only the first message" },
   "4": { name: "Icon Colored Band", desc: "Full-width band in your accent color with a megaphone icon, cross-fading between messages" },
 };
-const CAROUSEL_TEMPLATE_LABELS: Record<string, { name: string; desc: string }> = {
-  "1": { name: "Auto-scroll Row", desc: "Images glide horizontally, pauses on hover" },
-  "2": { name: "Static Grid", desc: "Calm responsive grid with title/discount text overlays" },
-  "3": { name: "Full-bleed Slider", desc: "One large banner at a time, auto-advancing with dots and arrows" },
-  "4": { name: "Split Showcase", desc: "Large side-by-side promo cards with an editorial feel" },
+const CAROUSEL_TEMPLATE_LABELS: Record<string, { name: string; desc: string; ratio?: string; sizeHint?: string }> = {
+  "1": {
+    name: "Auto-scroll Row",
+    desc: "Images glide horizontally, pauses on hover",
+    ratio: "16:9",
+    sizeHint: "1920 × 1080 px (or 1280 × 720 px)",
+  },
+  "2": {
+    name: "Auto Multi-Carousel",
+    desc: "Single-line auto carousel with side-by-side cards, peek effect & controls",
+    ratio: "2:1",
+    sizeHint: "1200 × 600 px (or 1600 × 800 px)",
+  },
+  "3": {
+    name: "Full-bleed Slider",
+    desc: "One large banner at a time, auto-advancing with dots and arrows",
+    ratio: "2.1:1 / 21:9",
+    sizeHint: "1920 × 914 px (or 2000 × 950 px)",
+  },
+  "4": {
+    name: "Split Showcase",
+    desc: "Single-line 2-split cards with left & right navigation arrows",
+    ratio: "2.2:1 (or 16:9)",
+    sizeHint: "1600 × 750 px (or 1200 × 550 px)",
+  },
 };
-const DISCOUNT_TEMPLATE_LABELS: Record<string, { name: string; desc: string }> = {
-  "1": { name: "Split Grid", desc: "Two large left panels, stacked panels on the right" },
-  "2": { name: "Masonry", desc: "Varied-height columns for a more organic, less rigid feel" },
-  "3": { name: "Ticker Strip", desc: "Single horizontal row of compact cards — good for many small promotions" },
-  "4": { name: "Badge Grid", desc: "Uniform square cards with a prominent discount badge — clean catalog style" },
+const DISCOUNT_TEMPLATE_LABELS: Record<string, { name: string; desc: string; ratio?: string; sizeHint?: string }> = {
+  "1": {
+    name: "Split Grid",
+    desc: "Side-by-side full banner images in one line with left & right navigation arrows",
+    ratio: "2:1",
+    sizeHint: "1600 × 800 px (or 1200 × 600 px)",
+  },
+  "2": {
+    name: "Triple Showcase",
+    desc: "3 elegant wide banners in one horizontal line with smooth sliding arrows",
+    ratio: "16:9",
+    sizeHint: "1200 × 675 px (or 960 × 540 px)",
+  },
+  "3": {
+    name: "Cinematic Panorama",
+    desc: "Single full-width wide editorial banner with slider navigation",
+    ratio: "3.2:1",
+    sizeHint: "1920 × 600 px (or 1600 × 500 px)",
+  },
 };
 const FEATURED_TEMPLATE_LABELS: Record<string, { name: string; desc: string }> = {
   "1": { name: "Horizontal Scroll", desc: "Card row with left/right scroll arrows" },
   "2": { name: "Static Grid", desc: "Every product visible at once in a responsive grid — no scrolling needed" },
-  "3": { name: "Spotlight Carousel", desc: "One large product at a time with a thumbnail rail to jump between them" },
+  "3": { name: "Spotlight Carousel", desc: "Full portrait hero showcase with an interactive thumbnail strip" },
   "4": { name: "Editorial List", desc: "Magazine-style stacked rows with large images and more room for product info" },
 };
 
-// â”€â”€â”€ Component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬ Component ---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬
 
 // Compact picker for the 4 presentation-only sections — a smaller cousin of the Hero/
 // Footer template grid above (no per-template "Edit content" step, since there's no
@@ -655,12 +731,12 @@ const SectionTemplatePicker = ({
   onSelect,
   disabled,
 }: {
-  labels: Record<string, { name: string; desc: string }>;
+  labels: Record<string, { name: string; desc: string; ratio?: string; sizeHint?: string }>;
   activeTemplate: number;
   onSelect: (n: number) => void;
   disabled?: boolean;
 }) => (
-  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 mb-6">
+  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 mb-6">
     {Object.entries(labels).map(([key, label]) => {
       const isActive = String(activeTemplate) === key;
       return (
@@ -669,21 +745,35 @@ const SectionTemplatePicker = ({
           type="button"
           disabled={disabled}
           onClick={() => onSelect(Number(key))}
-          className={`text-left border-2 rounded-xl p-4 transition-all disabled:opacity-60 disabled:cursor-not-allowed ${
+          className={`text-left border-2 rounded-xl p-4 transition-all disabled:opacity-60 disabled:cursor-not-allowed flex flex-col justify-between ${
             isActive
               ? "border-indigo-500 bg-indigo-50/60 shadow-sm shadow-indigo-100"
               : "border-gray-200 hover:border-indigo-300"
           }`}
         >
-          <div className="flex items-center justify-between mb-1">
-            <p className="text-sm font-bold text-gray-900">{label.name}</p>
-            {isActive && (
-              <span className="text-[10px] font-bold uppercase tracking-wide text-indigo-600 bg-indigo-100 px-2 py-0.5 rounded-full">
-                Active
-              </span>
-            )}
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <p className="text-sm font-bold text-gray-900">{label.name}</p>
+              {isActive && (
+                <span className="text-[10px] font-bold uppercase tracking-wide text-indigo-600 bg-indigo-100 px-2 py-0.5 rounded-full">
+                  Active
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-gray-500 leading-snug">{label.desc}</p>
           </div>
-          <p className="text-xs text-gray-500 leading-snug">{label.desc}</p>
+          {label.ratio && (
+            <div className="mt-3 pt-2 border-t border-gray-200 flex flex-wrap items-center justify-between gap-1 text-[11px]">
+              <span className="font-semibold text-indigo-700 bg-indigo-100/70 px-1.5 py-0.5 rounded text-[10px]">
+                {label.ratio}
+              </span>
+              {label.sizeHint && (
+                <span className="text-gray-600 text-[10px] font-mono font-medium whitespace-normal">
+                  {label.sizeHint}
+                </span>
+              )}
+            </div>
+          )}
         </button>
       );
     })}
@@ -698,15 +788,11 @@ export default function HomepageManager() {
   // interactive regardless of what the logged-in staff member actually had, so clicking
   // one just produced a raw {"message":"You do not have permission..."} network 403 with
   // no warning. Each handler below now checks up front and shows a clear toast instead.
-  // Note: the Navigation Menu tab's save (saveNavSettings) actually hits
-  // /category/nav-order, gated by CATEGORY_EDIT (not a BANNER_* permission) — it rides
-  // along in this "Homepage Manager" feature but is a genuinely different permission.
   const { hasPermission } = useStaffPermissions();
   const { user } = useAuth();
   const canBannerAdd = hasPermission("BANNER_ADD");
   const canBannerEdit = hasPermission("BANNER_EDIT");
   const canBannerDelete = hasPermission("BANNER_DELETE");
-  const canCategoryEdit = hasPermission("CATEGORY_EDIT");
   const NO_PERMISSION_MSG = "You don't have permission to make changes here — ask an admin to grant it.";
   // The announcement-bar endpoints (/admin/company-settings, /admin/announcement-toggle)
   // are role-gated ADMIN-only on the backend (see admin.routes.ts) — not staff-permission
@@ -755,9 +841,21 @@ export default function HomepageManager() {
   );
 
   // Navbar config state
-  const [navbarConfig, setNavbarConfig] =
-    useState<NavbarConfig>(DEFAULT_NAVBAR);
+  const [navbarConfig, setNavbarConfig] = useState<NavbarConfig>(() => {
+    try {
+      const cached = localStorage.getItem("crm_navbar_cache");
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (parsed && typeof parsed.activeTemplate === "number") {
+          return { ...DEFAULT_NAVBAR, ...parsed };
+        }
+      }
+    } catch {}
+    return DEFAULT_NAVBAR;
+  });
   const [savingNavbar, setSavingNavbar] = useState(false);
+  const [editingNavbarTemplate, setEditingNavbarTemplate] = useState<string | null>(null);
+  const [navbarForm, setNavbarForm] = useState<NavbarTemplateData>({});
 
   // Footer config state
   const [footerConfig, setFooterConfig] =
@@ -787,6 +885,14 @@ export default function HomepageManager() {
   // StorefrontPreviewFrame's previewThemeId prop, independent of what's actually live).
   const [themeId, setThemeId] = useState<string>(DEFAULT_THEME_ID);
   const [draftThemeId, setDraftThemeId] = useState<string>(DEFAULT_THEME_ID);
+  const [customButtonBg, setCustomButtonBg] = useState<string>("");
+  const [customButtonText, setCustomButtonText] = useState<string>("");
+  const [draftButtonBg, setDraftButtonBg] = useState<string>("");
+  const [draftButtonText, setDraftButtonText] = useState<string>("");
+  // Category card shape state ('square' | 'circle')
+  const [categoryShape, setCategoryShape] = useState<"square" | "circle">("square");
+  const [draftCategoryShape, setDraftCategoryShape] = useState<"square" | "circle">("square");
+  const [savingCategoryShape, setSavingCategoryShape] = useState(false);
 
   // Presentation-only template choices for the 4 sections that have no per-template
   // content of their own (see companySettings.controller.ts's SECTION_TEMPLATE_KEYS) —
@@ -818,14 +924,6 @@ export default function HomepageManager() {
   // iframe below is untouched either way).
   const [desktopPreviewOpen, setDesktopPreviewOpen] = useState(false);
 
-  // Navigation menu state — which top-level categories show in the site-wide
-  // CategoryMegaMenu, and in what order. Subcategories always ride along with
-  // their parent automatically (see CategoryMegaMenu.tsx), so there's nothing to
-  // manage for them here.
-  const [navCategories, setNavCategories] = useState<NavCategory[]>([]);
-  const [navLoading, setNavLoading] = useState(false);
-  const [navSaving, setNavSaving] = useState(false);
-  const [navDirty, setNavDirty] = useState(false);
 
   // Featured products state
   const [featuredProducts, setFeaturedProducts] = useState<FeaturedProduct[]>(
@@ -867,7 +965,7 @@ export default function HomepageManager() {
   );
   const [uploadingBgImage, setUploadingBgImage] = useState(false);
 
-  // â”€â”€ Fetch â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬ Fetch ---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬
 
   const fetchBanners = useCallback(async () => {
     try {
@@ -906,7 +1004,7 @@ export default function HomepageManager() {
       // filling in what's missing). Mirrors HeroSection.tsx's own per-key merge.
       if (configResp.data?.heroConfig) {
         const fetchedHero = configResp.data.heroConfig;
-        setHeroConfig({
+        const mergedHero: HeroConfig = {
           activeTemplate: fetchedHero.activeTemplate ?? DEFAULT_HERO.activeTemplate,
           templates: Object.fromEntries(
             Object.keys(DEFAULT_HERO.templates).map((key) => [
@@ -914,17 +1012,31 @@ export default function HomepageManager() {
               { ...DEFAULT_HERO.templates[key], ...fetchedHero.templates?.[key] },
             ]),
           ),
-        });
+        };
+        setHeroConfig(mergedHero);
+        try {
+          localStorage.setItem("crm_hero_config_cache", JSON.stringify(mergedHero));
+        } catch {}
       }
       if (configResp.data?.navbarConfig) {
         const fetchedNavbar = configResp.data.navbarConfig;
-        setNavbarConfig({
+        const mergedNavbar: NavbarConfig = {
           activeTemplate: fetchedNavbar.activeTemplate ?? DEFAULT_NAVBAR.activeTemplate,
-        });
+          templates: {
+            ...DEFAULT_NAVBAR.templates,
+            ...(fetchedNavbar.templates || {}),
+          },
+        };
+        setNavbarConfig(mergedNavbar);
+        try {
+          localStorage.setItem("crm_navbar_cache", JSON.stringify(mergedNavbar));
+        } catch {
+          // ignore
+        }
       }
       if (configResp.data?.footerConfig) {
         const fetchedFooter = configResp.data.footerConfig;
-        setFooterConfig({
+        const mergedFooter = {
           activeTemplate: fetchedFooter.activeTemplate ?? DEFAULT_FOOTER.activeTemplate,
           templates: Object.fromEntries(
             Object.keys(DEFAULT_FOOTER.templates).map((key) => [
@@ -932,7 +1044,13 @@ export default function HomepageManager() {
               { ...DEFAULT_FOOTER.templates[key], ...fetchedFooter.templates?.[key] },
             ]),
           ),
-        });
+        };
+        setFooterConfig(mergedFooter as FooterConfig);
+        try {
+          localStorage.setItem("crm_footer_config_cache", JSON.stringify(mergedFooter));
+        } catch {
+          // ignore
+        }
       }
       if (configResp.data?.preFooterConfig) {
         const fetchedPreFooter = configResp.data.preFooterConfig;
@@ -951,10 +1069,25 @@ export default function HomepageManager() {
               : DEFAULT_FEATURED_CATEGORIES_CONFIG.slots,
         });
       }
-      const fetchedThemeId: string | undefined = configResp.data?.themeConfig?.themeId;
+      const fetchedThemeConfig = configResp.data?.themeConfig;
+      const fetchedThemeId: string | undefined = fetchedThemeConfig?.themeId;
       if (fetchedThemeId) {
         setThemeId(fetchedThemeId);
         setDraftThemeId(fetchedThemeId);
+      }
+      if (fetchedThemeConfig?.customButtonBg) {
+        setCustomButtonBg(fetchedThemeConfig.customButtonBg);
+        setDraftButtonBg(fetchedThemeConfig.customButtonBg);
+      } else {
+        setCustomButtonBg("");
+        setDraftButtonBg("");
+      }
+      if (fetchedThemeConfig?.customButtonText) {
+        setCustomButtonText(fetchedThemeConfig.customButtonText);
+        setDraftButtonText(fetchedThemeConfig.customButtonText);
+      } else {
+        setCustomButtonText("");
+        setDraftButtonText("");
       }
       if (typeof configResp.data?.announcementTemplate === "number")
         setAnnouncementTemplate(configResp.data.announcementTemplate);
@@ -964,6 +1097,10 @@ export default function HomepageManager() {
         setDiscountTemplate(configResp.data.discountTemplate);
       if (typeof configResp.data?.featuredTemplate === "number")
         setFeaturedTemplate(configResp.data.featuredTemplate);
+      if (configResp.data?.categoryShape) {
+        setCategoryShape(configResp.data.categoryShape);
+        setDraftCategoryShape(configResp.data.categoryShape);
+      }
       if (typeof configResp.data?.activeOccasionId !== "undefined")
         setActiveOccasionId(configResp.data.activeOccasionId || null);
     } catch {
@@ -1020,22 +1157,10 @@ export default function HomepageManager() {
   // than a dedicated one -- it already returns every field on Category, including
   // showInNav/navOrder, so there's nothing new to add server-side for reading.
 
-  const fetchNavCategories = useCallback(async () => {
-    setNavLoading(true);
+  const fetchCategories = useCallback(async () => {
     try {
       const { data } = await api.get("/category/list");
       const rawList = data.list || [];
-      const topLevel: NavCategory[] = rawList
-        .filter((c: any) => !c.parentId)
-        .map((c: any) => ({
-          id: c._id ?? c.id,
-          name: c.name,
-          showInNav: c.showInNav !== false,
-          navOrder: c.navOrder ?? 0,
-        }))
-        .sort((a: NavCategory, b: NavCategory) => a.navOrder - b.navOrder || a.name.localeCompare(b.name));
-      setNavCategories(topLevel);
-
       const allCats = rawList
         .filter((c: any) => c.status !== "inactive")
         .map((c: any) => ({
@@ -1046,61 +1171,14 @@ export default function HomepageManager() {
           a.name.replace(/^—\s*/, "").localeCompare(b.name.replace(/^—\s*/, ""))
         );
       setAllCategoriesList(allCats);
-      setNavDirty(false);
     } catch {
       toast.error("Failed to load categories");
-    } finally {
-      setNavLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    if (activeTab === "NAVIGATION" || activeTab === "FEATURED") fetchNavCategories();
+    if (activeTab === "FEATURED") fetchCategories();
   }, [activeTab]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const toggleNavVisibility = (id: string) => {
-    setNavCategories((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, showInNav: !c.showInNav } : c)),
-    );
-    setNavDirty(true);
-  };
-
-  const moveNavCategory = (id: string, direction: "up" | "down") => {
-    setNavCategories((prev) => {
-      const index = prev.findIndex((c) => c.id === id);
-      const swapWith = direction === "up" ? index - 1 : index + 1;
-      if (index === -1 || swapWith < 0 || swapWith >= prev.length) return prev;
-      const next = [...prev];
-      [next[index], next[swapWith]] = [next[swapWith], next[index]];
-      return next;
-    });
-    setNavDirty(true);
-  };
-
-  const saveNavSettings = async () => {
-    if (!canCategoryEdit) {
-      toast.error(NO_PERMISSION_MSG, { id: "nav-perm-error" });
-      return;
-    }
-    if (navSaving) return;
-    setNavSaving(true);
-    try {
-      const items = navCategories.map((c, index) => ({
-        id: c.id,
-        showInNav: c.showInNav,
-        navOrder: index,
-      }));
-      await api.patch("/category/nav-order", { items });
-      toast.success("Navigation menu updated", { id: "nav-settings-updated" });
-      setNavDirty(false);
-      fetchNavCategories();
-      refreshPreview();
-    } catch {
-      toast.error("Failed to save navigation settings", { id: "nav-settings-error" });
-    } finally {
-      setNavSaving(false);
-    }
-  };
 
   // -- Announcement -------------------------------------------------------
 
@@ -1152,21 +1230,56 @@ export default function HomepageManager() {
     if (savingTheme) return;
     setSavingTheme(true);
     try {
-      await api.put("/admin/homepage-config/theme", { themeId: draftThemeId });
+      const payload = {
+        themeId: draftThemeId,
+        customButtonBg: draftButtonBg || null,
+        customButtonText: draftButtonText || null,
+      };
+      await api.put("/admin/homepage-config/theme", payload);
       setThemeId(draftThemeId);
-      toast.success("Storefront theme updated", { id: "storefront-theme-updated" });
+      setCustomButtonBg(draftButtonBg);
+      setCustomButtonText(draftButtonText);
+      toast.success("Storefront theme & button colors saved", { id: "storefront-theme-updated" });
       refreshPreview();
     } catch {
       toast.error("Failed to update storefront theme", { id: "storefront-theme-error" });
       // Roll the draft back to the last saved value so the picker/preview don't keep
       // showing a theme that never actually saved.
       setDraftThemeId(themeId);
+      setDraftButtonBg(customButtonBg);
+      setDraftButtonText(customButtonText);
     } finally {
       setSavingTheme(false);
     }
   };
 
-  // ── Presentation-only section templates (Announcement/Carousel/Discount/Featured) ──
+  const handleSaveCategoryShape = async (shapeToSave: "square" | "circle" = draftCategoryShape) => {
+    if (!canBannerEdit) {
+      toast.error(NO_PERMISSION_MSG);
+      return;
+    }
+    if (savingCategoryShape) return;
+    setSavingCategoryShape(true);
+    try {
+      const res = await api.put("/admin/homepage-config/category-shape", {
+        categoryShape: shapeToSave,
+      });
+      const savedShape = res.data?.categoryShape || shapeToSave;
+      setCategoryShape(savedShape);
+      setDraftCategoryShape(savedShape);
+      try {
+        localStorage.setItem("storra_category_shape_cache", savedShape);
+      } catch {}
+      refreshPreview();
+      toast.success(`Category shape saved as ${savedShape}`, { id: "cat-shape-save" });
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || "Failed to save category shape", { id: "cat-shape-err" });
+    } finally {
+      setSavingCategoryShape(false);
+    }
+  };
+
+  // -¢------¬-¢------¬ Presentation-only section templates (Announcement/Carousel/Discount/Featured) -¢------¬-¢------¬
   // Each is a bare positive integer, not a JSON blob — no per-template content to save,
   // just which layout renders the section's existing data (see the state declarations
   // above). All four follow the identical save-then-preview-refresh shape, factored into
@@ -1201,7 +1314,51 @@ export default function HomepageManager() {
   const handleFeaturedTemplateSelect = (n: number) =>
     saveSectionTemplate("/admin/homepage-config/featured-template", n, featuredTemplate, setFeaturedTemplate);
 
-  // ─── Occasion presets ─────────────────────────────────────────────────────────
+  const handleSlotTemplateSelect = async (slotIdx: number, templateNum: number) => {
+    if (!canBannerEdit) {
+      toast.error(NO_PERMISSION_MSG);
+      return;
+    }
+    const currentSlots =
+      Array.isArray(featuredCatConfig.slots) && featuredCatConfig.slots.length > 0
+        ? [...featuredCatConfig.slots]
+        : [...DEFAULT_FEATURED_CATEGORIES_CONFIG.slots];
+    while (currentSlots.length <= slotIdx) {
+      currentSlots.push({
+        id: `slot-${currentSlots.length + 1}`,
+        categoryId: "",
+        customTitle: "",
+        customSubtitle: "",
+        limit: 8,
+        isActive: true,
+        template: 1,
+      });
+    }
+    currentSlots[slotIdx] = { ...currentSlots[slotIdx], template: templateNum };
+    const cleanSlots: FeaturedCategorySlot[] = currentSlots.slice(0, 2).map((s, idx) => ({
+      id: s.id || `slot-${idx + 1}`,
+      categoryId: (s.categoryId || "").trim(),
+      customTitle: (s.customTitle || "").trim(),
+      customSubtitle: (s.customSubtitle || "").trim(),
+      limit: Number(s.limit) || 8,
+      isActive: s.isActive !== false,
+      template: Number(s.template) || 1,
+    }));
+    const payload: FeaturedCategoriesConfig = { slots: cleanSlots };
+    setFeaturedCatConfig(payload);
+    try {
+      await api.put("/admin/homepage-config/featured-categories", payload);
+      setPreviewRefreshKey((k) => k + 1);
+      toast.success(
+        `Featured Section ${slotIdx + 2} layout updated to ${FEATURED_TEMPLATE_LABELS[String(templateNum)]?.name || "Template " + templateNum}`,
+        { id: `feat-slot-${slotIdx}-template` }
+      );
+    } catch {
+      toast.error("Failed to update layout", { id: `feat-slot-${slotIdx}-template-err` });
+    }
+  };
+
+  // -¢------¬-¢------¬-¢------¬ Occasion presets -¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬
   // A preset counts as "currently applied" when activeOccasionId matches the preset id.
   const isPresetApplied = (preset: OccasionPreset) => activeOccasionId === preset.id;
   const activeOccasion = OCCASION_PRESETS.find((preset) => preset.id === activeOccasionId) || null;
@@ -1267,7 +1424,7 @@ export default function HomepageManager() {
   };
 
 
-  // ─── Hero Config ────────────────────────────────────────────────────────────
+  // -¢------¬-¢------¬-¢------¬ Hero Config -¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬
 
   const handleHeroTemplateSelect = async (templateNum: number) => {
     if (!canBannerEdit) {
@@ -1281,6 +1438,10 @@ export default function HomepageManager() {
     setHeroConfig(updated);
     try {
       await api.put("/admin/homepage-config/hero", updated);
+      try {
+        localStorage.setItem("crm_hero_config_cache", JSON.stringify(updated));
+        window.dispatchEvent(new CustomEvent("crm_hero_config_updated"));
+      } catch {}
       toast.success(`Hero template ${templateNum} activated`, { id: "hero-template-activated" });
       refreshPreview();
     } catch {
@@ -1349,6 +1510,10 @@ export default function HomepageManager() {
       setSavingHero(true);
       await api.put("/admin/homepage-config/hero", updated);
       setHeroConfig(updated);
+      try {
+        localStorage.setItem("crm_hero_config_cache", JSON.stringify(updated));
+        window.dispatchEvent(new CustomEvent("crm_hero_config_updated"));
+      } catch {}
       setEditingHeroTemplate(null);
       toast.success("Hero template saved", { id: "hero-template-saved" });
       refreshPreview();
@@ -1455,7 +1620,7 @@ export default function HomepageManager() {
     }
   };
 
-  // ── Header / Navbar Config ──────────────────────────────────────────────────
+  // -¢------¬-¢------¬ Header / Navbar Config -¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬
 
   const handleNavbarTemplateSelect = async (templateNum: number) => {
     if (!canBannerEdit) {
@@ -1465,13 +1630,22 @@ export default function HomepageManager() {
     if (savingNavbar) return;
     const updated: NavbarConfig = {
       ...navbarConfig,
-      activeTemplate: templateNum as 1 | 2 | 3 | 4,
+      activeTemplate: templateNum as 1 | 2 | 3 | 4 | 5 | 6,
     };
     setNavbarConfig(updated);
     try {
       setSavingNavbar(true);
       await api.put("/admin/homepage-config/navbar", updated);
       toast.success(`Header template ${templateNum} activated`, { id: "navbar-template-activated" });
+      try {
+        localStorage.setItem("crm_navbar_cache", JSON.stringify(updated));
+      } catch {}
+      window.postMessage({ type: "STORRA_PREVIEW_NAVBAR", template: templateNum }, "*");
+      document.querySelectorAll("iframe").forEach((frame) => {
+        try {
+          frame.contentWindow?.postMessage({ type: "STORRA_PREVIEW_NAVBAR", template: templateNum }, "*");
+        } catch {}
+      });
       refreshPreview();
     } catch {
       toast.error("Failed to update navbar template", { id: "navbar-template-error" });
@@ -1480,7 +1654,70 @@ export default function HomepageManager() {
     }
   };
 
-  // â”€â”€ Footer Config â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  const openNavbarEdit = (templateKey: string) => {
+    const existing = navbarConfig.templates?.[templateKey] || {};
+    setNavbarForm({ ...existing });
+    setEditingNavbarTemplate(templateKey);
+  };
+
+  const saveNavbarTemplate = async () => {
+    if (!editingNavbarTemplate) return;
+    if (!canBannerEdit) {
+      toast.error(NO_PERMISSION_MSG, { id: "navbar-perm-error" });
+      return;
+    }
+    if (savingNavbar) return;
+    const sanitizeSolidHex = (val?: string): string | undefined => {
+      if (!val) return undefined;
+      let s = val.trim();
+      if (s.toLowerCase() === "white") return "#ffffff";
+      if (s.toLowerCase() === "black") return "#000000";
+      if (!s.startsWith("#") && /^[0-9A-Fa-f]{3,6}$/.test(s)) s = "#" + s;
+      if (/^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(s)) return s;
+      return undefined;
+    };
+
+    const validBg = sanitizeSolidHex(navbarForm.bgColor);
+    const validText = sanitizeSolidHex(navbarForm.textColor);
+
+    const cleanedForm: NavbarTemplateData = {};
+    if (validBg) cleanedForm.bgColor = validBg;
+    if (validText) cleanedForm.textColor = validText;
+
+    const updated: NavbarConfig = {
+      ...navbarConfig,
+      templates: {
+        ...(navbarConfig.templates || {}),
+        [editingNavbarTemplate]: cleanedForm,
+      },
+    };
+    try {
+      setSavingNavbar(true);
+      await api.put("/admin/homepage-config/navbar", updated);
+      setNavbarConfig(updated);
+      try {
+        localStorage.setItem("crm_navbar_cache", JSON.stringify(updated));
+        window.dispatchEvent(new CustomEvent("crm_navbar_cache_updated"));
+      } catch {
+        // ignore
+      }
+      window.postMessage({ type: "STORRA_PREVIEW_NAVBAR", template: updated.activeTemplate, config: updated }, "*");
+      document.querySelectorAll("iframe").forEach((frame) => {
+        try {
+          frame.contentWindow?.postMessage({ type: "STORRA_PREVIEW_NAVBAR", template: updated.activeTemplate, config: updated }, "*");
+        } catch {}
+      });
+      setEditingNavbarTemplate(null);
+      toast.success("Header template colors saved", { id: "navbar-template-saved" });
+      refreshPreview();
+    } catch {
+      toast.error("Failed to save header template colors", { id: "navbar-template-save-error" });
+    } finally {
+      setSavingNavbar(false);
+    }
+  };
+
+  // ---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬ Footer Config ---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬
 
   const handleFooterTemplateSelect = async (templateNum: number) => {
     if (!canBannerEdit) {
@@ -1493,6 +1730,12 @@ export default function HomepageManager() {
     };
     setFooterConfig(updated);
     try {
+      localStorage.setItem("crm_footer_config_cache", JSON.stringify(updated));
+      window.dispatchEvent(new CustomEvent("crm_footer_config_updated"));
+    } catch {
+      // ignore
+    }
+    try {
       await api.put("/admin/homepage-config/footer", updated);
       toast.success(`Footer template ${templateNum} activated`, { id: "footer-template-activated" });
       refreshPreview();
@@ -1504,9 +1747,11 @@ export default function HomepageManager() {
   const openFooterEdit = (templateKey: string) => {
     // Same "fall back to this template's own defaults" fix as openHeroEdit above.
     const existing = footerConfig.templates[templateKey] ?? DEFAULT_FOOTER.templates[templateKey] ?? DEFAULT_FOOTER.templates["1"];
+    const defaultBlend = templateKey === "2" || templateKey === "4" || templateKey === "6";
     setFooterForm({
-      showCompanyName: existing?.showCompanyName !== undefined ? existing.showCompanyName : true,
       ...existing,
+      showCompanyName: existing?.showCompanyName !== undefined ? existing.showCompanyName : true,
+      blendLogoWithBg: existing?.blendLogoWithBg !== undefined ? existing.blendLogoWithBg : defaultBlend,
     });
     setEditingFooterTemplate(templateKey);
   };
@@ -1536,17 +1781,42 @@ export default function HomepageManager() {
       return;
     }
     if (savingFooter) return;
+    const sanitizeSolidHex = (val?: string): string | undefined => {
+      if (!val) return undefined;
+      let s = val.trim();
+      if (s.toLowerCase() === "white") return "#ffffff";
+      if (s.toLowerCase() === "black") return "#000000";
+      if (!s.startsWith("#") && /^[0-9A-Fa-f]{3,6}$/.test(s)) s = "#" + s;
+      if (/^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(s)) return s;
+      return undefined;
+    };
+
+    const validBg = sanitizeSolidHex(footerForm.bgColor);
+    const validText = sanitizeSolidHex(footerForm.textColor);
+
+    const cleanedForm: FooterTemplateData = { ...footerForm };
+    if (validBg) cleanedForm.bgColor = validBg;
+    else delete cleanedForm.bgColor;
+    if (validText) cleanedForm.textColor = validText;
+    else delete cleanedForm.textColor;
+    cleanedForm.blendLogoWithBg = Boolean(footerForm.blendLogoWithBg);
     const updated: FooterConfig = {
       ...footerConfig,
       templates: {
         ...footerConfig.templates,
-        [editingFooterTemplate]: footerForm,
+        [editingFooterTemplate]: cleanedForm,
       },
     };
     try {
       setSavingFooter(true);
       await api.put("/admin/homepage-config/footer", updated);
       setFooterConfig(updated);
+      try {
+        localStorage.setItem("crm_footer_config_cache", JSON.stringify(updated));
+        window.dispatchEvent(new CustomEvent("crm_footer_config_updated"));
+      } catch {
+        // ignore
+      }
       setEditingFooterTemplate(null);
       toast.success("Footer template saved", { id: "footer-template-saved" });
       refreshPreview();
@@ -1557,7 +1827,7 @@ export default function HomepageManager() {
     }
   };
 
-  // ── Pre-Footer Banners ───────────────────────────────────────────────────────
+  // -¢------¬-¢------¬ Pre-Footer Banners -¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬
 
   const updatePreFooterSlot = (index: number, updates: Partial<PreFooterBannerItem>) => {
     setPreFooterConfig((prev) => {
@@ -1667,7 +1937,7 @@ export default function HomepageManager() {
     }
   };
 
-  // ── Category Showcases (Sections 2 to 3) ───────────────────────────────────
+  // -¢------¬-¢------¬ Category Showcases (Sections 2 to 3) -¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬
 
   const updateFeaturedCategorySlot = (
     index: number,
@@ -1711,6 +1981,7 @@ export default function HomepageManager() {
         customSubtitle: (s.customSubtitle || "").trim(),
         limit: Number(s.limit) || 8,
         isActive: s.isActive !== false,
+        template: Number(s.template) || 1,
       }));
 
     const payload: FeaturedCategoriesConfig = {
@@ -1741,7 +2012,7 @@ export default function HomepageManager() {
     }
   };
 
-  // â”€â”€ Featured â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬ Featured ---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬
 
   const handleFeaturedSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -1903,7 +2174,7 @@ export default function HomepageManager() {
       ? banners.filter((b) => b.type === activeTab)
       : [];
 
-  // â”€â”€ Section Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬ Section Header ---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬
 
   const openHeaderEdit = (
     section: "DISCOUNT" | "CAROUSEL" | "FEATURED" | "PROMO",
@@ -1952,7 +2223,7 @@ export default function HomepageManager() {
     }
   };
 
-  // â”€â”€ Banner form â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬ Banner form ---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬
 
   const openCreate = () => {
     setEditBanner(null);
@@ -1973,6 +2244,7 @@ export default function HomepageManager() {
     setForm({
       type: banner.type,
       title: banner.title,
+      link: banner.link ?? "",
       discount: banner.discount ?? "",
       description: banner.description ?? "",
       sortOrder: String(banner.sortOrder),
@@ -2008,6 +2280,7 @@ export default function HomepageManager() {
     const fd = new FormData();
     fd.append("type", form.type);
     fd.append("title", form.title);
+    fd.append("link", form.link.trim());
     fd.append("discount", form.discount);
     fd.append("description", form.description);
     fd.append("sortOrder", form.sortOrder);
@@ -2030,7 +2303,14 @@ export default function HomepageManager() {
       fetchBanners();
       refreshPreview();
     } catch (err: any) {
-      const msg = err?.response?.data?.message || "Failed to save banner";
+      const errData = err?.response?.data;
+      let msg = errData?.message || "Failed to save banner";
+      if (errData?.errors) {
+        const fieldMsgs = Object.entries(errData.errors)
+          .map(([f, m]: [string, any]) => `${f}: ${Array.isArray(m) ? m.join(", ") : m}`)
+          .join(" | ");
+        if (fieldMsgs) msg = `${msg}: ${fieldMsgs}`;
+      }
       toast.error(msg);
     } finally {
       setSaving(false);
@@ -2079,7 +2359,7 @@ export default function HomepageManager() {
     }
   };
 
-  // ─── Tab definitions ────────────────────────────────────────────────────────
+  // -¢------¬-¢------¬-¢------¬ Tab definitions -¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬
 
   const TABS: { key: Tab; label: string; icon: React.ReactNode }[] = [
     {
@@ -2103,6 +2383,11 @@ export default function HomepageManager() {
       icon: <HeroPhotoIcon className="w-4 h-4" />,
     },
     {
+      key: "CATEGORIES",
+      label: "Categories Section",
+      icon: <Squares2X2Icon className="w-4 h-4" />,
+    },
+    {
       key: "PROMO_BANNER",
       label: "Banner Carousel",
       icon: <RectangleStackIcon className="w-4 h-4" />,
@@ -2121,18 +2406,13 @@ export default function HomepageManager() {
       icon: <Squares2X2Icon className="w-4 h-4" />,
     },
     {
-      key: "NAVIGATION",
-      label: "Navigation Menu",
-      icon: <Bars3Icon className="w-4 h-4" />,
-    },
-    {
       key: "THEME",
       label: "Storefront Theme",
       icon: <SwatchIcon className="w-4 h-4" />,
     },
   ];
 
-  // ─── Render ──────────────────────────────────────────────────────────────────
+  // -¢------¬-¢------¬-¢------¬ Render -¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬
 
   // The single shared preview's anchor — which section of the real storefront it
   // scrolls to — derived from whichever tab is active. Undefined (top of page) for
@@ -2146,7 +2426,9 @@ export default function HomepageManager() {
           ? "header"
           : activeTab === "HERO"
             ? "hero"
-          : activeTab === "PRE_FOOTER"
+          : activeTab === "CATEGORIES"
+            ? "category"
+          :  activeTab === "PRE_FOOTER"
             ? "pre-footer"
           : activeTab === "FOOTER"
             ? "footer"
@@ -2208,7 +2490,7 @@ export default function HomepageManager() {
       <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_400px] gap-8 items-start">
         <div className="min-w-0">
 
-      {/* ── OCCASIONS TAB ────────────────────────────────────────────────────── */}
+      {/* -¢------¬-¢------¬ OCCASIONS TAB -¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬ */}
       {activeTab === "OCCASIONS" && (
         <div className="space-y-6 animate-fadeIn">
           {/* Master Occasion Status & Toggle Card */}
@@ -2267,7 +2549,7 @@ export default function HomepageManager() {
                   }`}
                 >
                   {disablingOccasion
-                    ? "Turning off…"
+                    ? "Turning off..."
                     : isOccasionActive
                     ? "Occasion On"
                     : "Occasion Off"}
@@ -2327,7 +2609,7 @@ export default function HomepageManager() {
                             d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                           />
                         </svg>
-                        <span>Turning Off…</span>
+                        <span>Turning Off...</span>
                       </>
                     ) : (
                       <>
@@ -2374,7 +2656,7 @@ export default function HomepageManager() {
                     }}
                     className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-lg border border-indigo-200 transition-colors shrink-0 self-start sm:self-center flex items-center gap-1.5"
                   >
-                    <span>↻</span>
+                    <span>»</span>
                     <span>Reset to {activeOccasion.name} Defaults</span>
                   </button>
                 )}
@@ -2499,7 +2781,7 @@ export default function HomepageManager() {
                         className="w-full py-2.5 rounded-xl text-xs font-bold uppercase tracking-wide bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100 transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5 shadow-sm"
                       >
                         <XCircleIcon className="w-4 h-4 text-rose-600" />
-                        {disablingOccasion ? "Turning Off…" : "Turn Off Animation"}
+                        {disablingOccasion ? "Turning Off..." : "Turn Off Animation"}
                       </button>
                     ) : (
                       <button
@@ -2521,7 +2803,7 @@ export default function HomepageManager() {
         </div>
       )}
 
-      {/* ── ANNOUNCEMENT TAB ─────────────────────────────────────────────────── */}
+      {/* -¢------¬-¢------¬ ANNOUNCEMENT TAB -¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬ */}
       {activeTab === "ANNOUNCEMENT" && (
         <div className="space-y-6 animate-fadeIn">
           {isOccasionActive && activeOccasion && (
@@ -2645,7 +2927,7 @@ export default function HomepageManager() {
         </div>
       )}
 
-      {/* â”€â”€ HERO TAB â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      {/* ---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬ HERO TAB ---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬ */}
       {activeTab === "HERO" && (
         <div>
           <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4 mb-6">
@@ -2743,36 +3025,42 @@ export default function HomepageManager() {
                         <>
                           <div>
                             <label className="text-xs font-semibold text-gray-600">
-                              Headline
+                              Headline{" "}
+                              <span className="font-normal text-gray-400">
+                                (optional — leave blank to hide)
+                              </span>
                             </label>
                             <input
                               className="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
-                              value={heroForm.title}
+                              value={heroForm.title ?? ""}
                               onChange={(e) =>
                                 setHeroForm((p) => ({
                                   ...p,
                                   title: e.target.value,
                                 }))
                               }
-                              placeholder="Hero headline"
+                              placeholder="Hero headline (leave blank to hide)"
                             />
                           </div>
                           {key !== "5" && (
                             <div>
                               <label className="text-xs font-semibold text-gray-600">
-                                Subtitle / Description
+                                Subtitle / Description{" "}
+                                <span className="font-normal text-gray-400">
+                                  (optional — leave blank to hide)
+                                </span>
                               </label>
                               <textarea
                                 rows={2}
                                 className="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 resize-none"
-                                value={heroForm.subtitle}
+                                value={heroForm.subtitle ?? ""}
                                 onChange={(e) =>
                                   setHeroForm((p) => ({
                                     ...p,
                                     subtitle: e.target.value,
                                   }))
                                 }
-                                placeholder="Supporting text below the headline"
+                                placeholder="Supporting text below the headline (leave blank to hide)"
                               />
                             </div>
                           )}
@@ -2780,27 +3068,33 @@ export default function HomepageManager() {
                             <div className="grid grid-cols-2 gap-2">
                               <div>
                                 <label className="text-xs font-semibold text-gray-600">
-                                  CTA Button Text
+                                  CTA Button Text{" "}
+                                  <span className="font-normal text-gray-400">
+                                    (optional)
+                                  </span>
                                 </label>
                                 <input
                                   className="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
-                                  value={heroForm.ctaText}
+                                  value={heroForm.ctaText ?? ""}
                                   onChange={(e) =>
                                     setHeroForm((p) => ({
                                       ...p,
                                       ctaText: e.target.value,
                                     }))
                                   }
-                                  placeholder="Shop Now"
+                                  placeholder="e.g. Explore Now (leave blank to hide)"
                                 />
                               </div>
                               <div>
                                 <label className="text-xs font-semibold text-gray-600">
-                                  CTA Link
+                                  CTA Link{" "}
+                                  <span className="font-normal text-gray-400">
+                                    (optional)
+                                  </span>
                                 </label>
                                 <input
                                   className="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
-                                  value={heroForm.ctaLink}
+                                  value={heroForm.ctaLink ?? ""}
                                   onChange={(e) =>
                                     setHeroForm((p) => ({
                                       ...p,
@@ -2897,7 +3191,7 @@ export default function HomepageManager() {
                             <label className="text-xs font-semibold text-gray-600">
                               Accent Label{" "}
                               <span className="font-normal text-gray-400">
-                                (small pill badge above headline)
+                                (optional — small pill badge above headline, leave blank to hide)
                               </span>
                             </label>
                             <input
@@ -2909,7 +3203,7 @@ export default function HomepageManager() {
                                   accentText: e.target.value,
                                 }))
                               }
-                              placeholder="SS26 Collection"
+                              placeholder="e.g. SS26 Collection (leave blank to hide)"
                             />
                           </div>
                           <div>
@@ -2988,7 +3282,7 @@ export default function HomepageManager() {
                             <label className="text-xs font-semibold text-gray-600">
                               Accent Label{" "}
                               <span className="font-normal text-gray-400">
-                                (small text above headline)
+                                (optional — small text above headline, leave blank to hide)
                               </span>
                             </label>
                             <input
@@ -3000,7 +3294,7 @@ export default function HomepageManager() {
                                   accentText: e.target.value,
                                 }))
                               }
-                              placeholder="New Season"
+                              placeholder="e.g. New Season (leave blank to hide)"
                             />
                           </div>
                           <div>
@@ -3091,7 +3385,7 @@ export default function HomepageManager() {
                             <label className="text-xs font-semibold text-gray-600">
                               Accent Label{" "}
                               <span className="font-normal text-gray-400">
-                                (small text above headline)
+                                (optional — small text above headline, leave blank to hide)
                               </span>
                             </label>
                             <input
@@ -3103,7 +3397,7 @@ export default function HomepageManager() {
                                   accentText: e.target.value,
                                 }))
                               }
-                              placeholder="Trendy Collections"
+                              placeholder="e.g. Trendy Collections (leave blank to hide)"
                             />
                           </div>
                           <div>
@@ -3230,7 +3524,7 @@ export default function HomepageManager() {
                             <label className="text-xs font-semibold text-gray-600 block">
                               Top Accent Title{" "}
                               <span className="font-normal text-gray-400">
-                                (small text above headline)
+                                (optional — small text above headline, leave blank to hide)
                               </span>
                             </label>
                             <input
@@ -3242,7 +3536,7 @@ export default function HomepageManager() {
                                   accentText: e.target.value,
                                 }))
                               }
-                              placeholder="e.g., New Season"
+                              placeholder="e.g. New Season (leave blank to hide)"
                             />
                           </div>
                           <label className="text-xs font-semibold text-gray-600 block">
@@ -3505,14 +3799,14 @@ export default function HomepageManager() {
                           <label className="text-xs font-semibold text-gray-600">
                             Accent Label{" "}
                             <span className="font-normal text-gray-400">
-                              (small text above headline)
+                              (optional — small text above headline, leave blank to hide)
                             </span>
                           </label>
                           <input
                             className="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
                             value={heroForm.accentText ?? ""}
                             onChange={(e) => setHeroForm((p) => ({ ...p, accentText: e.target.value }))}
-                            placeholder="The Collection"
+                            placeholder="e.g. The Collection (leave blank to hide)"
                           />
                         </div>
                       )}
@@ -3699,8 +3993,24 @@ export default function HomepageManager() {
                               </span>
                             </div>
                             <p className="text-[11px] text-gray-400 mb-3">
-                              Upload or paste image URLs for all 5 banner slides. Any empty slots will fall back to curated default banners.
+                              Upload or paste image URLs for your banner slides (up to 5). If you add 3, only 3 will be shown. If you add 1, only that 1 will be shown. Empty slots are not displayed.
                             </p>
+
+                            {/* Recommended Dimensions Banner Card */}
+                            <div className="mb-4 p-3.5 bg-indigo-50/70 border border-indigo-100 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-indigo-950">
+                              <div className="space-y-0.5">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs font-bold uppercase tracking-wider text-indigo-700">Recommended Dimensions</span>
+                                  <span className="bg-indigo-600 text-white text-[10px] font-semibold px-2 py-0.5 rounded-full">2.65 : 1 Ratio</span>
+                                </div>
+                                <p className="text-xs text-indigo-800">
+                                  <strong>1920 × 720 px</strong> (Desktop) • <strong>1280 × 580 px</strong> (Tablet) • <strong>800 × 450 px</strong> (Mobile 16:9)
+                                </p>
+                              </div>
+                              <div className="text-[11px] font-medium text-indigo-600 bg-white px-2.5 py-1 rounded-lg border border-indigo-200 shrink-0 self-start sm:self-auto">
+                                Auto Carousel (5s) • Rounded Widescreen
+                              </div>
+                            </div>
 
                             <div className="space-y-3.5">
                               {[0, 1, 2, 3, 4].map((idx) => {
@@ -3727,15 +4037,15 @@ export default function HomepageManager() {
                                         </span>
                                       ) : (
                                         <span className="text-[10px] text-gray-400 font-normal">
-                                          Default Fallback
+                                          Empty (omitted)
                                         </span>
                                       )}
                                     </div>
 
                                     <div className="flex flex-col sm:flex-row gap-3.5 items-start">
-                                      {/* Image Upload / Preview Box */}
-                                      <div className="w-full sm:w-36 flex-shrink-0">
-                                        <label className="relative block aspect-[16/9] sm:w-36 rounded-xl overflow-hidden cursor-pointer border-2 border-dashed border-gray-200 hover:border-indigo-400 transition-all bg-gray-50/80 hover:bg-indigo-50/20 flex items-center justify-center group shadow-xs">
+                                      {/* Image Upload / Preview Box (Referral 2.65:1 Aspect Ratio) */}
+                                      <div className="w-full sm:w-44 flex-shrink-0">
+                                        <label className="relative block aspect-[2.65/1] sm:w-44 rounded-xl overflow-hidden cursor-pointer border-2 border-dashed border-gray-200 hover:border-indigo-400 transition-all bg-gray-50/80 hover:bg-indigo-50/20 flex items-center justify-center group shadow-xs">
                                           {imgUrl ? (
                                             <>
                                               <img
@@ -3775,7 +4085,7 @@ export default function HomepageManager() {
                                               <span className="text-[10px] font-semibold text-gray-500 group-hover:text-indigo-600 mt-1 block">
                                                 Upload Banner
                                               </span>
-                                              <span className="text-[8px] text-gray-400 block mt-0.5">16:9 • Max 1 MB</span>
+                                              <span className="text-[8px] text-gray-400 block mt-0.5 font-medium">2.65:1 (1920 × 720 px)</span>
                                             </div>
                                           )}
                                           <input
@@ -3791,25 +4101,41 @@ export default function HomepageManager() {
                                         </label>
                                       </div>
 
-                                      {/* Direct Image URL input (Full Width) */}
-                                      <div className="flex-1 w-full space-y-1.5 min-w-0">
-                                        <label className="text-[11px] font-semibold text-gray-700 block">
-                                          Or Direct Image URL
-                                        </label>
-                                        <input
-                                          type="text"
-                                          value={heroForm.images?.[idx] ?? ""}
-                                          onChange={(e) => {
-                                            const imgs = [...(heroForm.images ?? ["", "", "", "", ""])];
-                                            imgs[idx] = e.target.value;
-                                            setHeroForm((p) => ({ ...p, images: imgs }));
-                                          }}
-                                          placeholder="https://... (or upload photo above)"
-                                          className="w-full border border-gray-300 bg-white rounded-lg px-3 py-1.5 text-xs text-gray-800 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-colors font-mono text-[11px]"
-                                        />
-                                        <p className="text-[10px] text-gray-400">
-                                          Upload a file above or paste an external image link.
-                                        </p>
+                                      {/* Direct Image URL & Optional Destination Link */}
+                                      <div className="flex-1 w-full space-y-2 min-w-0">
+                                        <div>
+                                          <label className="text-[11px] font-semibold text-gray-700 block mb-1">
+                                            Direct Image URL
+                                          </label>
+                                          <input
+                                            type="text"
+                                            value={heroForm.images?.[idx] ?? ""}
+                                            onChange={(e) => {
+                                              const imgs = [...(heroForm.images ?? ["", "", "", "", ""])];
+                                              imgs[idx] = e.target.value;
+                                              setHeroForm((p) => ({ ...p, images: imgs }));
+                                            }}
+                                            placeholder="https://... (or upload photo on the left)"
+                                            className="w-full border border-gray-300 bg-white rounded-lg px-3 py-1.5 text-xs text-gray-800 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-colors font-mono text-[11px]"
+                                          />
+                                        </div>
+
+                                        <div>
+                                          <label className="text-[11px] font-semibold text-gray-700 block mb-1">
+                                            Slide Destination Link (Optional)
+                                          </label>
+                                          <input
+                                            type="text"
+                                            value={heroForm.imageLinks?.[idx] ?? ""}
+                                            onChange={(e) => {
+                                              const links = [...(heroForm.imageLinks ?? ["", "", "", "", ""])];
+                                              links[idx] = e.target.value;
+                                              setHeroForm((p) => ({ ...p, imageLinks: links }));
+                                            }}
+                                            placeholder="/products or /categories/sarees or https://..."
+                                            className="w-full border border-gray-300 bg-white rounded-lg px-3 py-1.5 text-xs text-gray-800 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-colors text-[11px]"
+                                          />
+                                        </div>
                                       </div>
                                     </div>
                                   </div>
@@ -3916,8 +4242,8 @@ export default function HomepageManager() {
                             <label className="text-xs font-semibold text-gray-600 block mb-1">
                               Background Banner Photo
                             </label>
-                            <p className="text-[11px] text-gray-400 mb-2">
-                              Upload a background image or paste an image URL.
+                            <p className="text-[11px] text-gray-500 mb-2">
+                              Upload a background image or paste an image URL. Recommended: <strong>1920 × 400 px</strong> (Half-Height Compact Banner).
                             </p>
                             <div className="flex gap-2">
                               <input
@@ -3999,7 +4325,7 @@ export default function HomepageManager() {
         </div>
       )}
 
-      {/* ── HEADER TAB ─────────────────────────────────────────────────── */}
+      {/* -¢------¬-¢------¬ HEADER TAB -¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬ */}
       {activeTab === "HEADER" && (
         <div className="space-y-6 animate-fadeIn">
           <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
@@ -4012,6 +4338,10 @@ export default function HomepageManager() {
             {(["1", "2", "3", "4", "5", "6"] as const).map((key) => {
               const label = NAVBAR_TEMPLATE_LABELS[key];
               const isActive = String(navbarConfig.activeTemplate) === key;
+              const isEditing = editingNavbarTemplate === key;
+              const customBg = navbarConfig.templates?.[key]?.bgColor;
+              const customText = navbarConfig.templates?.[key]?.textColor;
+
               return (
                 <div
                   key={key}
@@ -4022,50 +4352,90 @@ export default function HomepageManager() {
                   }`}
                 >
                   {/* Visual Preview Strip */}
-                  <div className="h-28 flex flex-col justify-center px-4 relative overflow-hidden select-none border-b border-gray-100">
+                  <div
+                    className="h-28 flex flex-col justify-center px-4 relative overflow-hidden select-none border-b border-gray-100 transition-colors"
+                    style={{
+                      backgroundColor: customBg ? `${customBg}15` : undefined,
+                    }}
+                  >
+                    {(customBg || customText) && (
+                      <span className="absolute top-2 right-2 text-[9px] px-1.5 py-0.5 rounded font-semibold bg-black/40 text-white backdrop-blur-xs z-20">
+                        Custom Colors
+                      </span>
+                    )}
+
                     {key === "1" && (
-                      <div className="w-full bg-[#0a0a0a] text-white rounded-lg p-2.5 border border-white/10 shadow-xs flex items-center justify-between h-20">
+                      <div
+                        className="w-full bg-[#0a0a0a] text-white rounded-lg p-2.5 border border-white/10 shadow-xs flex items-center justify-between h-20"
+                        style={{
+                          backgroundColor: customBg || undefined,
+                          color: customText || undefined,
+                          borderColor: customText ? `${customText}25` : undefined,
+                        }}
+                      >
                         <div className="flex items-center gap-1.5">
                           <div className="w-4 h-4 rounded-md bg-[var(--theme-primary,#C9A227)] text-[8px] font-black text-[var(--theme-primary-ink,#0B0B0C)] flex items-center justify-center">
                             A
                           </div>
-                          <div className="h-2 w-8 bg-white rounded-xs" />
+                          <div className="h-2 w-8 rounded-xs" style={{ backgroundColor: customText || "#ffffff" }} />
                         </div>
                         <div className="flex items-center gap-1">
                           <span className="px-2 py-0.5 bg-[var(--theme-primary,#C9A227)] text-[8px] text-[var(--theme-primary-ink,#0B0B0C)] font-bold rounded-md shadow-xs">
                             Home
                           </span>
-                          <span className="px-1.5 py-0.5 text-[8px] text-zinc-400">
+                          <span
+                            className="px-1.5 py-0.5 text-[8px]"
+                            style={{ color: customText || "rgb(161 161 170)" }}
+                          >
                             Products
                           </span>
                         </div>
                         <div className="flex items-center gap-1">
-                          <div className="w-3.5 h-3.5 rounded-full border border-white/20 flex items-center justify-center" />
+                          <div
+                            className="w-3.5 h-3.5 rounded-full border flex items-center justify-center"
+                            style={{ borderColor: customText ? `${customText}40` : "rgba(255,255,255,0.2)" }}
+                          />
                           <div className="w-3.5 h-3.5 rounded-full bg-[var(--theme-primary,#C9A227)] text-[var(--theme-primary-ink,#0B0B0C)]" />
                         </div>
                       </div>
                     )}
 
                     {key === "2" && (
-                      <div className="w-full bg-gray-50 rounded-lg p-2.5 border border-gray-200 shadow-xs flex items-center justify-between h-20 text-gray-900">
+                      <div
+                        className="w-full bg-gray-50 rounded-lg p-2.5 border border-gray-200 shadow-xs flex items-center justify-between h-20 text-gray-900"
+                        style={{
+                          backgroundColor: customBg || undefined,
+                          color: customText || undefined,
+                          borderColor: customText ? `${customText}25` : undefined,
+                        }}
+                      >
                         <div className="flex items-center gap-1.5">
-                          <div className="w-4 h-4 rounded-md bg-gray-900 text-[8px] font-bold text-white flex items-center justify-center">
+                          <div
+                            className="w-4 h-4 rounded-md text-[8px] font-bold flex items-center justify-center"
+                            style={{
+                              backgroundColor: customText || "#111827",
+                              color: customBg || "#ffffff",
+                            }}
+                          >
                             A
                           </div>
-                          <div className="h-2.5 w-10 bg-gray-900 rounded-xs" />
+                          <div className="h-2.5 w-10 rounded-xs" style={{ backgroundColor: customText || "#111827" }} />
                         </div>
                         <div className="flex items-center gap-2 text-[8px] uppercase tracking-wider font-semibold">
                           <div className="flex flex-col items-center">
-                            <span className="font-bold text-gray-900">
+                            <span className="font-bold" style={{ color: customText || undefined }}>
                               Home
                             </span>
                             <span className="w-2.5 h-[2px] bg-[var(--theme-primary,#C9A227)] rounded-full mt-0.5" />
                           </div>
-                          <span className="text-gray-400">Shop</span>
-                          <span className="text-gray-400">Story</span>
+                          <span style={{ color: customText ? `${customText}99` : "rgb(156 163 175)" }}>Shop</span>
+                          <span style={{ color: customText ? `${customText}99` : "rgb(156 163 175)" }}>Story</span>
                         </div>
                         <div className="flex items-center gap-1">
-                          <div className="w-4 h-4 border border-gray-300 rounded-md" />
+                          <div
+                            className="w-4 h-4 border rounded-md"
+                            style={{ borderColor: customText ? `${customText}40` : "rgb(209 213 219)" }}
+                          />
                           <div className="px-2 py-0.5 bg-[var(--theme-primary,#C9A227)] text-[var(--theme-primary-ink,#0B0B0C)] text-[7px] font-bold rounded-md uppercase shadow-xs">
                             Sign In
                           </div>
@@ -4074,95 +4444,195 @@ export default function HomepageManager() {
                     )}
 
                     {key === "3" && (
-                      <div className="w-full bg-gradient-to-r from-indigo-950 via-slate-900 to-gray-950 text-white rounded-lg p-2.5 border border-indigo-500/30 shadow-xs flex items-center justify-between h-20">
+                      <div
+                        className="w-full bg-gradient-to-r from-indigo-950 via-slate-900 to-gray-950 text-white rounded-lg p-2.5 border border-indigo-500/30 shadow-xs flex items-center justify-between h-20"
+                        style={{
+                          backgroundColor: customBg || undefined,
+                          color: customText || undefined,
+                          borderColor: customText ? `${customText}25` : undefined,
+                        }}
+                      >
                         <div className="flex items-center gap-1.5">
                           <div className="w-4 h-4 rounded-full bg-indigo-500 text-[8px] font-bold text-white flex items-center justify-center shadow-[0_0_8px_rgba(99,102,241,0.6)]">
                             A
                           </div>
-                          <div className="h-2 w-8 bg-indigo-200 rounded-xs" />
+                          <div className="h-2 w-8 rounded-xs" style={{ backgroundColor: customText || "#c7d2fe" }} />
                         </div>
                         <div className="flex items-center gap-1">
                           <span className="px-2 py-0.5 bg-gradient-to-r from-indigo-600 to-indigo-500 text-[8px] text-white font-bold rounded-full shadow-[0_0_8px_rgba(99,102,241,0.4)]">
                             Home
                           </span>
-                          <span className="px-1.5 py-0.5 text-[8px] text-indigo-300">
+                          <span
+                            className="px-1.5 py-0.5 text-[8px]"
+                            style={{ color: customText || "#a5b4fc" }}
+                          >
                             Explore
                           </span>
                         </div>
                         <div className="flex items-center gap-1">
-                          <div className="h-3 w-8 bg-white/10 border border-white/20 rounded-full" />
+                          <div
+                            className="h-3 w-8 border rounded-full"
+                            style={{
+                              backgroundColor: customText ? `${customText}15` : "rgba(255,255,255,0.1)",
+                              borderColor: customText ? `${customText}30` : "rgba(255,255,255,0.2)",
+                            }}
+                          />
                           <div className="w-3.5 h-3.5 rounded-full bg-indigo-500/80" />
                         </div>
                       </div>
                     )}
 
                     {key === "4" && (
-                      <div className="w-full bg-white rounded-lg p-2.5 border border-gray-100 shadow-xs flex items-center justify-between h-20 text-gray-900">
-                        <div className="flex items-center gap-1.5 text-[7px] uppercase tracking-widest font-medium text-gray-400">
-                          <span className="text-black font-bold">Home</span>
+                      <div
+                        className="w-full bg-white rounded-lg p-2.5 border border-gray-100 shadow-xs flex items-center justify-between h-20 text-gray-900"
+                        style={{
+                          backgroundColor: customBg || undefined,
+                          color: customText || undefined,
+                          borderColor: customText ? `${customText}25` : undefined,
+                        }}
+                      >
+                        <div className="flex items-center gap-1.5 text-[7px] uppercase tracking-widest font-medium" style={{ color: customText ? `${customText}99` : "rgb(156 163 175)" }}>
+                          <span className="font-bold" style={{ color: customText || "#000000" }}>Home</span>
                           <span>Shop</span>
                         </div>
                         <div className="text-center">
-                          <div className="text-[10px] font-black tracking-widest uppercase font-serif text-gray-900">
+                          <div
+                            className="text-[10px] font-black tracking-widest uppercase font-serif"
+                            style={{ color: customText || "#111827" }}
+                          >
                             AMORE
                           </div>
                         </div>
                         <div className="flex items-center gap-1">
-                          <div className="w-3 h-3 rounded-full bg-gray-100" />
-                          <div className="w-3 h-3 rounded-full bg-black" />
+                          <div
+                            className="w-3 h-3 rounded-full"
+                            style={{ backgroundColor: customText ? `${customText}25` : "#f3f4f6" }}
+                          />
+                          <div
+                            className="w-3 h-3 rounded-full"
+                            style={{ backgroundColor: customText || "#000000" }}
+                          />
                         </div>
                       </div>
                     )}
 
                     {key === "5" && (
-                      <div className="w-full bg-white text-gray-900 rounded-lg p-2.5 border border-gray-200 shadow-xs flex items-center justify-between h-20">
+                      <div
+                        className="w-full bg-white text-gray-900 rounded-lg p-2.5 border border-gray-200 shadow-xs flex items-center justify-between h-20"
+                        style={{
+                          backgroundColor: customBg || undefined,
+                          color: customText || undefined,
+                          borderColor: customText ? `${customText}25` : undefined,
+                        }}
+                      >
                         <div className="flex items-center gap-1.5">
-                          <div className="w-4 h-4 rounded-xs bg-black text-[8px] font-black text-white flex items-center justify-center">
+                          <div
+                            className="w-4 h-4 rounded-xs text-[8px] font-black flex items-center justify-center"
+                            style={{
+                              backgroundColor: customText || "#000000",
+                              color: customBg || "#ffffff",
+                            }}
+                          >
                             P
                           </div>
                           <div className="flex flex-col">
-                            <span className="text-[8px] font-black tracking-wider uppercase text-gray-900 leading-none">PEARLS</span>
-                            <span className="text-[5px] text-gray-400 font-medium tracking-widest uppercase leading-none mt-0.5">COUTURE</span>
+                            <span
+                              className="text-[8px] font-black tracking-wider uppercase leading-none"
+                              style={{ color: customText || "#111827" }}
+                            >
+                              PEARLS
+                            </span>
+                            <span
+                              className="text-[5px] font-medium tracking-widest uppercase leading-none mt-0.5"
+                              style={{ color: customText ? `${customText}99` : "rgb(156 163 175)" }}
+                            >
+                              COUTURE
+                            </span>
                           </div>
                         </div>
-                        <div className="flex items-center gap-1.5 text-[7px] font-semibold tracking-wider uppercase text-gray-700">
+                        <div className="flex items-center gap-1.5 text-[7px] font-semibold tracking-wider uppercase" style={{ color: customText || "#374151" }}>
                           <div className="flex flex-col items-center">
-                            <span className="text-black font-bold">HOME</span>
-                            <span className="w-2.5 h-[1.5px] bg-black rounded-full mt-0.5" />
+                            <span className="font-bold" style={{ color: customText || "#000000" }}>HOME</span>
+                            <span
+                              className="w-2.5 h-[1.5px] rounded-full mt-0.5"
+                              style={{ backgroundColor: customText || "#000000" }}
+                            />
                           </div>
-                          <span className="text-gray-400">SHOP</span>
-                          <span className="text-gray-400 flex items-center gap-0.5">
+                          <span style={{ color: customText ? `${customText}99` : "rgb(156 163 175)" }}>SHOP</span>
+                          <span className="flex items-center gap-0.5" style={{ color: customText ? `${customText}99` : "rgb(156 163 175)" }}>
                             CAT <span className="text-[6px]">▾</span>
                           </span>
                         </div>
-                        <div className="flex items-center gap-1 text-gray-700">
-                          <div className="w-2.5 h-2.5 rounded-full border border-gray-400" />
-                          <div className="w-2.5 h-2.5 rounded-full border border-gray-400" />
-                          <div className="w-2.5 h-2.5 rounded-full border border-gray-400" />
-                          <div className="w-2.5 h-2.5 rounded-full bg-black" />
+                        <div className="flex items-center gap-1">
+                          <div
+                            className="w-2.5 h-2.5 rounded-full border"
+                            style={{ borderColor: customText ? `${customText}50` : "rgb(156 163 175)" }}
+                          />
+                          <div
+                            className="w-2.5 h-2.5 rounded-full border"
+                            style={{ borderColor: customText ? `${customText}50` : "rgb(156 163 175)" }}
+                          />
+                          <div
+                            className="w-2.5 h-2.5 rounded-full"
+                            style={{ backgroundColor: customText || "#000000" }}
+                          />
                         </div>
                       </div>
                     )}
 
                     {key === "6" && (
-                      <div className="w-full bg-white rounded-lg p-2.5 border border-black/10 shadow-xs flex items-center justify-between h-20 text-gray-900">
+                      <div
+                        className="w-full bg-white rounded-lg p-2.5 border border-black/10 shadow-xs flex items-center justify-between h-20 text-gray-900"
+                        style={{
+                          backgroundColor: customBg || undefined,
+                          color: customText || undefined,
+                          borderColor: customText ? `${customText}25` : undefined,
+                        }}
+                      >
                         <div className="flex items-center gap-1">
-                          <div className="w-4 h-4 rounded-xl bg-black text-[8px] font-black text-white flex items-center justify-center">
+                          <div
+                            className="w-4 h-4 rounded-xl text-[8px] font-black flex items-center justify-center"
+                            style={{
+                              backgroundColor: customText || "#000000",
+                              color: customBg || "#ffffff",
+                            }}
+                          >
                             A
                           </div>
-                          <div className="h-2.5 w-7 bg-black rounded-xs" />
+                          <div
+                            className="h-2.5 w-7 rounded-xs"
+                            style={{ backgroundColor: customText || "#000000" }}
+                          />
                         </div>
                         <div className="flex items-center gap-1">
-                          <span className="px-2 py-1 bg-black text-[7px] text-white font-black rounded-xl">
+                          <span
+                            className="px-2 py-1 text-[7px] font-black rounded-xl"
+                            style={{
+                              backgroundColor: customText || "#000000",
+                              color: customBg || "#ffffff",
+                            }}
+                          >
                             HOME
                           </span>
-                          <span className="px-1.5 py-1 bg-gray-100 text-[7px] font-bold text-gray-700 rounded-xl">
+                          <span
+                            className="px-1.5 py-1 text-[7px] font-bold rounded-xl"
+                            style={{
+                              backgroundColor: customText ? `${customText}15` : "#f3f4f6",
+                              color: customText || "#374151",
+                            }}
+                          >
                             SHOP
                           </span>
                         </div>
                         <div className="flex items-center gap-1">
-                          <div className="w-4 h-4 rounded-xl bg-gray-100" />
-                          <div className="w-4 h-4 rounded-xl bg-black" />
+                          <div
+                            className="w-4 h-4 rounded-xl"
+                            style={{ backgroundColor: customText ? `${customText}15` : "#f3f4f6" }}
+                          />
+                          <div
+                            className="w-4 h-4 rounded-xl"
+                            style={{ backgroundColor: customText || "#000000" }}
+                          />
                         </div>
                       </div>
                     )}
@@ -4184,26 +4654,378 @@ export default function HomepageManager() {
                       </p>
                     </div>
 
-                    <button
-                      type="button"
-                      disabled={isActive || savingNavbar}
-                      onClick={() => handleNavbarTemplateSelect(Number(key))}
-                      className={`w-full py-2 rounded-lg text-xs font-semibold transition-all duration-200 flex items-center justify-center gap-1.5 cursor-pointer ${
-                        isActive
-                          ? "bg-indigo-100 text-indigo-700 cursor-default"
-                          : "bg-gray-100 text-gray-700 hover:bg-indigo-50 hover:text-indigo-700"
-                      }`}
-                    >
-                      {isActive ? (
-                        <>
-                          <CheckCircleIcon className="w-3.5 h-3.5 text-indigo-600" />
-                          Active
-                        </>
-                      ) : (
-                        "Set Active"
-                      )}
-                    </button>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        disabled={isActive || savingNavbar}
+                        onClick={() => handleNavbarTemplateSelect(Number(key))}
+                        className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 flex items-center justify-center gap-1 cursor-pointer ${
+                          isActive
+                            ? "bg-indigo-100 text-indigo-700 cursor-default"
+                            : "bg-gray-100 text-gray-700 hover:bg-indigo-50 hover:text-indigo-700"
+                        }`}
+                      >
+                        {isActive ? (
+                          <>
+                            <CheckCircleIcon className="w-3.5 h-3.5 text-indigo-600" />
+                            Active
+                          </>
+                        ) : (
+                          "Set Active"
+                        )}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          isEditing
+                            ? setEditingNavbarTemplate(null)
+                            : openNavbarEdit(key)
+                        }
+                        className="flex-1 py-1.5 rounded-lg text-xs font-semibold bg-white border border-gray-300 text-gray-600 hover:border-indigo-400 hover:text-indigo-600 transition-colors flex items-center justify-center gap-1 cursor-pointer"
+                      >
+                        <PencilSquareIcon className="w-3.5 h-3.5" />
+                        {isEditing ? "Cancel" : "Edit Colors"}
+                      </button>
+                    </div>
                   </div>
+
+                  {/* Inline edit form for Header Colors */}
+                  {isEditing && (
+                    <div className="border-t border-gray-100 p-4 bg-gray-50 space-y-3.5">
+                      {(() => {
+                        const templateDef = NAVBAR_DEFAULT_COLORS[key] || {
+                          bg: "#0a0a0a",
+                          text: "#ffffff",
+                          bgLabel: "Template default",
+                          textLabel: "Template default",
+                        };
+                        const hasCustomBg = Boolean(navbarForm.bgColor && navbarForm.bgColor.trim());
+                        const hasCustomText = Boolean(navbarForm.textColor && navbarForm.textColor.trim());
+                        const hasAnyCustomColor = hasCustomBg || hasCustomText;
+
+                        const effectiveBg = navbarForm.bgColor || templateDef.bg;
+                        const effectiveText = navbarForm.textColor || templateDef.text;
+
+                        return (
+                          <div className="p-3.5 bg-white rounded-xl border border-gray-200 shadow-xs space-y-3.5">
+                            {/* Section Header */}
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-1.5">
+                                <SwatchIcon className="w-4 h-4 text-indigo-600" />
+                                <span className="text-xs font-bold text-gray-800">
+                                  Navbar Color Palette
+                                </span>
+                              </div>
+                              {hasAnyCustomColor && (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setNavbarForm((p) => ({
+                                      ...p,
+                                      bgColor: undefined,
+                                      textColor: undefined,
+                                    }))
+                                  }
+                                  className="text-[11px] font-semibold text-rose-600 hover:text-rose-700 flex items-center gap-1 hover:underline cursor-pointer"
+                                  title="Reset both background and text colors to the template original designer colors"
+                                >
+                                  <ArrowPathIcon className="w-3 h-3" />
+                                  Reset to Defaults
+                                </button>
+                              )}
+                            </div>
+
+                            <p className="text-[11px] text-gray-500 leading-snug">
+                              Customize background and text colors for Template {key}. Leave empty to use the original template theme.
+                            </p>
+
+                            {/* Background Color Control Card */}
+                            <div className="bg-gray-50/80 border border-gray-200/90 rounded-lg p-2.5 space-y-2">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-xs font-bold text-gray-700">
+                                    Background Color
+                                  </span>
+                                  {hasCustomBg ? (
+                                    <span className="text-[10px] px-1.5 py-0.5 rounded font-semibold bg-indigo-50 text-indigo-600 border border-indigo-200">
+                                      Custom
+                                    </span>
+                                  ) : (
+                                    <span className="text-[10px] px-1.5 py-0.5 rounded font-medium bg-gray-200/70 text-gray-500">
+                                      Default
+                                    </span>
+                                  )}
+                                </div>
+                                {hasCustomBg && (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setNavbarForm((p) => ({ ...p, bgColor: undefined }))
+                                    }
+                                    className="text-[10px] font-medium text-rose-600 hover:text-rose-700 hover:underline cursor-pointer"
+                                  >
+                                    ✕ Clear (Use Default)
+                                  </button>
+                                )}
+                              </div>
+
+                              {/* Input with color swatch */}
+                              <div className="flex items-center gap-2 bg-white border border-gray-300 rounded-lg p-1.5 focus-within:ring-2 focus-within:ring-indigo-400 focus-within:border-indigo-400 shadow-2xs">
+                                <label className="relative cursor-pointer shrink-0">
+                                  <input
+                                    type="color"
+                                    value={
+                                      hasCustomBg && navbarForm.bgColor?.startsWith("#")
+                                        ? navbarForm.bgColor
+                                        : templateDef.bg.startsWith("#")
+                                          ? templateDef.bg
+                                          : "#0a0a0a"
+                                    }
+                                    onChange={(e) =>
+                                      setNavbarForm((p) => ({
+                                        ...p,
+                                        bgColor: e.target.value,
+                                      }))
+                                    }
+                                    className="sr-only"
+                                  />
+                                  <span
+                                    className="w-7 h-7 rounded-md border border-black/20 shadow-xs block transition-transform hover:scale-105"
+                                    style={{ backgroundColor: effectiveBg }}
+                                    title="Click to pick background color"
+                                  />
+                                </label>
+                                <input
+                                  type="text"
+                                  value={navbarForm.bgColor ?? ""}
+                                  onChange={(e) =>
+                                    setNavbarForm((p) => ({
+                                      ...p,
+                                      bgColor: e.target.value,
+                                    }))
+                                  }
+                                  placeholder={`${templateDef.bg} (Default)`}
+                                  className="flex-1 font-mono text-xs text-gray-800 placeholder-gray-400 focus:outline-none bg-transparent"
+                                />
+                                <label className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-700 px-2 py-0.5 rounded bg-indigo-50/70 hover:bg-indigo-100/70 cursor-pointer select-none transition-colors">
+                                  <input
+                                    type="color"
+                                    value={
+                                      hasCustomBg && navbarForm.bgColor?.startsWith("#")
+                                        ? navbarForm.bgColor
+                                        : templateDef.bg.startsWith("#")
+                                          ? templateDef.bg
+                                          : "#0a0a0a"
+                                    }
+                                    onChange={(e) =>
+                                      setNavbarForm((p) => ({
+                                        ...p,
+                                        bgColor: e.target.value,
+                                      }))
+                                    }
+                                    className="sr-only"
+                                  />
+                                  Pick
+                                </label>
+                              </div>
+
+                              {/* Quick Presets */}
+                              <div className="flex items-center gap-1.5 pt-0.5 flex-wrap">
+                                <span className="text-[10px] text-gray-400 font-medium shrink-0">Presets:</span>
+                                {[
+                                  { hex: "#0a0a0a", label: "Dark" },
+                                  { hex: "#ffffff", label: "White" },
+                                  { hex: "#0f172a", label: "Navy" },
+                                  { hex: "#f8fafc", label: "Slate-50" },
+                                  { hex: "#4f46e5", label: "Indigo" },
+                                ].map((chip) => (
+                                  <button
+                                    key={chip.hex}
+                                    type="button"
+                                    onClick={() =>
+                                      setNavbarForm((p) => ({ ...p, bgColor: chip.hex }))
+                                    }
+                                    className={`h-5 px-1.5 rounded border text-[10px] font-medium flex items-center gap-1 transition-all cursor-pointer ${
+                                      navbarForm.bgColor?.toLowerCase() === chip.hex.toLowerCase()
+                                        ? "border-indigo-600 ring-1 ring-indigo-300 bg-white"
+                                        : "border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50"
+                                    }`}
+                                    title={`Set background to ${chip.label} (${chip.hex})`}
+                                  >
+                                    <span
+                                      className="w-2.5 h-2.5 rounded-full border border-black/15 shrink-0"
+                                      style={{ backgroundColor: chip.hex }}
+                                    />
+                                    <span className="text-gray-700">{chip.label}</span>
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+
+                            {/* Text / Link Color Control Card */}
+                            <div className="bg-gray-50/80 border border-gray-200/90 rounded-lg p-2.5 space-y-2">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-xs font-bold text-gray-700">
+                                    Text &amp; Icons Color
+                                  </span>
+                                  {hasCustomText ? (
+                                    <span className="text-[10px] px-1.5 py-0.5 rounded font-semibold bg-indigo-50 text-indigo-600 border border-indigo-200">
+                                      Custom
+                                    </span>
+                                  ) : (
+                                    <span className="text-[10px] px-1.5 py-0.5 rounded font-medium bg-gray-200/70 text-gray-500">
+                                      Default
+                                    </span>
+                                  )}
+                                </div>
+                                {hasCustomText && (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setNavbarForm((p) => ({ ...p, textColor: undefined }))
+                                    }
+                                    className="text-[10px] font-medium text-rose-600 hover:text-rose-700 hover:underline cursor-pointer"
+                                  >
+                                    ✕ Clear (Use Default)
+                                  </button>
+                                )}
+                              </div>
+
+                              {/* Input with color swatch */}
+                              <div className="flex items-center gap-2 bg-white border border-gray-300 rounded-lg p-1.5 focus-within:ring-2 focus-within:ring-indigo-400 focus-within:border-indigo-400 shadow-2xs">
+                                <label className="relative cursor-pointer shrink-0">
+                                  <input
+                                    type="color"
+                                    value={
+                                      hasCustomText && navbarForm.textColor?.startsWith("#")
+                                        ? navbarForm.textColor
+                                        : templateDef.text.startsWith("#")
+                                          ? templateDef.text
+                                          : "#ffffff"
+                                    }
+                                    onChange={(e) =>
+                                      setNavbarForm((p) => ({
+                                        ...p,
+                                        textColor: e.target.value,
+                                      }))
+                                    }
+                                    className="sr-only"
+                                  />
+                                  <span
+                                    className="w-7 h-7 rounded-md border border-black/20 shadow-xs block transition-transform hover:scale-105"
+                                    style={{ backgroundColor: effectiveText }}
+                                    title="Click to pick text color"
+                                  />
+                                </label>
+                                <input
+                                  type="text"
+                                  value={navbarForm.textColor ?? ""}
+                                  onChange={(e) =>
+                                    setNavbarForm((p) => ({
+                                      ...p,
+                                      textColor: e.target.value,
+                                    }))
+                                  }
+                                  placeholder={`${templateDef.text} (Default)`}
+                                  className="flex-1 font-mono text-xs text-gray-800 placeholder-gray-400 focus:outline-none bg-transparent"
+                                />
+                                <label className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-700 px-2 py-0.5 rounded bg-indigo-50/70 hover:bg-indigo-100/70 cursor-pointer select-none transition-colors">
+                                  <input
+                                    type="color"
+                                    value={
+                                      hasCustomText && navbarForm.textColor?.startsWith("#")
+                                        ? navbarForm.textColor
+                                        : templateDef.text.startsWith("#")
+                                          ? templateDef.text
+                                          : "#ffffff"
+                                    }
+                                    onChange={(e) =>
+                                      setNavbarForm((p) => ({
+                                        ...p,
+                                        textColor: e.target.value,
+                                      }))
+                                    }
+                                    className="sr-only"
+                                  />
+                                  Pick
+                                </label>
+                              </div>
+
+                              {/* Quick Presets */}
+                              <div className="flex items-center gap-1.5 pt-0.5 flex-wrap">
+                                <span className="text-[10px] text-gray-400 font-medium shrink-0">Presets:</span>
+                                {[
+                                  { hex: "#ffffff", label: "White" },
+                                  { hex: "#1f2937", label: "Slate-800" },
+                                  { hex: "#000000", label: "Black" },
+                                  { hex: "#64748b", label: "Slate-500" },
+                                  { hex: "#f1f5f9", label: "Off-white" },
+                                ].map((chip) => (
+                                  <button
+                                    key={chip.hex}
+                                    type="button"
+                                    onClick={() =>
+                                      setNavbarForm((p) => ({ ...p, textColor: chip.hex }))
+                                    }
+                                    className={`h-5 px-1.5 rounded border text-[10px] font-medium flex items-center gap-1 transition-all cursor-pointer ${
+                                      navbarForm.textColor?.toLowerCase() === chip.hex.toLowerCase()
+                                        ? "border-indigo-600 ring-1 ring-indigo-300 bg-white"
+                                        : "border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50"
+                                    }`}
+                                    title={`Set text to ${chip.label} (${chip.hex})`}
+                                  >
+                                    <span
+                                      className="w-2.5 h-2.5 rounded-full border border-black/15 shrink-0"
+                                      style={{ backgroundColor: chip.hex }}
+                                    />
+                                    <span className="text-gray-700">{chip.label}</span>
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+
+                            {/* Live mini preview swatch */}
+                            <div
+                              className="rounded-lg p-3 border text-center transition-all shadow-xs"
+                              style={{
+                                backgroundColor: effectiveBg,
+                                color: effectiveText,
+                                borderColor: hasCustomText
+                                  ? `${navbarForm.textColor}33`
+                                  : "rgba(128,128,128,0.2)",
+                              }}
+                            >
+                              <div className="text-[11px] font-bold tracking-wider uppercase opacity-85">
+                                Live Header Preview
+                              </div>
+                              <div className="flex items-center justify-between mt-2 px-2 py-1.5 rounded bg-black/5 border border-current/10 text-xs">
+                                <span className="font-bold tracking-tight">BRAND</span>
+                                <div className="flex items-center gap-2 text-[10px] opacity-80">
+                                  <span className="font-semibold underline">Home</span>
+                                  <span>Shop</span>
+                                  <span>Story</span>
+                                </div>
+                                <div className="flex items-center gap-1.5 opacity-80">
+                                  <span className="text-[10px]">🔍</span>
+                                  <span className="text-[10px]">🛍️</span>
+                                </div>
+                              </div>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => saveNavbarTemplate()}
+                              disabled={savingNavbar}
+                              className="w-full py-2 bg-indigo-600 text-white rounded-lg text-sm font-semibold hover:bg-indigo-700 disabled:opacity-50 cursor-pointer"
+                            >
+                              {savingNavbar ? "Saving..." : "Save Header Colors"}
+                            </button>
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -4211,8 +5033,135 @@ export default function HomepageManager() {
         </div>
       )}
 
-      {/* ── PRE-FOOTER BANNERS TAB ─────────────────────────────────────── */}
-      {activeTab === "PRE_FOOTER" && (
+      {/* -¢------¬-¢------¬ PRE-FOOTER BANNERS TAB -¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬ */}
+            {activeTab === "CATEGORIES" && (
+        <div className="space-y-6 w-full max-w-full overflow-hidden animate-fadeIn">
+          <div className="bg-white border border-gray-200/90 rounded-2xl p-6 shadow-xs">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6 pb-4 border-b border-gray-100">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-indigo-600" />
+                  <h3 className="text-sm font-bold text-gray-950 uppercase tracking-wider">
+                    Category Display Shape
+                  </h3>
+                </div>
+                <p className="text-xs text-gray-500 mt-1 max-w-xl">
+                  Configure the visual shape of your collections across the storefront homepage ("Shop by Category") and the all-categories directory page.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => handleSaveCategoryShape(draftCategoryShape)}
+                disabled={savingCategoryShape || draftCategoryShape === categoryShape}
+                className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold transition-all ${
+                  draftCategoryShape !== categoryShape
+                    ? "bg-indigo-600 hover:bg-indigo-700 text-white shadow-md shadow-indigo-100 cursor-pointer"
+                    : "bg-gray-100 text-gray-400 cursor-not-allowed"
+                }`}
+              >
+                <CheckCircleIcon className="w-4 h-4" />
+                {savingCategoryShape ? "Saving..." : "Save Category Shape"}
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              {/* Option 1: Square */}
+              <div
+                onClick={() => setDraftCategoryShape("square")}
+                className={`relative p-5 rounded-2xl border-2 transition-all cursor-pointer ${
+                  draftCategoryShape === "square"
+                    ? "border-indigo-600 bg-indigo-50/20 shadow-md ring-2 ring-indigo-600/10"
+                    : "border-gray-200 hover:border-gray-300 hover:bg-gray-50/50"
+                }`}
+              >
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-700">
+                      <Squares2X2Icon className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-gray-900">Square (Default)</h4>
+                      <span className="text-[11px] text-gray-500 font-medium">1:1 Aspect Ratio · Rounded-2xl</span>
+                    </div>
+                  </div>
+                  {draftCategoryShape === "square" && (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-600 text-white uppercase tracking-wider">
+                      Active
+                    </span>
+                  )}
+                </div>
+
+                <div className="bg-slate-50 border border-slate-200/70 rounded-xl p-4 flex items-center justify-center gap-6">
+                  <div className="flex flex-col items-start gap-1.5">
+                    <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-amber-100 to-amber-200 border border-amber-300/60 shadow-xs flex items-center justify-center text-[10px] font-bold text-amber-900">
+                      Rings
+                    </div>
+                    <span className="text-[10px] font-bold uppercase text-gray-700 tracking-wider">Rings</span>
+                  </div>
+                  <div className="flex flex-col items-start gap-1.5">
+                    <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-emerald-100 to-emerald-200 border border-emerald-300/60 shadow-xs flex items-center justify-center text-[10px] font-bold text-emerald-900">
+                      Silks
+                    </div>
+                    <span className="text-[10px] font-bold uppercase text-gray-700 tracking-wider">Sarees</span>
+                  </div>
+                </div>
+
+                <p className="text-xs text-gray-600 mt-4 leading-relaxed">
+                  Clean modern presentation with soft rounded-square tiles (<code>rounded-2xl</code>). Great for detailed catalog photography, editorial layouts, and high-resolution textures.
+                </p>
+              </div>
+
+              {/* Option 2: Circle */}
+              <div
+                onClick={() => setDraftCategoryShape("circle")}
+                className={`relative p-5 rounded-2xl border-2 transition-all cursor-pointer ${
+                  draftCategoryShape === "circle"
+                    ? "border-indigo-600 bg-indigo-50/20 shadow-md ring-2 ring-indigo-600/10"
+                    : "border-gray-200 hover:border-gray-300 hover:bg-gray-50/50"
+                }`}
+              >
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-700">
+                      <div className="w-5 h-5 rounded-full border-2 border-slate-700" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-gray-900">Circle (Boutique)</h4>
+                      <span className="text-[11px] text-gray-500 font-medium">1:1 Aspect Ratio · Rounded-Full</span>
+                    </div>
+                  </div>
+                  {draftCategoryShape === "circle" && (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-600 text-white uppercase tracking-wider">
+                      Active
+                    </span>
+                  )}
+                </div>
+
+                <div className="bg-slate-50 border border-slate-200/70 rounded-xl p-4 flex items-center justify-center gap-6">
+                  <div className="flex flex-col items-center gap-1.5">
+                    <div className="w-16 h-16 rounded-full bg-gradient-to-br from-purple-100 to-purple-200 border-2 border-purple-300 shadow-xs flex items-center justify-center text-[10px] font-bold text-purple-900">
+                      Chains
+                    </div>
+                    <span className="text-[10px] font-bold uppercase text-gray-700 tracking-wider">Chains</span>
+                  </div>
+                  <div className="flex flex-col items-center gap-1.5">
+                    <div className="w-16 h-16 rounded-full bg-gradient-to-br from-rose-100 to-rose-200 border-2 border-rose-300 shadow-xs flex items-center justify-center text-[10px] font-bold text-rose-900">
+                      Kurtas
+                    </div>
+                    <span className="text-[10px] font-bold uppercase text-gray-700 tracking-wider">Kurtas</span>
+                  </div>
+                </div>
+
+                <p className="text-xs text-gray-600 mt-4 leading-relaxed">
+                  Distinctive circular avatars (<code>rounded-full</code>) with centered typography. Ideal for mobile shopping, quick discovery, fashion accessories, and beauty stores.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+{activeTab === "PRE_FOOTER" && (
         <div className="space-y-6 animate-fadeIn">
           {/* Header & Main Actions */}
           <div className="bg-white border border-gray-200/80 shadow-sm rounded-2xl p-6">
@@ -4223,7 +5172,7 @@ export default function HomepageManager() {
                   <h2 className="text-xl font-bold text-gray-900 tracking-tight">Full-Width Pre-Footer Banners</h2>
                 </div>
                 <p className="text-xs text-gray-500 mt-1 max-w-2xl leading-relaxed">
-                  Manage up to 3 full-width banners displayed one by one directly above the footer. Images display at their natural uploaded dimensions across the full screen width with zero cropping. Each banner can optionally link to any product, category, or page.
+                  Manage up to 3 full-width banners that alternate with your Category Showcases down the homepage. Images are presented in a sleek widescreen editorial ratio (<strong className="text-gray-700">1920 × 700 px</strong> or <strong className="text-gray-700">1320 × 484 px</strong>, 2.73:1 aspect ratio), matching the referral design.
                 </p>
               </div>
 
@@ -4284,10 +5233,40 @@ export default function HomepageManager() {
                         ).length;
                         if (count === 0) return "⚪ 0 active banners (Hidden from storefront)";
                         if (count === 1) return "⭐ 1 full-width banner active (100% natural size)";
-                        return `📸 ${count} full-width banners active (stacked one by one)`;
+                        return `📐 • ${count} full-width banner${count > 1 ? "s" : ""} active (stacked one by one)`;
                       })()}
                 </span>
               </div>
+            </div>
+          </div>
+
+          {/* Recommended Banner Size Box */}
+          <div className="p-4 rounded-2xl border border-indigo-100 bg-gradient-to-r from-indigo-50/70 via-indigo-50/40 to-white shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-left">
+            <div className="flex items-start gap-3">
+              <span className="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-xs text-base">
+                📐
+              </span>
+              <div>
+                <span className="text-xs font-bold text-indigo-950 block tracking-tight">
+                  Recommended Pre-Footer Banner Size &amp; Aspect Ratio:
+                </span>
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-xs text-indigo-900">
+                  <span>
+                    Banner Dimensions: <strong className="font-extrabold text-indigo-950">1920 × 700 px</strong> (or <strong className="font-extrabold text-indigo-950">1320 × 484 px</strong>)
+                  </span>
+                  <span className="text-indigo-400">&bull;</span>
+                  <span>
+                    Aspect Ratio: <strong className="font-extrabold text-indigo-950">2.73:1 (~16:6 Widescreen)</strong>
+                  </span>
+                </div>
+                <p className="text-[11px] text-indigo-600/90 mt-1 leading-relaxed">
+                  Matches the sleek, cinematic referral editorial proportion (<span className="font-semibold text-indigo-800">1319 × 483 px</span>). Images adapt responsively across all screens with zero distortion.
+                </p>
+              </div>
+            </div>
+            <div className="shrink-0 flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white border border-indigo-200/80 text-indigo-900 text-xs font-bold shadow-xs">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              Ratio: 2.73:1 (1319 × 483)
             </div>
           </div>
 
@@ -4318,6 +5297,9 @@ export default function HomepageManager() {
                       </span>
                       <span className="text-xs font-bold text-gray-900">
                         Banner Slot {slotIndex + 1}
+                      </span>
+                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200">
+                        1920 × 700 px (2.73:1)
                       </span>
                       {slotIndex === 0 && (
                         <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200">
@@ -4362,15 +5344,20 @@ export default function HomepageManager() {
                   <div className="p-5 grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
                     {/* Image Area (5 cols) */}
                     <div className="lg:col-span-5">
-                      <label className="text-[11px] font-bold uppercase tracking-wider text-gray-500 mb-1.5 block">
-                        Banner Image
-                      </label>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="text-[11px] font-bold uppercase tracking-wider text-gray-500 block">
+                          Banner Image
+                        </label>
+                        <span className="text-[10px] font-semibold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100">
+                          1920 × 700 px (2.73:1)
+                        </span>
+                      </div>
                       {hasImage ? (
-                        <div className="relative group rounded-xl overflow-hidden border border-gray-200 bg-neutral-950 min-h-[100px] max-h-[220px] flex items-center justify-center">
+                        <div className="relative group rounded-xl overflow-hidden border border-gray-200 bg-neutral-950 aspect-[2.73/1] max-h-[220px] flex items-center justify-center">
                           <img
                             src={slot.image}
                             alt={slot.title || `Slot ${slotIndex + 1}`}
-                            className="w-full h-auto max-h-[220px] object-contain block"
+                            className="w-full h-full object-cover object-center block"
                           />
                           <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                             <label className="cursor-pointer px-3 py-1.5 rounded-lg text-xs font-semibold bg-white text-gray-900 hover:bg-gray-100 shadow transition-transform active:scale-95">
@@ -4428,8 +5415,11 @@ export default function HomepageManager() {
                             <>
                               <PhotoIcon className="w-7 h-7 text-gray-400 mb-1" />
                               <span className="text-xs font-bold text-gray-700">Click to upload banner</span>
-                              <span className="text-[10px] text-gray-400 mt-0.5">
-                                JPG, PNG, WEBP &bull; Max 1 MB &bull; Full-width banner (natural size)
+                              <span className="text-[11px] font-semibold text-indigo-900 mt-1">
+                                Recommended: 1920 × 700 px (or 1320 × 484 px)
+                              </span>
+                              <span className="text-[10px] text-gray-500 mt-0.5">
+                                Aspect Ratio: 2.73:1 (Widescreen) &bull; JPG, PNG, WEBP &bull; Max 1 MB
                               </span>
                             </>
                           )}
@@ -4525,7 +5515,7 @@ export default function HomepageManager() {
         </div>
       )}
 
-      {/* ── FOOTER TAB ─────────────────────────────────────────────────── */}
+      {/* -¢------¬-¢------¬ FOOTER TAB -¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬ */}
       {activeTab === "FOOTER" && (
         <div>
           <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 mb-6">
@@ -4552,30 +5542,64 @@ export default function HomepageManager() {
                 >
                   {/* Preview strip */}
                   <div
-                    className={`h-24 flex items-center justify-center ${key === "1"
-                      ? "bg-[#0a0a0a]"
-                      : key === "2"
-                        ? "bg-gray-50 border-b border-gray-200"
-                        : key === "3"
-                          ? "bg-gradient-to-br from-indigo-950 via-slate-900 to-gray-950"
-                          : key === "4"
-                            ? "bg-white border-b border-gray-100"
-                            : key === "5"
-                              ? "bg-gradient-to-r from-[var(--theme-primary)] to-[var(--theme-accent)]"
-                              : "bg-gray-50 border-b border-gray-200"
-                      }`}
+                    className={`h-24 flex items-center justify-center ${
+                      footerConfig.templates[key]?.bgColor
+                        ? "border-b border-black/10"
+                        : key === "1"
+                          ? "bg-[#0a0a0a]"
+                          : key === "2"
+                            ? "bg-gray-50 border-b border-gray-200"
+                            : key === "3"
+                              ? "bg-gradient-to-br from-indigo-950 via-slate-900 to-gray-950"
+                              : key === "4"
+                                ? "bg-white border-b border-gray-100"
+                                : key === "5"
+                                  ? "bg-gradient-to-r from-[var(--theme-primary)] to-[var(--theme-accent)]"
+                                  : "bg-gray-50 border-b border-gray-200"
+                    }`}
+                    style={{
+                      backgroundColor: footerConfig.templates[key]?.bgColor || undefined,
+                      color: footerConfig.templates[key]?.textColor || undefined,
+                    }}
                   >
                     <div className="text-center">
                       <p
-                        className={`text-base font-black tracking-tight mb-0.5 ${isLightStrip ? "text-gray-900" : "text-white"}`}
+                        className={`text-base font-black tracking-tight mb-0.5 ${
+                          footerConfig.templates[key]?.textColor
+                            ? ""
+                            : isLightStrip
+                              ? "text-gray-900"
+                              : "text-white"
+                        }`}
+                        style={
+                          footerConfig.templates[key]?.textColor
+                            ? { color: footerConfig.templates[key]?.textColor }
+                            : undefined
+                        }
                       >
                         {label.name}
                       </p>
                       <p
-                        className={`text-[10px] ${isLightStrip ? "text-gray-400" : "text-white/50"}`}
+                        className={`text-[10px] ${
+                          footerConfig.templates[key]?.textColor
+                            ? "opacity-60"
+                            : isLightStrip
+                              ? "text-gray-400"
+                              : "text-white/50"
+                        }`}
+                        style={
+                          footerConfig.templates[key]?.textColor
+                            ? { color: footerConfig.templates[key]?.textColor }
+                            : undefined
+                        }
                       >
                         Template {key}
                       </p>
+                      {(footerConfig.templates[key]?.bgColor || footerConfig.templates[key]?.textColor) && (
+                        <span className="mt-1 inline-block text-[9px] px-1.5 py-0.5 rounded font-semibold bg-black/20 text-current backdrop-blur-xs">
+                          Custom Colors
+                        </span>
+                      )}
                     </div>
                   </div>
 
@@ -4633,6 +5657,401 @@ export default function HomepageManager() {
                           className="w-4 h-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500 cursor-pointer shrink-0"
                         />
                       </div>
+
+                      {/* Logo Background Style (White Badge vs Transparent Blend) */}
+                      <div className="p-3.5 bg-white rounded-xl border border-gray-200 shadow-xs space-y-2.5">
+                        <div>
+                          <label className="text-xs font-bold text-gray-800 block">
+                            Logo Container &amp; Background
+                          </label>
+                          <p className="text-[11px] text-gray-500 mt-0.5">
+                            Choose whether the logo sits in a white card badge or blends directly into the footer background color.
+                          </p>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2.5 pt-1">
+                          {/* Option 1: White Card Badge */}
+                          <button
+                            type="button"
+                            onClick={() => setFooterForm((p) => ({ ...p, blendLogoWithBg: false }))}
+                            className={`p-3 rounded-lg border text-left transition-all flex flex-col gap-2 cursor-pointer ${
+                              !footerForm.blendLogoWithBg
+                                ? "border-indigo-600 ring-2 ring-indigo-500/20 bg-indigo-50/30"
+                                : "border-gray-200 hover:border-gray-300 bg-white"
+                            }`}
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs font-bold text-gray-800">White Card</span>
+                              {!footerForm.blendLogoWithBg && (
+                                <span className="w-2 h-2 rounded-full bg-indigo-600 ring-4 ring-indigo-100" />
+                              )}
+                            </div>
+                            {/* Visual Preview */}
+                            <div className="h-10 rounded bg-[#0a0a0a] flex items-center justify-center p-1.5">
+                              <div className="bg-white rounded-md px-2 py-1 shadow-xs flex items-center gap-1.5">
+                                <div className="w-3 h-3 rounded-full bg-indigo-600 shrink-0" />
+                                <span className="text-[10px] font-black text-gray-900 tracking-tight">LOGO</span>
+                              </div>
+                            </div>
+                            <p className="text-[10px] text-gray-500 leading-snug">
+                              White rounded box. Best for dark logos on dark backgrounds.
+                            </p>
+                          </button>
+
+                          {/* Option 2: Transparent / Blend */}
+                          <button
+                            type="button"
+                            onClick={() => setFooterForm((p) => ({ ...p, blendLogoWithBg: true }))}
+                            className={`p-3 rounded-lg border text-left transition-all flex flex-col gap-2 cursor-pointer ${
+                              footerForm.blendLogoWithBg
+                                ? "border-indigo-600 ring-2 ring-indigo-500/20 bg-indigo-50/30"
+                                : "border-gray-200 hover:border-gray-300 bg-white"
+                            }`}
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs font-bold text-gray-800">Blend with Color</span>
+                              {footerForm.blendLogoWithBg && (
+                                <span className="w-2 h-2 rounded-full bg-indigo-600 ring-4 ring-indigo-100" />
+                              )}
+                            </div>
+                            {/* Visual Preview */}
+                            <div className="h-10 rounded bg-[#0a0a0a] flex items-center justify-center p-1.5">
+                              <div className="flex items-center gap-1.5 text-white">
+                                <div className="w-3 h-3 rounded-full bg-indigo-400 shrink-0" />
+                                <span className="text-[10px] font-black text-white tracking-tight">LOGO</span>
+                              </div>
+                            </div>
+                            <p className="text-[10px] text-gray-500 leading-snug">
+                              No white box. Transparent logo blends directly into the footer color.
+                            </p>
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Footer Color Customization (Optional) */}
+                      {(() => {
+                        const templateDef = FOOTER_DEFAULT_COLORS[key] || {
+                          bg: "#0a0a0a",
+                          text: "#ffffff",
+                          bgLabel: "Template default",
+                          textLabel: "Template default",
+                        };
+                        const hasCustomBg = Boolean(footerForm.bgColor && footerForm.bgColor.trim());
+                        const hasCustomText = Boolean(footerForm.textColor && footerForm.textColor.trim());
+                        const hasAnyCustomColor = hasCustomBg || hasCustomText;
+
+                        const effectiveBg = footerForm.bgColor || templateDef.bg;
+                        const effectiveText = footerForm.textColor || templateDef.text;
+
+                        return (
+                          <div className="p-3.5 bg-white rounded-xl border border-gray-200 shadow-xs space-y-3.5">
+                            {/* Section Header */}
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-1.5">
+                                <SwatchIcon className="w-4 h-4 text-indigo-600" />
+                                <span className="text-xs font-bold text-gray-800">
+                                  Footer Color Palette
+                                </span>
+                              </div>
+                              {hasAnyCustomColor && (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setFooterForm((p) => ({
+                                      ...p,
+                                      bgColor: undefined,
+                                      textColor: undefined,
+                                    }))
+                                  }
+                                  className="text-[11px] font-semibold text-rose-600 hover:text-rose-700 flex items-center gap-1 hover:underline cursor-pointer"
+                                  title="Reset both background and text colors to the template original designer colors"
+                                >
+                                  <ArrowPathIcon className="w-3 h-3" />
+                                  Reset to Defaults
+                                </button>
+                              )}
+                            </div>
+
+                            <p className="text-[11px] text-gray-500 leading-snug">
+                              Customize background and text colors for Template {key}. Leave empty to use the original template theme.
+                            </p>
+
+                            {/* Background Color Control Card */}
+                            <div className="bg-gray-50/80 border border-gray-200/90 rounded-lg p-2.5 space-y-2">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-xs font-bold text-gray-700">
+                                    Background Color
+                                  </span>
+                                  {hasCustomBg ? (
+                                    <span className="text-[10px] px-1.5 py-0.5 rounded font-semibold bg-indigo-50 text-indigo-600 border border-indigo-200">
+                                      Custom
+                                    </span>
+                                  ) : (
+                                    <span className="text-[10px] px-1.5 py-0.5 rounded font-medium bg-gray-200/70 text-gray-500">
+                                      Default
+                                    </span>
+                                  )}
+                                </div>
+                                {hasCustomBg && (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setFooterForm((p) => ({ ...p, bgColor: undefined }))
+                                    }
+                                    className="text-[10px] font-medium text-rose-600 hover:text-rose-700 hover:underline cursor-pointer"
+                                  >
+                                    ✕ Clear (Use Default)
+                                  </button>
+                                )}
+                              </div>
+
+                              {/* Input with color swatch */}
+                              <div className="flex items-center gap-2 bg-white border border-gray-300 rounded-lg p-1.5 focus-within:ring-2 focus-within:ring-indigo-400 focus-within:border-indigo-400 shadow-2xs">
+                                <label className="relative cursor-pointer shrink-0">
+                                  <input
+                                    type="color"
+                                    value={
+                                      hasCustomBg && footerForm.bgColor?.startsWith("#")
+                                        ? footerForm.bgColor
+                                        : templateDef.bg.startsWith("#")
+                                          ? templateDef.bg
+                                          : "#0a0a0a"
+                                    }
+                                    onChange={(e) =>
+                                      setFooterForm((p) => ({
+                                        ...p,
+                                        bgColor: e.target.value,
+                                      }))
+                                    }
+                                    className="sr-only"
+                                  />
+                                  <span
+                                    className="w-7 h-7 rounded-md border border-black/20 shadow-xs block transition-transform hover:scale-105"
+                                    style={{ backgroundColor: effectiveBg }}
+                                    title="Click to pick background color"
+                                  />
+                                </label>
+                                <input
+                                  type="text"
+                                  value={footerForm.bgColor ?? ""}
+                                  onChange={(e) =>
+                                    setFooterForm((p) => ({
+                                      ...p,
+                                      bgColor: e.target.value,
+                                    }))
+                                  }
+                                  placeholder={`${templateDef.bg} (Default)`}
+                                  className="flex-1 font-mono text-xs text-gray-800 placeholder-gray-400 focus:outline-none bg-transparent"
+                                />
+                                <label className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-700 px-2 py-0.5 rounded bg-indigo-50/70 hover:bg-indigo-100/70 cursor-pointer select-none transition-colors">
+                                  <input
+                                    type="color"
+                                    value={
+                                      hasCustomBg && footerForm.bgColor?.startsWith("#")
+                                        ? footerForm.bgColor
+                                        : templateDef.bg.startsWith("#")
+                                          ? templateDef.bg
+                                          : "#0a0a0a"
+                                    }
+                                    onChange={(e) =>
+                                      setFooterForm((p) => ({
+                                        ...p,
+                                        bgColor: e.target.value,
+                                      }))
+                                    }
+                                    className="sr-only"
+                                  />
+                                  Pick
+                                </label>
+                              </div>
+
+                              {/* Quick Presets */}
+                              <div className="flex items-center gap-1.5 pt-0.5 flex-wrap">
+                                <span className="text-[10px] text-gray-400 font-medium shrink-0">Presets:</span>
+                                {[
+                                  { hex: "#0a0a0a", label: "Dark" },
+                                  { hex: "#ffffff", label: "White" },
+                                  { hex: "#0f172a", label: "Navy" },
+                                  { hex: "#f8fafc", label: "Slate-50" },
+                                  { hex: "#4f46e5", label: "Indigo" },
+                                ].map((chip) => (
+                                  <button
+                                    key={chip.hex}
+                                    type="button"
+                                    onClick={() =>
+                                      setFooterForm((p) => ({ ...p, bgColor: chip.hex }))
+                                    }
+                                    className={`h-5 px-1.5 rounded border text-[10px] font-medium flex items-center gap-1 transition-all cursor-pointer ${
+                                      footerForm.bgColor?.toLowerCase() === chip.hex.toLowerCase()
+                                        ? "border-indigo-600 ring-1 ring-indigo-300 bg-white"
+                                        : "border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50"
+                                    }`}
+                                    title={`Set background to ${chip.label} (${chip.hex})`}
+                                  >
+                                    <span
+                                      className="w-2.5 h-2.5 rounded-full border border-black/15 shrink-0"
+                                      style={{ backgroundColor: chip.hex }}
+                                    />
+                                    <span className="text-gray-700">{chip.label}</span>
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+
+                            {/* Text / Link Color Control Card */}
+                            <div className="bg-gray-50/80 border border-gray-200/90 rounded-lg p-2.5 space-y-2">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-xs font-bold text-gray-700">
+                                    Text &amp; Links Color
+                                  </span>
+                                  {hasCustomText ? (
+                                    <span className="text-[10px] px-1.5 py-0.5 rounded font-semibold bg-indigo-50 text-indigo-600 border border-indigo-200">
+                                      Custom
+                                    </span>
+                                  ) : (
+                                    <span className="text-[10px] px-1.5 py-0.5 rounded font-medium bg-gray-200/70 text-gray-500">
+                                      Default
+                                    </span>
+                                  )}
+                                </div>
+                                {hasCustomText && (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setFooterForm((p) => ({ ...p, textColor: undefined }))
+                                    }
+                                    className="text-[10px] font-medium text-rose-600 hover:text-rose-700 hover:underline cursor-pointer"
+                                  >
+                                    ✕ Clear (Use Default)
+                                  </button>
+                                )}
+                              </div>
+
+                              {/* Input with color swatch */}
+                              <div className="flex items-center gap-2 bg-white border border-gray-300 rounded-lg p-1.5 focus-within:ring-2 focus-within:ring-indigo-400 focus-within:border-indigo-400 shadow-2xs">
+                                <label className="relative cursor-pointer shrink-0">
+                                  <input
+                                    type="color"
+                                    value={
+                                      hasCustomText && footerForm.textColor?.startsWith("#")
+                                        ? footerForm.textColor
+                                        : templateDef.text.startsWith("#")
+                                          ? templateDef.text
+                                          : "#ffffff"
+                                    }
+                                    onChange={(e) =>
+                                      setFooterForm((p) => ({
+                                        ...p,
+                                        textColor: e.target.value,
+                                      }))
+                                    }
+                                    className="sr-only"
+                                  />
+                                  <span
+                                    className="w-7 h-7 rounded-md border border-black/20 shadow-xs block transition-transform hover:scale-105"
+                                    style={{ backgroundColor: effectiveText }}
+                                    title="Click to pick text color"
+                                  />
+                                </label>
+                                <input
+                                  type="text"
+                                  value={footerForm.textColor ?? ""}
+                                  onChange={(e) =>
+                                    setFooterForm((p) => ({
+                                      ...p,
+                                      textColor: e.target.value,
+                                    }))
+                                  }
+                                  placeholder={`${templateDef.text} (Default)`}
+                                  className="flex-1 font-mono text-xs text-gray-800 placeholder-gray-400 focus:outline-none bg-transparent"
+                                />
+                                <label className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-700 px-2 py-0.5 rounded bg-indigo-50/70 hover:bg-indigo-100/70 cursor-pointer select-none transition-colors">
+                                  <input
+                                    type="color"
+                                    value={
+                                      hasCustomText && footerForm.textColor?.startsWith("#")
+                                        ? footerForm.textColor
+                                        : templateDef.text.startsWith("#")
+                                          ? templateDef.text
+                                          : "#ffffff"
+                                    }
+                                    onChange={(e) =>
+                                      setFooterForm((p) => ({
+                                        ...p,
+                                        textColor: e.target.value,
+                                      }))
+                                    }
+                                    className="sr-only"
+                                  />
+                                  Pick
+                                </label>
+                              </div>
+
+                              {/* Quick Presets */}
+                              <div className="flex items-center gap-1.5 pt-0.5 flex-wrap">
+                                <span className="text-[10px] text-gray-400 font-medium shrink-0">Presets:</span>
+                                {[
+                                  { hex: "#ffffff", label: "White" },
+                                  { hex: "#1f2937", label: "Slate-800" },
+                                  { hex: "#000000", label: "Black" },
+                                  { hex: "#64748b", label: "Slate-500" },
+                                  { hex: "#f1f5f9", label: "Off-white" },
+                                ].map((chip) => (
+                                  <button
+                                    key={chip.hex}
+                                    type="button"
+                                    onClick={() =>
+                                      setFooterForm((p) => ({ ...p, textColor: chip.hex }))
+                                    }
+                                    className={`h-5 px-1.5 rounded border text-[10px] font-medium flex items-center gap-1 transition-all cursor-pointer ${
+                                      footerForm.textColor?.toLowerCase() === chip.hex.toLowerCase()
+                                        ? "border-indigo-600 ring-1 ring-indigo-300 bg-white"
+                                        : "border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50"
+                                    }`}
+                                    title={`Set text to ${chip.label} (${chip.hex})`}
+                                  >
+                                    <span
+                                      className="w-2.5 h-2.5 rounded-full border border-black/15 shrink-0"
+                                      style={{ backgroundColor: chip.hex }}
+                                    />
+                                    <span className="text-gray-700">{chip.label}</span>
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+
+                            {/* Live mini preview swatch */}
+                            <div
+                              className="rounded-lg p-3 border text-center transition-all shadow-xs"
+                              style={{
+                                backgroundColor: effectiveBg,
+                                color: effectiveText,
+                                borderColor: hasCustomText
+                                  ? `${footerForm.textColor}33`
+                                  : "rgba(128,128,128,0.2)",
+                              }}
+                            >
+                              <div className="text-[11px] font-bold tracking-wider uppercase opacity-85">
+                                Live Contrast Sample
+                              </div>
+                              <p className="text-xs font-semibold mt-1">
+                                Brand Headline &amp; Tagline Preview
+                              </p>
+                              <div className="text-[10px] opacity-75 mt-1 flex items-center justify-center gap-2 flex-wrap">
+                                <span>Shop</span>
+                                <span>•</span>
+                                <span>Our Story</span>
+                                <span>•</span>
+                                <span>Contact Us</span>
+                                <span>•</span>
+                                <span>© 2026</span>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })()}
 
                       <div>
                         <label className="text-xs font-semibold text-gray-600">
@@ -4766,96 +6185,8 @@ export default function HomepageManager() {
         </div>
       )}
 
-      {/* -- NAVIGATION TAB --------------------------------------------------- */}
-      {activeTab === "NAVIGATION" && (
-        <div className="bg-white rounded-2xl border border-gray-200/80 shadow-sm p-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
-            <div>
-              <h2 className="text-lg font-bold text-gray-900">Category Browse Bar</h2>
-              <p className="text-sm text-gray-500 mt-1 max-w-2xl">
-                Controls the site-wide category menu shown under the navbar on every page.
-                Subcategories are pulled in automatically from Catalog Management — pick which
-                top-level categories appear here, and in what order.
-              </p>
-            </div>
-            <button
-              onClick={saveNavSettings}
-              disabled={!navDirty || navSaving}
-              className="shrink-0 inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wide bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-            >
-              {navSaving ? "Saving..." : "Save Changes"}
-            </button>
-          </div>
 
-          {navLoading ? (
-            <div className="py-12 text-center text-sm text-gray-400">Loading categories...</div>
-          ) : navCategories.length === 0 ? (
-            <div className="py-12 text-center text-sm text-gray-400">
-              No top-level categories yet — add one in Catalog Management first.
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {navCategories.map((cat, index) => (
-                <div
-                  key={cat.id}
-                  className={`flex items-center gap-3 px-4 py-3 rounded-xl border transition-colors ${
-                    cat.showInNav
-                      ? "border-gray-200 bg-white"
-                      : "border-gray-100 bg-gray-50/60"
-                  }`}
-                >
-                  <div className="flex flex-col gap-0.5 shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => moveNavCategory(cat.id, "up")}
-                      disabled={index === 0}
-                      className="p-0.5 rounded text-gray-400 hover:text-gray-900 disabled:opacity-20 disabled:cursor-not-allowed transition-colors"
-                    >
-                      <ChevronUpIcon className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => moveNavCategory(cat.id, "down")}
-                      disabled={index === navCategories.length - 1}
-                      className="p-0.5 rounded text-gray-400 hover:text-gray-900 disabled:opacity-20 disabled:cursor-not-allowed transition-colors"
-                    >
-                      <ChevronDownIcon className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-
-                  <span
-                    className={`flex-1 text-sm font-semibold ${
-                      cat.showInNav ? "text-gray-900" : "text-gray-400"
-                    }`}
-                  >
-                    {cat.name}
-                  </span>
-
-                  <span className="text-xs text-gray-400 font-mono w-6 text-right">
-                    #{index + 1}
-                  </span>
-
-                  <button
-                    type="button"
-                    onClick={() => toggleNavVisibility(cat.id)}
-                    className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors cursor-pointer ${
-                      cat.showInNav ? "bg-indigo-600" : "bg-gray-300"
-                    }`}
-                  >
-                    <span
-                      className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
-                        cat.showInNav ? "translate-x-4" : "translate-x-0.5"
-                      }`}
-                    />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ── THEME TAB ────────────────────────────────────────────────────────── */}
+      {/* -¢------¬-¢------¬ THEME TAB -¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬ */}
       {activeTab === "THEME" && (
         <div className="animate-fadeIn">
           <div className="bg-white border border-gray-200 shadow-sm rounded-xl p-5 space-y-4">
@@ -4910,15 +6241,198 @@ export default function HomepageManager() {
               })}
             </div>
 
-            <div className="pt-2 border-t border-gray-100 flex items-center justify-between gap-3">
-              {draftThemeId !== themeId ? (
+            {/* Button & CTA Color Override Section */}
+            {(() => {
+              const currentTheme = THEMES.find((t) => t.id === draftThemeId) || THEMES[0];
+              const effectiveButtonBg = draftButtonBg || currentTheme.primary;
+              const effectiveButtonText = draftButtonText || currentTheme.primaryInk;
+
+              return (
+                <div className="pt-5 border-t border-gray-100 space-y-4">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <div>
+                      <h4 className="font-bold text-gray-900 text-xs sm:text-sm flex items-center gap-2">
+                        <span>Button & CTA Colors</span>
+                        {draftButtonBg ? (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            Custom Color Active
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">
+                            Following Storefront Theme
+                          </span>
+                        )}
+                      </h4>
+                      <p className="text-[11px] text-gray-400 mt-0.5 leading-relaxed">
+                        Customize Call-To-Action buttons across the storefront (Add to Cart, Buy Now, Checkout). If cleared, buttons smoothly draw back to the active theme color.
+                      </p>
+                    </div>
+                    {draftButtonBg && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDraftButtonBg("");
+                          setDraftButtonText("");
+                        }}
+                        className="text-xs font-semibold text-rose-600 hover:text-rose-700 hover:underline cursor-pointer flex items-center gap-1"
+                      >
+                        Reset to Theme Default
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* Button Background Color */}
+                    <div className="p-3.5 bg-gray-50/80 rounded-xl border border-gray-200/80 space-y-2.5">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-bold text-gray-700">Button Background</label>
+                        <span className="text-[11px] font-mono text-gray-500">
+                          {draftButtonBg || `${currentTheme.primary} (Theme)`}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="color"
+                          value={draftButtonBg || currentTheme.primary}
+                          onChange={(e) => setDraftButtonBg(e.target.value)}
+                          className="w-10 h-10 p-0.5 border border-gray-300 rounded-lg cursor-pointer bg-white"
+                          title="Pick button background color"
+                        />
+                        <input
+                          type="text"
+                          value={draftButtonBg}
+                          placeholder={currentTheme.primary}
+                          onChange={(e) => {
+                            const val = e.target.value.trim();
+                            setDraftButtonBg(val);
+                          }}
+                          maxLength={7}
+                          className="flex-1 min-w-0 h-10 px-3 border border-gray-300 rounded-lg text-xs font-mono uppercase bg-white outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600"
+                        />
+                      </div>
+                      {/* Presets */}
+                      <div className="flex items-center gap-1.5 flex-wrap pt-1">
+                        <span className="text-[10px] text-gray-400 font-semibold mr-1">Presets:</span>
+                        {[
+                          { name: "Forest", hex: "#0c6b5e" },
+                          { name: "Emerald", hex: "#0b5d45" },
+                          { name: "Minimal", hex: "#14110f" },
+                          { name: "Navy", hex: "#1e3a8a" },
+                          { name: "Crimson", hex: "#d62828" },
+                          { name: "Gold", hex: "#c9a227" },
+                          { name: "Rose", hex: "#a6425b" },
+                          { name: "Terra", hex: "#6b4226" },
+                        ].map((p) => (
+                          <button
+                            key={p.hex}
+                            type="button"
+                            onClick={() => setDraftButtonBg(p.hex)}
+                            title={p.name}
+                            className={`w-5 h-5 rounded-full border border-black/15 transition-transform hover:scale-110 cursor-pointer ${
+                              draftButtonBg.toLowerCase() === p.hex.toLowerCase() ? "ring-2 ring-indigo-600 ring-offset-1 scale-110" : ""
+                            }`}
+                            style={{ backgroundColor: p.hex }}
+                          />
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Button Text (Ink) Color */}
+                    <div className="p-3.5 bg-gray-50/80 rounded-xl border border-gray-200/80 space-y-2.5">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-bold text-gray-700">Button Text Color</label>
+                        <span className="text-[11px] font-mono text-gray-500">
+                          {draftButtonText || `${currentTheme.primaryInk} (Theme)`}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="color"
+                          value={draftButtonText || currentTheme.primaryInk}
+                          onChange={(e) => setDraftButtonText(e.target.value)}
+                          className="w-10 h-10 p-0.5 border border-gray-300 rounded-lg cursor-pointer bg-white"
+                          title="Pick button text color"
+                        />
+                        <input
+                          type="text"
+                          value={draftButtonText}
+                          placeholder={currentTheme.primaryInk}
+                          onChange={(e) => {
+                            const val = e.target.value.trim();
+                            setDraftButtonText(val);
+                          }}
+                          maxLength={7}
+                          className="flex-1 min-w-0 h-10 px-3 border border-gray-300 rounded-lg text-xs font-mono uppercase bg-white outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600"
+                        />
+                      </div>
+                      {/* Quick text options */}
+                      <div className="flex items-center gap-2 pt-1">
+                        <span className="text-[10px] text-gray-400 font-semibold mr-1">Quick:</span>
+                        {[
+                          { label: "White (#FFF)", hex: "#ffffff" },
+                          { label: "Dark (#111)", hex: "#111111" },
+                          { label: "Ivory (#FDF6E2)", hex: "#fdf6e2" },
+                        ].map((opt) => (
+                          <button
+                            key={opt.hex}
+                            type="button"
+                            onClick={() => setDraftButtonText(opt.hex)}
+                            className={`text-[10px] font-bold px-2 py-0.5 rounded border transition-all cursor-pointer ${
+                              draftButtonText.toLowerCase() === opt.hex.toLowerCase()
+                                ? "bg-indigo-600 text-white border-indigo-600 shadow-xs"
+                                : "bg-white text-gray-700 border-gray-200 hover:bg-gray-100"
+                            }`}
+                          >
+                            {opt.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Live Button Preview Box */}
+                  <div className="p-4 bg-white rounded-xl border border-dashed border-gray-300 flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <div>
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-gray-500">Live Button Preview:</span>
+                      <p className="text-[10px] text-gray-400">Shows how primary action buttons look across product and checkout pages.</p>
+                    </div>
+                    <div className="flex items-center gap-3 w-full sm:w-auto shrink-0">
+                      <button
+                        type="button"
+                        style={{ backgroundColor: effectiveButtonBg, color: effectiveButtonText }}
+                        className="px-5 py-2.5 rounded-sm text-xs font-bold uppercase tracking-wider shadow-sm pointer-events-none"
+                      >
+                        ADD TO CART
+                      </button>
+                      <button
+                        type="button"
+                        style={{ backgroundColor: effectiveButtonBg, color: effectiveButtonText, borderColor: effectiveButtonBg }}
+                        className="px-5 py-2.5 rounded-sm text-xs font-bold uppercase tracking-wider shadow-sm border-2 pointer-events-none"
+                      >
+                        BUY IT NOW
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
+            <div className="pt-3 border-t border-gray-100 flex items-center justify-between gap-3">
+              {draftThemeId !== themeId ||
+              draftButtonBg !== customButtonBg ||
+              draftButtonText !== customButtonText ? (
                 <span className="text-xs font-semibold text-amber-600">Unsaved — click Save to apply</span>
               ) : (
                 <span className="text-xs text-gray-400">Matches what's live on the storefront</span>
               )}
               <button
                 onClick={saveTheme}
-                disabled={draftThemeId === themeId || savingTheme}
+                disabled={
+                  (draftThemeId === themeId &&
+                    draftButtonBg === customButtonBg &&
+                    draftButtonText === customButtonText) ||
+                  savingTheme
+                }
                 className="shrink-0 px-6 py-2.5 bg-indigo-600 text-white rounded-xl text-xs font-bold tracking-wide uppercase hover:bg-indigo-700 active:scale-[0.98] transition-all duration-150 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {savingTheme ? "Saving..." : "Save"}
@@ -4928,7 +6442,7 @@ export default function HomepageManager() {
         </div>
       )}
 
-      {/* â”€â”€ BANNER TABS (DISCOUNT / CAROUSEL / PROMO) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      {/* ---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬ BANNER TABS (DISCOUNT / CAROUSEL / PROMO) ---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬ */}
       {(activeTab === "DISCOUNT_PANEL" ||
         activeTab === "CAROUSEL_ITEM" ||
         activeTab === "PROMO_BANNER") && (
@@ -4969,21 +6483,23 @@ export default function HomepageManager() {
                               }
                             />
                           </div>
-                          <div>
-                            <label className="text-xs font-semibold text-indigo-700 uppercase tracking-wide">
-                              Subtitle
-                            </label>
-                            <input
-                              className="mt-1 w-full border border-indigo-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
-                              value={sectionForm.subtitle}
-                              onChange={(e) =>
-                                setSectionForm((p) => ({
-                                  ...p,
-                                  subtitle: e.target.value,
-                                }))
-                              }
-                            />
-                          </div>
+                          {sectionKey !== "DISCOUNT" && (
+                            <div>
+                              <label className="text-xs font-semibold text-indigo-700 uppercase tracking-wide">
+                                Subtitle
+                              </label>
+                              <input
+                                className="mt-1 w-full border border-indigo-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                                value={sectionForm.subtitle}
+                                onChange={(e) =>
+                                  setSectionForm((p) => ({
+                                    ...p,
+                                    subtitle: e.target.value,
+                                  }))
+                                }
+                              />
+                            </div>
+                          )}
                           <div className="flex gap-2 pt-1">
                             <button
                               onClick={() => saveHeader()}
@@ -5008,7 +6524,7 @@ export default function HomepageManager() {
                           <p className="text-lg font-bold text-gray-900">
                             {current.title}
                           </p>
-                          {current.subtitle && (
+                          {sectionKey !== "DISCOUNT" && current.subtitle && (
                             <p className="text-sm text-gray-500">
                               {current.subtitle}
                             </p>
@@ -5041,6 +6557,20 @@ export default function HomepageManager() {
                   onSelect={handleDiscountTemplateSelect}
                   disabled={!canBannerEdit}
                 />
+                <div className="bg-indigo-50/80 border border-indigo-150 rounded-xl p-3 text-xs text-indigo-950 flex items-start gap-2.5">
+                  <span className="text-base select-none">📐</span>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-semibold text-indigo-950">
+                      Recommended Banner Size for {DISCOUNT_TEMPLATE_LABELS[String(discountTemplate)]?.name || "Split Grid"}:
+                    </p>
+                    <p className="text-indigo-900 text-xs mt-1">
+                      • <span className="font-semibold text-indigo-950">Banner Dimensions:</span> <span className="font-bold">{DISCOUNT_TEMPLATE_LABELS[String(discountTemplate)]?.sizeHint}</span> &bull; Ratio: <span className="font-bold">{DISCOUNT_TEMPLATE_LABELS[String(discountTemplate)]?.ratio}</span>
+                    </p>
+                    <p className="text-indigo-600 text-[11px] mt-1">
+                      {DISCOUNT_TEMPLATE_LABELS[String(discountTemplate)]?.desc}
+                    </p>
+                  </div>
+                </div>
               </div>
             )}
             {activeTab === "PROMO_BANNER" && (
@@ -5090,7 +6620,7 @@ export default function HomepageManager() {
                 No items yet. Click "Add" to create one.
               </div>
             ) : activeTab === "CAROUSEL_ITEM" ? (
-              /* ── NEW VERTICAL PRESENTATION FOR CURATED CAROUSEL ── */
+              /* -¢------¬-¢------¬ NEW VERTICAL PRESENTATION FOR CURATED CAROUSEL -¢------¬-¢------¬ */
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
                 {filtered.map((banner) => (
                   <div
@@ -5123,11 +6653,17 @@ export default function HomepageManager() {
                     <div className="p-4 flex-1 flex flex-col justify-between bg-white">
                       <div className="mb-3">
                         <h4 className="font-bold text-gray-950 text-sm tracking-tight truncate">
-                          {banner.title}
+                          {banner.title || "(Graphic banner - no text)"}
                         </h4>
                         {banner.description && (
                           <p className="text-gray-500 text-[11px] leading-relaxed line-clamp-2 mt-0.5">
                             {banner.description}
+                          </p>
+                        )}
+                        {banner.link && (
+                          <p className="text-indigo-600 text-[10px] truncate mt-1 flex items-center gap-1 font-mono">
+                            <span className="text-gray-400">🔗</span>
+                            <span className="truncate">{banner.link}</span>
                           </p>
                         )}
                       </div>
@@ -5160,7 +6696,7 @@ export default function HomepageManager() {
                 ))}
               </div>
             ) : (
-              /* ── RESTORED PREMIUM WIDE LAYOUT FOR DISCOUNT PANELS & CAROUSEL BANNERS ── */
+              /* -¢------¬-¢------¬ RESTORED PREMIUM WIDE LAYOUT FOR DISCOUNT PANELS & CAROUSEL BANNERS -¢------¬-¢------¬ */
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
                 {filtered.map((banner) => (
                   <div
@@ -5171,7 +6707,7 @@ export default function HomepageManager() {
                       }`}
                   >
                     {/* Aspect Filled Image Block */}
-                    <div className="relative w-full sm:w-2/5 min-h-[220px] sm:min-h-full bg-slate-100 flex-shrink-0">
+                    <div className="relative w-full sm:w-2/5 min-h-[175px] sm:min-h-full bg-slate-100 flex-shrink-0">
                       <img
                         src={banner.image}
                         alt={banner.title}
@@ -5184,7 +6720,7 @@ export default function HomepageManager() {
                     </div>
 
                     {/* Operational Controls & Info Canvas */}
-                    <div className="flex-1 flex flex-col justify-between p-5">
+                    <div className="flex-1 flex flex-col justify-between p-4 sm:p-4.5">
                       <div>
                         <div className="flex items-center justify-between gap-2 mb-2">
                           <span
@@ -5199,7 +6735,7 @@ export default function HomepageManager() {
                         </div>
 
                         <h4 className="font-bold text-gray-950 text-base tracking-tight line-clamp-1 mb-1">
-                          {banner.title}
+                          {banner.title || "(Graphic banner - no text)"}
                         </h4>
 
                         {banner.discount && (
@@ -5213,10 +6749,16 @@ export default function HomepageManager() {
                             {banner.description}
                           </p>
                         )}
+                        {banner.link && (
+                          <div className="flex items-center gap-1.5 text-xs text-indigo-600 mt-2 font-mono truncate">
+                            <span className="shrink-0 text-gray-400">🔗</span>
+                            <span className="truncate">{banner.link}</span>
+                          </div>
+                        )}
                       </div>
 
                       {/* Integrated Action Bar Baseline */}
-                      <div className="flex items-center gap-2 pt-4 mt-4 border-t border-gray-100/70">
+                      <div className="flex items-center gap-2 pt-3 mt-3 border-t border-gray-100/70">
                         <button
                           onClick={() => handleToggle(banner)}
                           className="flex-1 py-2 text-xs font-semibold text-gray-600 hover:text-gray-900 bg-gray-50 hover:bg-gray-100 rounded-xl transition-colors"
@@ -5248,15 +6790,27 @@ export default function HomepageManager() {
           </>
         )}
 
-      {/* ── FEATURED TAB ────────────────────────────────────────────────────────────────────────── */}
+      {/* -¢------¬-¢------¬ FEATURED TAB -¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬ */}
     
     
 
     {activeTab === "FEATURED" && (
       <div className="space-y-6 w-full max-w-full overflow-hidden animate-fadeIn">
-        {/* Layout */}
-        <div>
-          <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wider mb-3">Layout</h3>
+        {/* Featured Section 1 Layout (Curated / Handpicked Products) */}
+        <div className="bg-white border border-gray-200/90 rounded-2xl p-5 shadow-xs">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+            <div className="flex items-center gap-2">
+              <span className="w-6 h-6 rounded-lg bg-indigo-600 text-white font-bold text-xs flex items-center justify-center">
+                1
+              </span>
+              <h3 className="text-xs font-bold text-gray-900 uppercase tracking-wider">
+                Featured Section 1 Layout (Curated / Handpicked Products)
+              </h3>
+            </div>
+            <span className="text-xs text-gray-500">
+              Active: <strong className="text-indigo-600 font-semibold">{FEATURED_TEMPLATE_LABELS[String(featuredTemplate)]?.name || "Horizontal Scroll"}</strong>
+            </span>
+          </div>
           <SectionTemplatePicker
             labels={FEATURED_TEMPLATE_LABELS}
             activeTemplate={featuredTemplate}
@@ -5699,7 +7253,7 @@ export default function HomepageManager() {
           </div>
         )}
 
-        {/* ── ADDITIONAL FEATURED SECTIONS (CATEGORY SHOWCASES) ────────────── */}
+        {/* -¢------¬-¢------¬ ADDITIONAL FEATURED SECTIONS (CATEGORY SHOWCASES) -¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬ */}
         <div className="pt-6 border-t-2 border-dashed border-gray-200 space-y-6">
           {/* Header Card with Explanatory alternating workflow */}
           <div className="bg-gradient-to-r from-indigo-50/70 via-purple-50/40 to-white border border-indigo-100/90 rounded-2xl p-5 sm:p-6 shadow-sm">
@@ -5742,21 +7296,27 @@ export default function HomepageManager() {
               <div className="text-[11px] font-bold text-indigo-900 mb-2 flex items-center gap-1.5">
                 <span>🔄 Alternating Showcase Layout:</span>
                 <span className="text-[10px] font-normal text-indigo-700">
-                  (Banners &amp; Sections alternate down the homepage; uneven counts automatically flow cleanly)
+                  (Banners &amp; Sections alternate down the homepage; each section can have its own independent layout)
                 </span>
               </div>
               <div className="flex flex-wrap items-center gap-1.5 text-[11px] font-semibold text-gray-700">
                 <span className="px-2 py-1 bg-white rounded-md border border-indigo-200 shadow-2xs">Banner 1</span>
-                <span className="text-indigo-400">➔</span>
-                <span className="px-2 py-1 bg-amber-50 rounded-md border border-amber-200 text-amber-900 shadow-2xs">Section 1 (Curated)</span>
-                <span className="text-indigo-400">➔</span>
+                <span className="text-indigo-400">→</span>
+                <span className="px-2 py-1 bg-amber-50 rounded-md border border-amber-200 text-amber-900 shadow-2xs">
+                  Section 1: {FEATURED_TEMPLATE_LABELS[String(featuredTemplate)]?.name || "Scroll"}
+                </span>
+                <span className="text-indigo-400">→</span>
                 <span className="px-2 py-1 bg-white rounded-md border border-indigo-200 shadow-2xs">Banner 2</span>
-                <span className="text-indigo-400">➔</span>
-                <span className="px-2 py-1 bg-purple-50 rounded-md border border-purple-200 text-purple-900 shadow-2xs">Section 2 (Slot 1)</span>
-                <span className="text-indigo-400">➔</span>
+                <span className="text-indigo-400">→</span>
+                <span className="px-2 py-1 bg-purple-50 rounded-md border border-purple-200 text-purple-900 shadow-2xs">
+                  Section 2: {FEATURED_TEMPLATE_LABELS[String(featuredCatConfig.slots?.[0]?.template || 1)]?.name || "Scroll"}
+                </span>
+                <span className="text-indigo-400">→</span>
                 <span className="px-2 py-1 bg-white rounded-md border border-indigo-200 shadow-2xs">Banner 3</span>
-                <span className="text-indigo-400">➔</span>
-                <span className="px-2 py-1 bg-purple-50 rounded-md border border-purple-200 text-purple-900 shadow-2xs">Section 3 (Slot 2)</span>
+                <span className="text-indigo-400">→</span>
+                <span className="px-2 py-1 bg-purple-50 rounded-md border border-purple-200 text-purple-900 shadow-2xs">
+                  Section 3: {FEATURED_TEMPLATE_LABELS[String(featuredCatConfig.slots?.[1]?.template || 1)]?.name || "Scroll"}
+                </span>
               </div>
             </div>
           </div>
@@ -5908,6 +7468,47 @@ export default function HomepageManager() {
                       </div>
                     </div>
 
+                    {/* Section Layout Selection */}
+                    <div className="pt-2 border-t border-gray-100">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 mb-2">
+                        <label className="block text-xs font-bold text-gray-700 uppercase tracking-wide">
+                          Featured Section {slotIdx + 2} Layout
+                        </label>
+                        <span className="text-xs text-gray-500">
+                          Active: <strong className="text-indigo-600 font-semibold">{FEATURED_TEMPLATE_LABELS[String(slot.template || 1)]?.name || "Horizontal Scroll"}</strong>
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+                        {Object.entries(FEATURED_TEMPLATE_LABELS).map(([key, label]) => {
+                          const isSelected = String(slot.template || 1) === key;
+                          return (
+                            <button
+                              key={key}
+                              type="button"
+                              onClick={() => handleSlotTemplateSelect(slotIdx, Number(key))}
+                              className={`text-left border-2 rounded-xl p-3.5 transition-all flex flex-col justify-between cursor-pointer ${
+                                isSelected
+                                  ? "border-indigo-600 bg-indigo-50/80 shadow-xs ring-1 ring-indigo-500/20"
+                                  : "border-gray-200 bg-slate-50/60 hover:border-indigo-200 hover:bg-white"
+                              }`}
+                            >
+                              <div>
+                                <div className="flex items-center justify-between mb-1">
+                                  <span className="text-xs font-bold text-gray-900">{label.name}</span>
+                                  {isSelected && (
+                                    <span className="text-[9px] font-bold uppercase tracking-wider text-indigo-700 bg-indigo-100 px-1.5 py-0.5 rounded-full">
+                                      Active
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-[11px] text-gray-500 line-clamp-2 leading-snug">{label.desc}</p>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
                     {/* Status Pill Indicator */}
                     <div className="pt-2">
                       {!isActive ? (
@@ -5998,6 +7599,9 @@ export default function HomepageManager() {
                 <StorefrontPreviewFrame
                   anchor={previewAnchor}
                   previewThemeId={activeTab === "THEME" ? draftThemeId : undefined}
+                  previewButtonBg={activeTab === "THEME" ? (draftButtonBg || null) : undefined}
+                  previewButtonText={activeTab === "THEME" ? (draftButtonText || null) : undefined}
+                  previewCategoryShape={draftCategoryShape}
                   reloadToken={previewReloadToken}
                   className="w-full h-[640px] border-0"
                 />
@@ -6007,7 +7611,7 @@ export default function HomepageManager() {
         </div>
       </div>
 
-      {/* ── DESKTOP PREVIEW MODAL ───────────────────────────────────────────────
+      {/* -¢------¬-¢------¬ DESKTOP PREVIEW MODAL -¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬-¢------¬
           Own iframe instance, mounted only while open — the sidebar's persistent
           preview above is completely unaffected by opening/closing this. */}
       {desktopPreviewOpen && (
@@ -6031,6 +7635,9 @@ export default function HomepageManager() {
               <StorefrontPreviewFrame
                 anchor={previewAnchor}
                 previewThemeId={activeTab === "THEME" ? draftThemeId : undefined}
+                previewButtonBg={activeTab === "THEME" ? (draftButtonBg || null) : undefined}
+                previewButtonText={activeTab === "THEME" ? (draftButtonText || null) : undefined}
+                  previewCategoryShape={draftCategoryShape}
                 reloadToken={previewReloadToken}
                 className="w-full h-full border-0"
               />
@@ -6039,7 +7646,7 @@ export default function HomepageManager() {
         </div>
       )}
 
-      {/* â”€â”€ BANNER MODAL â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      {/* ---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬ BANNER MODAL ---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬---¢-¢---¬Â-¢---¬ */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col">
@@ -6072,6 +7679,37 @@ export default function HomepageManager() {
                     </span>
                   )}
                 </label>
+
+                {form.type === "DISCOUNT_PANEL" && (
+                  <div className="mb-2.5 bg-indigo-50/80 border border-indigo-150 rounded-xl p-2.5 text-xs text-indigo-950 flex items-start gap-2.5">
+                    <span className="text-base select-none">📐</span>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-semibold text-indigo-950">
+                        Recommended for {DISCOUNT_TEMPLATE_LABELS[String(discountTemplate)]?.name || "Split Grid"}:
+                      </p>
+                      <p className="text-indigo-900 text-xs mt-0.5">
+                        Ratio: <span className="font-bold text-indigo-950">{DISCOUNT_TEMPLATE_LABELS[String(discountTemplate)]?.ratio || "16:9"}</span> &bull; Size: <span className="font-bold text-indigo-950">{DISCOUNT_TEMPLATE_LABELS[String(discountTemplate)]?.sizeHint || "1200 × 675 px (or 1600 × 900 px)"}</span>
+                      </p>
+                      <p className="text-indigo-600 text-[10px] mt-0.5 italic">
+                        All text and graphics should be designed directly into the banner. The storefront displays full, clean banner images starting from the edge.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {form.type === "PROMO_BANNER" && (
+                  <div className="mb-2.5 bg-indigo-50/80 border border-indigo-150 rounded-xl p-2.5 text-xs text-indigo-950 flex items-start gap-2.5">
+                    <span className="text-base select-none">📐 </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-semibold text-indigo-950">
+                        Recommended for {CAROUSEL_TEMPLATE_LABELS[String(carouselTemplate)]?.name || "Active Layout"}:
+                      </p>
+                      <p className="text-indigo-800 text-[11px] mt-0.5">
+                        Ratio: <span className="font-bold text-indigo-900">{CAROUSEL_TEMPLATE_LABELS[String(carouselTemplate)]?.ratio}</span> &bull; Size: <span className="font-bold text-indigo-900">{CAROUSEL_TEMPLATE_LABELS[String(carouselTemplate)]?.sizeHint}</span>
+                      </p>
+                    </div>
+                  </div>
+                )}
                 <div
                   className="relative border-2 border-dashed border-gray-300 rounded-xl flex flex-col items-center justify-center h-48 cursor-pointer hover:border-indigo-400 transition-colors overflow-hidden bg-slate-50"
                   onClick={() => fileInputRef.current?.click()}
@@ -6085,8 +7723,15 @@ export default function HomepageManager() {
                   ) : (
                     <>
                       <PhotoIcon className="w-10 h-10 text-gray-300" />
-                      <p className="text-sm text-gray-400 mt-2">
-                        Click to upload
+                      <p className="text-sm font-medium text-gray-600 mt-2">
+                        Click to upload image
+                      </p>
+                      <p className="text-xs text-indigo-600 font-semibold mt-1">
+                        {form.type === "DISCOUNT_PANEL"
+                          ? `Recommended: ${DISCOUNT_TEMPLATE_LABELS[String(discountTemplate)]?.sizeHint || "1600 × 900 px"} (${DISCOUNT_TEMPLATE_LABELS[String(discountTemplate)]?.ratio || "16:9"})`
+                          : form.type === "PROMO_BANNER"
+                            ? `Recommended: ${CAROUSEL_TEMPLATE_LABELS[String(carouselTemplate)]?.sizeHint || "1920 × 1080 px"}`
+                            : "Recommended: 900 × 1200 px (3:4)"}
                       </p>
                     </>
                   )}
@@ -6100,15 +7745,14 @@ export default function HomepageManager() {
                 />
               </div>
 
-              {/* Title */}
+              {/* Title (Optional) */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Title <span className="text-red-500">*</span>
+                  Title (Optional)
                 </label>
                 <input
-                  required
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
-                  placeholder="Panel title"
+                  placeholder="Banner title (leave empty if text is designed on image)"
                   value={form.title}
                   onChange={(e) =>
                     setForm((p) => ({ ...p, title: e.target.value }))
@@ -6116,11 +7760,30 @@ export default function HomepageManager() {
                 />
               </div>
 
+              {/* Redirect Link to Product (Optional) */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Product / Redirect Link (Optional)
+                </label>
+                <input
+                  type="text"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                  placeholder="e.g. /products/..., /products, or https://..."
+                  value={form.link}
+                  onChange={(e) =>
+                    setForm((p) => ({ ...p, link: e.target.value }))
+                  }
+                />
+                <p className="text-xs text-gray-400 mt-1">
+                  Clicking this banner will redirect customers directly to this product or page.
+                </p>
+              </div>
+
               {/* Discount (DISCOUNT_PANEL only) */}
               {form.type === "DISCOUNT_PANEL" && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Discount Label
+                    Discount Label (Optional)
                   </label>
                   <input
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
@@ -6138,12 +7801,12 @@ export default function HomepageManager() {
                 form.type === "PROMO_BANNER") && (
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Description
+                      Description (Optional)
                     </label>
                     <textarea
                       rows={2}
                       className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 resize-none"
-                      placeholder="Short description"
+                      placeholder="Short description (optional)"
                       value={form.description}
                       onChange={(e) =>
                         setForm((p) => ({ ...p, description: e.target.value }))
@@ -6209,7 +7872,7 @@ export default function HomepageManager() {
         </div>
       )}
 
-      {/* ── DELETE BANNER CONFIRMATION MODAL ── */}
+      {/* -¢------¬-¢------¬ DELETE BANNER CONFIRMATION MODAL -¢------¬-¢------¬ */}
       {bannerToDelete && (
         <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 animate-fadeIn">
           <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 max-w-sm w-full overflow-hidden animate-scaleIn">
@@ -6244,7 +7907,7 @@ export default function HomepageManager() {
                 {deletingId === bannerToDelete.id ? (
                   <>
                     <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    Deleting…
+                    Deleting...
                   </>
                 ) : (
                   <>

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, ArrowRight } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import api from "../utils/api";
 
 // Fallback local images used when no carousel items are configured in the backend
@@ -40,14 +41,27 @@ interface CarouselItem {
   id: string | number;
   image: string;
   title: string;
+  link?: string | null;
 }
 
 export default function CuratedLooksGallery() {
+  const navigate = useNavigate();
   const [activeIndex, setActiveIndex] = useState(2);
   const [items, setItems] = useState<CarouselItem[]>([]);
   const [sectionTitle, setSectionTitle] = useState("Curated Looks For You");
   const [sectionSubtitle, setSectionSubtitle] = useState("");
   const [loaded, setLoaded] = useState(false);
+
+  const handleRedirect = (link?: string | null) => {
+    if (!link) return;
+    const trimmed = link.trim();
+    if (!trimmed) return;
+    if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
+      window.open(trimmed, "_blank", "noopener,noreferrer");
+    } else {
+      navigate(trimmed.startsWith("/") ? trimmed : `/${trimmed}`);
+    }
+  };
 
   useEffect(() => {
     api
@@ -55,7 +69,7 @@ export default function CuratedLooksGallery() {
       .then(({ data }) => {
         const active: CarouselItem[] = (data.banners ?? [])
           .filter((b: any) => b.isActive)
-          .map((b: any) => ({ id: b.id, image: b.image, title: b.title }));
+          .map((b: any) => ({ id: b.id, image: b.image, title: b.title, link: b.link }));
         setItems(active);
         if (active.length > 0) {
           setActiveIndex(Math.floor(active.length / 2));
@@ -106,8 +120,16 @@ export default function CuratedLooksGallery() {
             return (
               <motion.div
                 key={item.id}
-                className="absolute rounded-2xl overflow-hidden bg-white shadow-xl cursor-pointer"
-                onClick={() => setActiveIndex(index)}
+                className="absolute rounded-2xl overflow-hidden bg-white shadow-xl cursor-pointer group"
+                onClick={() => {
+                  if (offset === 0) {
+                    if (item.link) {
+                      handleRedirect(item.link);
+                    }
+                  } else {
+                    setActiveIndex(index);
+                  }
+                }}
                 initial={{ opacity: 0, scale: 0.7 }}
                 animate={{
                   x: offset * (window.innerWidth < 640 ? 180 : 280),
@@ -124,13 +146,13 @@ export default function CuratedLooksGallery() {
                 <img
                   src={item.image}
                   alt={item.title}
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                   draggable={false}
                 />
 
-                {offset === 0 && (
-                  <div className="absolute bottom-0 left-0 w-full bg-gradient-to-t from-black/80 via-black/40 to-transparent p-4 sm:p-6 text-white">
-                    <h3 className="text-sm sm:text-xl text-center font-medium">
+                {offset === 0 && item.title && (
+                  <div className="absolute bottom-0 left-0 w-full bg-gradient-to-t from-black/80 via-black/40 to-transparent p-4 sm:p-6 text-white text-center">
+                    <h3 className="text-sm sm:text-xl font-medium tracking-wide">
                       {item.title}
                     </h3>
                   </div>

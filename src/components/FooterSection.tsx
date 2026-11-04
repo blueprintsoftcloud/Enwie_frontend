@@ -21,6 +21,7 @@ interface FooterLinkColumn {
 interface FooterTemplateData {
   tagline: string;
   showCompanyName?: boolean;
+  blendLogoWithBg?: boolean;
   newsletterTitle?: string;
   instagramLink?: string;
   facebookLink?: string;
@@ -31,11 +32,13 @@ interface FooterTemplateData {
    * design and ignores this. Falls back to DEFAULT_LINK_COLUMNS when unset (a config
    * saved before this field existed), so nothing breaks for an existing store. */
   linkColumns?: FooterLinkColumn[];
+  bgColor?: string;
+  textColor?: string;
 }
 
 const DEFAULT_LINK_COLUMNS: FooterLinkColumn[] = [
   { heading: "Shop", links: [{ label: "New Arrivals", url: "/products" }, { label: "Best Sellers", url: "/products" }] },
-  { heading: "Company", links: [{ label: "Our Story", url: "/about" }, { label: "Terms & Conditions", url: "/terms" }] },
+  { heading: "Company", links: [{ label: "Our Story", url: "/about" }, { label: "Terms & Conditions", url: "/terms" }, { label: "Privacy Policy", url: "/privacy" }] },
   { heading: "Support", links: [{ label: "Help Center", url: "/help" }, { label: "Contact Us", url: "/contact" }] },
 ];
 
@@ -59,12 +62,14 @@ const DEFAULT_CONFIG: FooterConfig = {
       instagramLink: "https://instagram.com",
       facebookLink: "https://facebook.com",
       mailLink: "info@yourbrand.com",
+      blendLogoWithBg: false,
     },
     "2": {
       tagline: "Crafting timeless Indian fashion for the modern world.",
       instagramLink: "https://instagram.com",
       facebookLink: "https://facebook.com",
       mailLink: "info@yourbrand.com",
+      blendLogoWithBg: true,
     },
     "3": {
       tagline: "From our looms to your wardrobe — authentically Indian.",
@@ -72,41 +77,79 @@ const DEFAULT_CONFIG: FooterConfig = {
       instagramLink: "https://instagram.com",
       facebookLink: "https://facebook.com",
       mailLink: "info@yourbrand.com",
+      blendLogoWithBg: false,
     },
     "4": {
       tagline: "Thank you for being part of our story.",
       instagramLink: "https://instagram.com",
       facebookLink: "https://facebook.com",
       mailLink: "info@yourbrand.com",
+      blendLogoWithBg: true,
     },
     "5": {
       tagline: "Celebrate the season with us.",
       instagramLink: "https://instagram.com",
       facebookLink: "https://facebook.com",
       mailLink: "info@yourbrand.com",
+      blendLogoWithBg: false,
     },
     "6": {
       tagline: "Designed with care, worn with pride.",
       instagramLink: "https://instagram.com",
       facebookLink: "https://facebook.com",
       mailLink: "info@yourbrand.com",
+      blendLogoWithBg: true,
     },
   },
+};
+
+// ─── Instant Cache Helpers (eliminates dark flash on initial page transitions) ──
+const FOOTER_CACHE_KEY = "crm_footer_config_cache";
+const FOOTER_UPDATE_EVENT = "crm_footer_config_updated";
+
+const readFooterCache = (): FooterConfig | null => {
+  try {
+    const raw = localStorage.getItem(FOOTER_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === "object" && parsed.activeTemplate) {
+      return parsed as FooterConfig;
+    }
+  } catch {
+    // ignore
+  }
+  return null;
+};
+
+const writeFooterCache = (config: FooterConfig): void => {
+  try {
+    localStorage.setItem(FOOTER_CACHE_KEY, JSON.stringify(config));
+  } catch {
+    // ignore
+  }
 };
 
 // ─── Shared helpers ───────────────────────────────────────────────────────────
 
 const FOOTER_LINK_CLASS = "hover:opacity-100 opacity-70 transition-opacity flex items-center gap-1 group w-fit";
-const FooterLink = ({ href, children }: { href?: string; children: React.ReactNode }) => {
+const FooterLink = ({
+  href,
+  children,
+  style,
+}: {
+  href?: string;
+  children: React.ReactNode;
+  style?: React.CSSProperties;
+}) => {
   const arrow = <ArrowUpRight className="w-3 h-3 opacity-0 -translate-y-1 translate-x-1 group-hover:opacity-100 group-hover:translate-y-0 group-hover:translate-x-0 transition-all" />;
   // Root-relative URLs (our own pages) use SPA navigation; anything else (external,
   // mailto:, "#" placeholder) stays a plain anchor.
   return (
-    <li>
+    <li style={style}>
       {href && href.startsWith("/") ? (
-        <Link to={href} className={FOOTER_LINK_CLASS}>{children}{arrow}</Link>
+        <Link to={href} className={FOOTER_LINK_CLASS} style={style}>{children}{arrow}</Link>
       ) : (
-        <a href={href || "#"} className={FOOTER_LINK_CLASS}>{children}{arrow}</a>
+        <a href={href || "#"} className={FOOTER_LINK_CLASS} style={style}>{children}{arrow}</a>
       )}
     </li>
   );
@@ -118,20 +161,22 @@ const LinkColumns = ({
   columns,
   headingClassName,
   linkClassName,
+  textColor,
 }: {
   columns?: FooterLinkColumn[];
   headingClassName: string;
   linkClassName: string;
+  textColor?: string;
 }) => {
   const cols = columns && columns.length > 0 ? columns : DEFAULT_LINK_COLUMNS;
   return (
     <>
       {cols.map((col, i) => (
         <div key={i}>
-          <h5 className={headingClassName}>{col.heading}</h5>
+          <h5 className={headingClassName} style={textColor ? { color: textColor } : undefined}>{col.heading}</h5>
           <ul className={linkClassName}>
             {col.links.map((link, j) => (
-              <FooterLink key={j} href={link.url}>{link.label}</FooterLink>
+              <FooterLink key={j} href={link.url} style={textColor ? { color: textColor } : undefined}>{link.label}</FooterLink>
             ))}
           </ul>
         </div>
@@ -251,7 +296,7 @@ const SocialIcon = ({ platform, href }: SocialIconProps) => {
 function Template1({
   companyName, logoSrc, tagline, currentYear,
   instagramLink, facebookLink, mailLink, linkColumns,
-  showCompanyName = true,
+  showCompanyName = true, bgColor, textColor, blendLogoWithBg = false,
 }: {
   companyName: string;
   logoSrc: string | null;
@@ -262,38 +307,73 @@ function Template1({
   mailLink?: string;
   linkColumns?: FooterLinkColumn[];
   showCompanyName?: boolean;
+  bgColor?: string;
+  textColor?: string;
+  blendLogoWithBg?: boolean;
 }) {
+  const borderStyle = textColor ? { borderColor: `${textColor}22` } : undefined;
   return (
-    <footer className="bg-[#0a0a0a] text-white border-t border-white/10">
+    <footer 
+      className={`border-t ${bgColor ? "" : "bg-[#0a0a0a] text-white border-white/10"}`}
+      style={{
+        backgroundColor: bgColor || undefined,
+        color: textColor || undefined,
+        borderColor: textColor ? `${textColor}22` : undefined,
+      }}
+    >
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-16 lg:py-20">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-12 lg:gap-8">
           <div className="lg:col-span-2 space-y-6">
             <div className="flex items-center gap-3.5">
               {logoSrc && (
-                <div className="bg-white rounded-xl p-2 shadow-sm inline-flex items-center justify-center shrink-0">
-                  <img src={logoSrc} alt={companyName} className="h-8 w-auto max-w-[160px] object-contain" />
-                </div>
+                blendLogoWithBg ? (
+                  <div className="inline-flex items-center justify-center shrink-0">
+                    <img src={logoSrc} alt={companyName} className="h-8 w-auto max-w-[160px] object-contain" />
+                  </div>
+                ) : (
+                  <div className="bg-white rounded-xl p-2 shadow-sm inline-flex items-center justify-center shrink-0">
+                    <img src={logoSrc} alt={companyName} className="h-8 w-auto max-w-[160px] object-contain" />
+                  </div>
+                )
               )}
               {(showCompanyName !== false || !logoSrc) && companyName && (
-                <h4 className="text-3xl font-bold tracking-tighter uppercase">{companyName}</h4>
+                <h4 
+                  className="text-3xl font-bold tracking-tighter uppercase"
+                  style={textColor ? { color: textColor } : undefined}
+                >
+                  {companyName}
+                </h4>
               )}
             </div>
-            <p className="text-white/50 text-sm leading-relaxed max-w-sm">{tagline}</p>
+            <p 
+              className="text-sm leading-relaxed max-w-sm"
+              style={textColor ? { color: textColor, opacity: 0.65 } : { color: "rgba(255,255,255,0.5)" }}
+            >
+              {tagline}
+            </p>
             <div className="flex items-center gap-3">
               <SocialIcon platform="instagram" href={instagramLink} />
               <SocialIcon platform="facebook" href={facebookLink} />
               <SocialIcon platform="mail" href={mailLink} />
             </div>
           </div>
-          <LinkColumns columns={linkColumns} headingClassName="font-bold mb-6 text-white" linkClassName="space-y-4 text-sm text-white/60" />
+          <LinkColumns 
+            columns={linkColumns} 
+            headingClassName={`font-bold mb-6 ${textColor ? "" : "text-white"}`} 
+            linkClassName={`space-y-4 text-sm ${textColor ? "" : "text-white/60"}`} 
+            textColor={textColor}
+          />
         </div>
       </div>
-      <div className="border-t border-white/10">
-        <div className="max-w-[1400px] mx-auto px-4 py-6 flex flex-col sm:flex-row justify-between items-center text-xs text-white/30">
+      <div className={`border-t ${textColor ? "" : "border-white/10"}`} style={borderStyle}>
+        <div 
+          className="max-w-[1400px] mx-auto px-4 py-6 flex flex-col sm:flex-row justify-between items-center text-xs"
+          style={textColor ? { color: textColor, opacity: 0.5 } : { color: "rgba(255,255,255,0.3)" }}
+        >
           <p>© {currentYear}{companyName ? ` ${companyName}` : ""}. All rights reserved.</p>
           <div className="flex gap-6 mt-4 sm:mt-0">
-            <a href="#" className="hover:text-white transition-colors">Privacy Policy</a>
-            <a href="#" className="hover:text-white transition-colors">Cookies</a>
+            <Link to="/privacy" className="hover:opacity-100 transition-opacity">Privacy Policy</Link>
+           
           </div>
         </div>
       </div>
@@ -306,7 +386,7 @@ function Template1({
 function Template2({
   companyName, logoSrc, tagline, currentYear,
   instagramLink, facebookLink, mailLink, linkColumns,
-  showCompanyName = true,
+  showCompanyName = true, bgColor, textColor, blendLogoWithBg = true,
 }: {
   companyName: string;
   logoSrc: string | null;
@@ -317,28 +397,72 @@ function Template2({
   mailLink?: string;
   linkColumns?: FooterLinkColumn[];
   showCompanyName?: boolean;
+  bgColor?: string;
+  textColor?: string;
+  blendLogoWithBg?: boolean;
 }) {
+  const borderStyle = textColor ? { borderColor: `${textColor}22` } : undefined;
   return (
-    <footer className="bg-gray-50 text-gray-800 border-t border-gray-200">
-      <div className="border-b border-gray-200 py-10">
+    <footer 
+      className={`border-t ${bgColor ? "" : "bg-gray-50 text-gray-800 border-gray-200"}`}
+      style={{
+        backgroundColor: bgColor || undefined,
+        color: textColor || undefined,
+        borderColor: textColor ? `${textColor}22` : undefined,
+      }}
+    >
+      <div className={`border-b ${textColor ? "" : "border-gray-200"} py-10`} style={borderStyle}>
         <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="flex items-center gap-4">
-            {logoSrc && <img src={logoSrc} alt={companyName} className="h-12 w-auto object-contain" />}
+            {logoSrc && (
+              blendLogoWithBg ? (
+                <img src={logoSrc} alt={companyName} className="h-12 w-auto object-contain" />
+              ) : (
+                <div className="bg-white rounded-xl p-2 shadow-sm inline-flex items-center justify-center shrink-0">
+                  <img src={logoSrc} alt={companyName} className="h-10 w-auto max-w-[160px] object-contain" />
+                </div>
+              )
+            )}
             {(showCompanyName !== false || !logoSrc) && companyName && (
               <div>
-                <h4 className="text-2xl font-black tracking-tight text-gray-900 uppercase">{companyName}</h4>
-                <p className="text-xs text-gray-500 font-medium mt-0.5">Authentic Indian Fashion</p>
+                <h4 
+                  className="text-2xl font-black tracking-tight uppercase"
+                  style={textColor ? { color: textColor } : { color: "#111827" }}
+                >
+                  {companyName}
+                </h4>
+                <p 
+                  className="text-xs font-medium mt-0.5"
+                  style={textColor ? { color: textColor, opacity: 0.6 } : { color: "#6b7280" }}
+                >
+                  Authentic Indian Fashion
+                </p>
               </div>
             )}
           </div>
-          <p className="text-gray-500 text-sm leading-relaxed max-w-sm text-center md:text-right">{tagline}</p>
+          <p 
+            className="text-sm leading-relaxed max-w-sm text-center md:text-right"
+            style={textColor ? { color: textColor, opacity: 0.7 } : { color: "#6b7280" }}
+          >
+            {tagline}
+          </p>
         </div>
       </div>
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-8">
-          <LinkColumns columns={linkColumns} headingClassName="text-xs font-bold uppercase tracking-widest text-gray-400 mb-5" linkClassName="space-y-3 text-sm text-gray-700" />
+          <LinkColumns 
+            columns={linkColumns} 
+            headingClassName={`text-xs font-bold uppercase tracking-widest mb-5 ${textColor ? "" : "text-gray-400"}`} 
+            linkClassName={`space-y-3 text-sm ${textColor ? "" : "text-gray-700"}`} 
+            textColor={textColor}
+          />
           <div>
-            <h5 className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-5">Follow</h5>
+            <h5 
+              className={`text-xs font-bold uppercase tracking-widest mb-5 ${textColor ? "" : "text-gray-400"}`}
+              style={textColor ? { color: textColor } : undefined}
+            >
+              Follow
+            </h5>
             <div className="flex flex-wrap items-center gap-2.5">
               <SocialIcon platform="instagram" href={instagramLink} />
               <SocialIcon platform="facebook" href={facebookLink} />
@@ -347,12 +471,15 @@ function Template2({
           </div>
         </div>
       </div>
-      <div className="border-t border-gray-200">
-        <div className="max-w-[1400px] mx-auto px-4 py-5 flex flex-col sm:flex-row justify-between items-center text-xs text-gray-400">
+      <div className={`border-t ${textColor ? "" : "border-gray-200"}`} style={borderStyle}>
+        <div 
+          className="max-w-[1400px] mx-auto px-4 py-5 flex flex-col sm:flex-row justify-between items-center text-xs"
+          style={textColor ? { color: textColor, opacity: 0.6 } : { color: "#9ca3af" }}
+        >
           <p>© {currentYear}{companyName ? ` ${companyName}` : ""}. All rights reserved.</p>
           <div className="flex gap-6 mt-3 sm:mt-0">
-            <a href="#" className="hover:text-gray-700 transition-colors">Privacy Policy</a>
-            <a href="#" className="hover:text-gray-700 transition-colors">Cookies</a>
+            <Link to="/privacy" className="hover:opacity-100 transition-opacity">Privacy Policy</Link>
+            
           </div>
         </div>
       </div>
@@ -365,7 +492,7 @@ function Template2({
 function Template3({
   companyName, logoSrc, tagline, currentYear,
   instagramLink, facebookLink, mailLink, linkColumns,
-  showCompanyName = true,
+  showCompanyName = true, bgColor, textColor, blendLogoWithBg = false,
 }: {
   companyName: string;
   logoSrc: string | null;
@@ -377,38 +504,73 @@ function Template3({
   mailLink?: string;
   linkColumns?: FooterLinkColumn[];
   showCompanyName?: boolean;
+  bgColor?: string;
+  textColor?: string;
+  blendLogoWithBg?: boolean;
 }) {
+  const borderStyle = textColor ? { borderColor: `${textColor}22` } : undefined;
   return (
-    <footer className="bg-gradient-to-br from-indigo-950 via-slate-900 to-gray-950 text-white">
+    <footer 
+      className={`border-t ${bgColor ? "" : "bg-gradient-to-br from-indigo-950 via-slate-900 to-gray-950 text-white"}`}
+      style={{
+        backgroundColor: bgColor || undefined,
+        color: textColor || undefined,
+        borderColor: textColor ? `${textColor}22` : undefined,
+      }}
+    >
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-16">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-12 lg:gap-8">
           <div className="lg:col-span-2 space-y-6">
             <div className="flex items-center gap-3.5">
               {logoSrc && (
-                <div className="bg-white rounded-xl p-2 shadow-sm inline-flex items-center justify-center shrink-0">
-                  <img src={logoSrc} alt={companyName} className="h-8 w-auto max-w-[160px] object-contain" />
-                </div>
+                blendLogoWithBg ? (
+                  <div className="inline-flex items-center justify-center shrink-0">
+                    <img src={logoSrc} alt={companyName} className="h-8 w-auto max-w-[160px] object-contain" />
+                  </div>
+                ) : (
+                  <div className="bg-white rounded-xl p-2 shadow-sm inline-flex items-center justify-center shrink-0">
+                    <img src={logoSrc} alt={companyName} className="h-8 w-auto max-w-[160px] object-contain" />
+                  </div>
+                )
               )}
               {(showCompanyName !== false || !logoSrc) && companyName && (
-                <h4 className="text-2xl font-black tracking-tighter uppercase text-white">{companyName}</h4>
+                <h4 
+                  className="text-2xl font-black tracking-tighter uppercase"
+                  style={textColor ? { color: textColor } : { color: "#ffffff" }}
+                >
+                  {companyName}
+                </h4>
               )}
             </div>
-            <p className="text-white/45 text-sm leading-relaxed max-w-sm">{tagline}</p>
+            <p 
+              className="text-sm leading-relaxed max-w-sm"
+              style={textColor ? { color: textColor, opacity: 0.65 } : { color: "rgba(255,255,255,0.45)" }}
+            >
+              {tagline}
+            </p>
             <div className="flex items-center gap-3">
               <SocialIcon platform="instagram" href={instagramLink} />
               <SocialIcon platform="facebook" href={facebookLink} />
               <SocialIcon platform="mail" href={mailLink} />
             </div>
           </div>
-          <LinkColumns columns={linkColumns} headingClassName="text-xs font-bold uppercase tracking-widest text-[var(--theme-accent)] mb-6" linkClassName="space-y-4 text-sm text-white/55" />
+          <LinkColumns 
+            columns={linkColumns} 
+            headingClassName={`text-xs font-bold uppercase tracking-widest mb-6 ${textColor ? "" : "text-[var(--theme-accent)]"}`} 
+            linkClassName={`space-y-4 text-sm ${textColor ? "" : "text-white/55"}`} 
+            textColor={textColor}
+          />
         </div>
       </div>
-      <div className="border-t border-white/10">
-        <div className="max-w-[1400px] mx-auto px-4 py-5 flex flex-col sm:flex-row justify-between items-center text-xs text-white/30">
+      <div className={`border-t ${textColor ? "" : "border-white/10"}`} style={borderStyle}>
+        <div 
+          className="max-w-[1400px] mx-auto px-4 py-5 flex flex-col sm:flex-row justify-between items-center text-xs"
+          style={textColor ? { color: textColor, opacity: 0.5 } : { color: "rgba(255,255,255,0.3)" }}
+        >
           <p>© {currentYear}{companyName ? ` ${companyName}` : ""}. All rights reserved.</p>
           <div className="flex gap-6 mt-3 sm:mt-0">
-            <a href="#" className="hover:text-white transition-colors">Privacy Policy</a>
-            <a href="#" className="hover:text-white transition-colors">Cookies</a>
+            <Link to="/privacy" className="hover:opacity-100 transition-opacity">Privacy Policy</Link>
+           
           </div>
         </div>
       </div>
@@ -417,13 +579,11 @@ function Template3({
 }
 
 // ─── Template 4: Minimal Centered ──────────────────────────────────────────────
-// Single centered column — logo, tagline, socials, copyright. No link columns at all,
-// pairs naturally with Hero's Template 7 (Minimal Statement) for a stripped-down store.
 
 function Template4({
   companyName, logoSrc, tagline, currentYear,
   instagramLink, facebookLink, mailLink,
-  showCompanyName = true,
+  showCompanyName = true, bgColor, textColor, blendLogoWithBg = true,
 }: {
   companyName: string;
   logoSrc: string | null;
@@ -433,40 +593,74 @@ function Template4({
   facebookLink?: string;
   mailLink?: string;
   showCompanyName?: boolean;
+  bgColor?: string;
+  textColor?: string;
+  blendLogoWithBg?: boolean;
 }) {
   return (
-    <footer className="bg-white text-gray-800 border-t border-gray-100">
+    <footer 
+      className={`border-t ${bgColor ? "" : "bg-white text-gray-800 border-gray-100"}`}
+      style={{
+        backgroundColor: bgColor || undefined,
+        color: textColor || undefined,
+        borderColor: textColor ? `${textColor}22` : undefined,
+      }}
+    >
       <div className="max-w-2xl mx-auto px-4 sm:px-6 py-16 lg:py-20 flex flex-col items-center text-center">
-        {logoSrc && <img src={logoSrc} alt={companyName} className="h-10 w-auto object-contain mb-4" />}
-        {(showCompanyName !== false || !logoSrc) && companyName && (
-          <h4 className="text-xl font-bold tracking-tight text-gray-900 uppercase mb-3">{companyName}</h4>
+        {logoSrc && (
+          blendLogoWithBg ? (
+            <img src={logoSrc} alt={companyName} className="h-10 w-auto object-contain mb-4" />
+          ) : (
+            <div className="bg-white rounded-xl p-2.5 shadow-sm inline-flex items-center justify-center shrink-0 mb-4">
+              <img src={logoSrc} alt={companyName} className="h-9 w-auto max-w-[160px] object-contain" />
+            </div>
+          )
         )}
-        <p className="text-gray-500 text-sm leading-relaxed max-w-md mb-8">{tagline}</p>
+        {(showCompanyName !== false || !logoSrc) && companyName && (
+          <h4 
+            className="text-xl font-bold tracking-tight uppercase mb-3"
+            style={textColor ? { color: textColor } : { color: "#111827" }}
+          >
+            {companyName}
+          </h4>
+        )}
+        <p 
+          className="text-sm leading-relaxed max-w-md mb-8"
+          style={textColor ? { color: textColor, opacity: 0.7 } : { color: "#6b7280" }}
+        >
+          {tagline}
+        </p>
         <div className="flex items-center gap-3 mb-10">
           <SocialIcon platform="instagram" href={instagramLink} />
           <SocialIcon platform="facebook" href={facebookLink} />
           <SocialIcon platform="mail" href={mailLink} />
         </div>
-        <div className="flex gap-6 text-xs text-gray-400 mb-6">
-          <a href="#" className="hover:text-gray-700 transition-colors">Privacy Policy</a>
-          <a href="#" className="hover:text-gray-700 transition-colors">Cookies</a>
-          <a href="#" className="hover:text-gray-700 transition-colors">Contact Us</a>
+        <div 
+          className="flex gap-6 text-xs mb-6"
+          style={textColor ? { color: textColor, opacity: 0.6 } : { color: "#9ca3af" }}
+        >
+          <Link to="/privacy" className="hover:opacity-100 transition-opacity">Privacy Policy</Link>
+          
+          <Link to="/contact" className="hover:opacity-100 transition-opacity">Contact Us</Link>
         </div>
-        <p className="text-xs text-gray-400">© {currentYear}{companyName ? ` ${companyName}` : ""}. All rights reserved.</p>
+
+        
+        <p 
+          className="text-xs"
+          style={textColor ? { color: textColor, opacity: 0.6 } : { color: "#9ca3af" }}
+        >
+          © {currentYear}{companyName ? ` ${companyName}` : ""}. All rights reserved.</p>
       </div>
     </footer>
   );
 }
 
 // ─── Template 5: Festive Accent Band ───────────────────────────────────────────
-// A solid theme-primary band, bold centered branding — the footer equivalent of Hero's
-// Template 6 (Diagonal Split), for occasion presets that want the brand color carried
-// all the way to the bottom of the page.
 
 function Template5({
   companyName, logoSrc, tagline, currentYear,
   instagramLink, facebookLink, mailLink, linkColumns,
-  showCompanyName = true,
+  showCompanyName = true, bgColor, textColor, blendLogoWithBg = false,
 }: {
   companyName: string;
   logoSrc: string | null;
@@ -477,33 +671,70 @@ function Template5({
   mailLink?: string;
   linkColumns?: FooterLinkColumn[];
   showCompanyName?: boolean;
+  bgColor?: string;
+  textColor?: string;
+  blendLogoWithBg?: boolean;
 }) {
+  const borderStyle = textColor ? { borderColor: `${textColor}25` } : undefined;
   return (
-    <footer className="bg-[var(--theme-primary)] text-[var(--theme-primary-ink)]">
+    <footer 
+      className={`border-t ${bgColor ? "" : "bg-[var(--theme-primary)] text-[var(--theme-primary-ink)]"}`}
+      style={{
+        backgroundColor: bgColor || undefined,
+        color: textColor || undefined,
+        borderColor: textColor ? `${textColor}25` : undefined,
+      }}
+    >
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-16 lg:py-20">
         <div className="flex flex-col md:flex-row items-center md:items-start justify-between gap-10 mb-12">
           <div className="text-center md:text-left">
             {logoSrc && (
-              <div className="inline-flex items-center justify-center p-2.5 bg-white rounded-xl shadow-sm mb-4 mx-auto md:mx-0">
-                <img src={logoSrc} alt={companyName} className="h-9 w-auto max-w-[180px] object-contain" />
-              </div>
+              blendLogoWithBg ? (
+                <div className="inline-flex items-center justify-center mb-4 mx-auto md:mx-0 shrink-0">
+                  <img src={logoSrc} alt={companyName} className="h-9 w-auto max-w-[180px] object-contain" />
+                </div>
+              ) : (
+                <div className="inline-flex items-center justify-center p-2.5 bg-white rounded-xl shadow-sm mb-4 mx-auto md:mx-0">
+                  <img src={logoSrc} alt={companyName} className="h-9 w-auto max-w-[180px] object-contain" />
+                </div>
+              )
             )}
             {(showCompanyName !== false || !logoSrc) && companyName && (
-              <h4 className="text-2xl font-black tracking-tighter uppercase mb-3">{companyName}</h4>
+              <h4 
+                className="text-2xl font-black tracking-tighter uppercase mb-3"
+                style={textColor ? { color: textColor } : undefined}
+              >
+                {companyName}
+              </h4>
             )}
-            <p className="text-[var(--theme-primary-ink)]/75 text-sm leading-relaxed max-w-sm">{tagline}</p>
+            <p 
+              className="text-sm leading-relaxed max-w-sm"
+              style={textColor ? { color: textColor, opacity: 0.75 } : { opacity: 0.75 }}
+            >
+              {tagline}
+            </p>
           </div>
           <div className="grid grid-cols-3 gap-8 text-center md:text-left">
-            <LinkColumns columns={linkColumns} headingClassName="text-xs font-bold uppercase tracking-widest text-[var(--theme-primary-ink)]/60 mb-4" linkClassName="space-y-3 text-sm text-[var(--theme-primary-ink)]/85" />
+            <LinkColumns 
+              columns={linkColumns} 
+              headingClassName="text-xs font-bold uppercase tracking-widest mb-4 opacity-70" 
+              linkClassName="space-y-3 text-sm opacity-90" 
+              textColor={textColor}
+            />
           </div>
         </div>
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-6 pt-8 border-t border-[var(--theme-primary-ink)]/15">
+        <div className={`flex flex-col sm:flex-row items-center justify-between gap-6 pt-8 border-t ${textColor ? "" : "border-[var(--theme-primary-ink)]/15"}`} style={borderStyle}>
           <div className="flex items-center gap-3">
             <SocialIcon platform="instagram" href={instagramLink} />
             <SocialIcon platform="facebook" href={facebookLink} />
             <SocialIcon platform="mail" href={mailLink} />
           </div>
-          <p className="text-xs text-[var(--theme-primary-ink)]/60">© {currentYear}{companyName ? ` ${companyName}` : ""}. All rights reserved.</p>
+          <p 
+            className="text-xs"
+            style={textColor ? { color: textColor, opacity: 0.6 } : { opacity: 0.6 }}
+          >
+            © {currentYear}{companyName ? ` ${companyName}` : ""}. All rights reserved.
+          </p>
         </div>
       </div>
     </footer>
@@ -511,13 +742,11 @@ function Template5({
 }
 
 // ─── Template 6: Split Statement ───────────────────────────────────────────────
-// Large brand statement on the left, compact link columns + socials on the right —
-// an asymmetric layout distinct from Template1/Template2's even grids.
 
 function Template6({
   companyName, logoSrc, tagline, currentYear,
   instagramLink, facebookLink, mailLink, linkColumns,
-  showCompanyName = true,
+  showCompanyName = true, bgColor, textColor, blendLogoWithBg = true,
 }: {
   companyName: string;
   logoSrc: string | null;
@@ -528,21 +757,46 @@ function Template6({
   mailLink?: string;
   linkColumns?: FooterLinkColumn[];
   showCompanyName?: boolean;
+  bgColor?: string;
+  textColor?: string;
+  blendLogoWithBg?: boolean;
 }) {
+  const borderStyle = textColor ? { borderColor: `${textColor}22` } : undefined;
   return (
-    <footer className="bg-white text-gray-800 border-t border-gray-100">
+    <footer 
+      className={`border-t ${bgColor ? "" : "bg-white text-gray-800 border-gray-100"}`}
+      style={{
+        backgroundColor: bgColor || undefined,
+        color: textColor || undefined,
+        borderColor: textColor ? `${textColor}22` : undefined,
+      }}
+    >
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-16 lg:py-24">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 items-start">
           <div className="lg:col-span-6 space-y-6">
             <div className="flex items-center gap-3">
-              {logoSrc && <img src={logoSrc} alt={companyName} className="h-10 w-auto object-contain" />}
+              {logoSrc && (
+                blendLogoWithBg ? (
+                  <img src={logoSrc} alt={companyName} className="h-10 w-auto object-contain" />
+                ) : (
+                  <div className="bg-white rounded-xl p-2 shadow-sm inline-flex items-center justify-center shrink-0">
+                    <img src={logoSrc} alt={companyName} className="h-9 w-auto max-w-[160px] object-contain" />
+                  </div>
+                )
+              )}
               {(showCompanyName !== false || !logoSrc) && companyName && (
-                <span className="text-xl font-black uppercase tracking-tight text-gray-900">
+                <span 
+                  className="text-xl font-black uppercase tracking-tight"
+                  style={textColor ? { color: textColor } : { color: "#111827" }}
+                >
                   {companyName}
                 </span>
               )}
             </div>
-            <h4 className="text-3xl sm:text-4xl font-black tracking-tight text-gray-900 leading-tight max-w-lg">
+            <h4 
+              className="text-3xl sm:text-4xl font-black tracking-tight leading-tight max-w-lg"
+              style={textColor ? { color: textColor } : { color: "#111827" }}
+            >
               {tagline}
             </h4>
             <div className="flex items-center gap-3 pt-2">
@@ -554,18 +808,22 @@ function Template6({
           <div className="lg:col-span-6 grid grid-cols-3 gap-6 sm:gap-10">
             <LinkColumns
               columns={linkColumns}
-              headingClassName="text-xs font-bold uppercase tracking-widest text-gray-400 mb-4"
-              linkClassName="space-y-3 text-sm text-gray-700"
+              headingClassName={`text-xs font-bold uppercase tracking-widest mb-4 ${textColor ? "" : "text-gray-400"}`}
+              linkClassName={`space-y-3 text-sm ${textColor ? "" : "text-gray-700"}`}
+              textColor={textColor}
             />
           </div>
         </div>
       </div>
-      <div className="border-t border-gray-100">
-        <div className="max-w-[1400px] mx-auto px-4 py-5 flex flex-col sm:flex-row justify-between items-center text-xs text-gray-400">
+      <div className={`border-t ${textColor ? "" : "border-gray-100"}`} style={borderStyle}>
+        <div 
+          className="max-w-[1400px] mx-auto px-4 py-5 flex flex-col sm:flex-row justify-between items-center text-xs"
+          style={textColor ? { color: textColor, opacity: 0.6 } : { color: "#9ca3af" }}
+        >
           <p>© {currentYear}{companyName ? ` ${companyName}` : ""}. All rights reserved.</p>
           <div className="flex gap-6 mt-3 sm:mt-0">
-            <a href="#" className="hover:text-gray-700 transition-colors">Privacy Policy</a>
-            <a href="#" className="hover:text-gray-700 transition-colors">Cookies</a>
+            <Link to="/privacy" className="hover:opacity-100 transition-opacity">Privacy Policy</Link>
+            
           </div>
         </div>
       </div>
@@ -573,19 +831,27 @@ function Template6({
   );
 }
 
-// ─── Main FooterSection ────────────────────────────────────────────────────────
-
 const FooterSection = () => {
   const { branding } = useBranding();
   const { activeOccasion, activeFestiveColors } = useTheme();
-  const [footerConfig, setFooterConfig] = useState<FooterConfig>(DEFAULT_CONFIG);
+
+  // Initialize immediately from cache so there is zero flash of default black footer
+  const [footerConfig, setFooterConfig] = useState<FooterConfig>(() => {
+    return readFooterCache() ?? DEFAULT_CONFIG;
+  });
 
   useEffect(() => {
+    const handleUpdate = () => {
+      const cached = readFooterCache();
+      if (cached) setFooterConfig(cached);
+    };
+    window.addEventListener(FOOTER_UPDATE_EVENT, handleUpdate);
+
     api
       .get("/home-banners/homepage-config")
       .then(({ data }) => {
         if (data?.footerConfig) {
-          setFooterConfig({
+          const fresh: FooterConfig = {
             activeTemplate: data.footerConfig.activeTemplate ?? DEFAULT_CONFIG.activeTemplate,
             templates: {
               "1": { ...DEFAULT_CONFIG.templates["1"], ...data.footerConfig.templates?.["1"] },
@@ -595,10 +861,16 @@ const FooterSection = () => {
               "5": { ...DEFAULT_CONFIG.templates["5"], ...data.footerConfig.templates?.["5"] },
               "6": { ...DEFAULT_CONFIG.templates["6"], ...data.footerConfig.templates?.["6"] },
             },
-          });
+          };
+          writeFooterCache(fresh);
+          setFooterConfig(fresh);
         }
       })
       .catch(() => {});
+
+    return () => {
+      window.removeEventListener(FOOTER_UPDATE_EVENT, handleUpdate);
+    };
   }, []);
 
   const companyName = branding.companyName || "";
@@ -634,6 +906,9 @@ const FooterSection = () => {
             mailLink={templateData.mailLink}
             linkColumns={templateData.linkColumns}
             showCompanyName={showCompanyName}
+            bgColor={templateData.bgColor}
+            textColor={templateData.textColor}
+            blendLogoWithBg={templateData.blendLogoWithBg}
           />
         );
       case 3:
@@ -648,6 +923,9 @@ const FooterSection = () => {
             mailLink={templateData.mailLink}
             linkColumns={templateData.linkColumns}
             showCompanyName={showCompanyName}
+            bgColor={templateData.bgColor}
+            textColor={templateData.textColor}
+            blendLogoWithBg={templateData.blendLogoWithBg}
           />
         );
       case 4:
@@ -661,6 +939,9 @@ const FooterSection = () => {
             facebookLink={templateData.facebookLink}
             mailLink={templateData.mailLink}
             showCompanyName={showCompanyName}
+            bgColor={templateData.bgColor}
+            textColor={templateData.textColor}
+            blendLogoWithBg={templateData.blendLogoWithBg}
           />
         );
       case 5:
@@ -675,6 +956,9 @@ const FooterSection = () => {
             mailLink={templateData.mailLink}
             linkColumns={templateData.linkColumns}
             showCompanyName={showCompanyName}
+            bgColor={templateData.bgColor}
+            textColor={templateData.textColor}
+            blendLogoWithBg={templateData.blendLogoWithBg}
           />
         );
       case 6:
@@ -689,6 +973,9 @@ const FooterSection = () => {
             mailLink={templateData.mailLink}
             linkColumns={templateData.linkColumns}
             showCompanyName={showCompanyName}
+            bgColor={templateData.bgColor}
+            textColor={templateData.textColor}
+            blendLogoWithBg={templateData.blendLogoWithBg}
           />
         );
       default:
@@ -703,6 +990,9 @@ const FooterSection = () => {
             mailLink={templateData.mailLink}
             linkColumns={templateData.linkColumns}
             showCompanyName={showCompanyName}
+            bgColor={templateData.bgColor}
+            textColor={templateData.textColor}
+            blendLogoWithBg={templateData.blendLogoWithBg}
           />
         );
     }

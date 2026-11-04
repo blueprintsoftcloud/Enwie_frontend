@@ -25,6 +25,7 @@ export type StaffPermission =
   | "PRODUCT_EDIT"
   | "PRODUCT_DELETE"
   | "ORDER_VIEW"
+  | "ORDER_CREATE"
   | "ORDER_UPDATE"
   | "COUPON_VIEW"
   | "COUPON_ADD"
@@ -63,6 +64,7 @@ export const PERMISSION_GROUPS = [
     label: "Order Management",
     permissions: [
       { key: "ORDER_VIEW" as StaffPermission, label: "View Orders" },
+      { key: "ORDER_CREATE" as StaffPermission, label: "Place Order on Behalf of Customer" },
       { key: "ORDER_UPDATE" as StaffPermission, label: "Update Order Status" },
     ],
   },

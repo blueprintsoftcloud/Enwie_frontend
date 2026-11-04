@@ -5,6 +5,25 @@
    first measurement lands. */
 :root {
   --app-header-h: 112px;
+  --font-sans: "Jost", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --theme-font-heading: "Jost", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --theme-font-body: "Jost", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+html,
+body {
+  font-family: "Jost", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  letter-spacing: 0.015em;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+button,
+input,
+optgroup,
+select,
+textarea {
+  font-family: "Jost", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 
 input[type=number]::-webkit-inner-spin-button,
@@ -210,8 +229,8 @@ input[type=number]::-webkit-outer-spin-button {
   background-color: var(--festive-border) !important;
 }
 
-/* Storefront fixed navbar bottom border line during festive occasions */
-[data-active-occasion] nav[class*="border-b"] {
+/* Storefront fixed navbar bottom border line during festive occasions (excluded when scrolled/elevated) */
+[data-active-occasion] nav[class*="border-b"]:not([class*="border-b-0"]):not([class*="border-transparent"]) {
   border-bottom-color: var(--festive-border) !important;
 }
 

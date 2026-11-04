@@ -901,59 +901,68 @@ const VariantsManagerFields = forwardRef<VariantsManagerFieldsHandle, VariantsMa
               }
 
               return (
-                <div className="relative rounded-xl border border-dashed border-slate-200 bg-slate-50/40 hover:bg-slate-50 hover:border-indigo-300 transition-all p-3 space-y-2 flex flex-col justify-between">
+                <div className="relative rounded-2xl border border-slate-200/90 bg-slate-50/30 hover:bg-white p-3.5 transition-all space-y-3 flex flex-col justify-between min-h-[175px]">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-1.5">
-                      <span className="flex h-5 w-5 items-center justify-center rounded-md text-[11px] font-bold bg-indigo-100 text-indigo-700">
+                      <span className="flex h-5 w-5 items-center justify-center rounded-md text-[11px] font-bold bg-slate-200/80 text-slate-700 shadow-2xs">
                         {badgeNumber}
                       </span>
-                      <span className="text-xs font-semibold text-slate-700">{title}</span>
+                      <span className="text-xs font-bold text-slate-800">{title}</span>
                     </div>
                     {isRequiredSlot ? (
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border text-slate-600 bg-slate-100 border-slate-200">
+                      <span className="inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200/80">
                         Required *
                       </span>
                     ) : (
-                      <span className="text-[10px] font-medium text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">Optional</span>
+                      <span className="inline-flex items-center text-[10px] font-medium text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
+                        Optional
+                      </span>
                     )}
                   </div>
 
-                  <div className="flex items-center gap-1.5">
-                    <label className="flex-1 cursor-pointer border-2 border-dashed border-slate-200 hover:border-indigo-400 bg-white hover:bg-indigo-50/20 rounded-xl py-2.5 px-3 transition-all duration-200 flex items-center justify-center gap-2 group">
-                      <div className="p-1 rounded-lg bg-indigo-50 text-indigo-600 group-hover:scale-105 group-hover:bg-indigo-600 group-hover:text-white transition-all">
-                        <Upload className="h-3.5 w-3.5" />
-                      </div>
-                      <span className="text-xs font-bold text-slate-700 group-hover:text-indigo-700">
-                        {slot === "primary" ? "Upload 1st Image *" : "Upload 2nd Image"}
-                      </span>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        disabled={isSlotUploading || applyingToAll}
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) handleImageUpload(variant.id, slot, file);
-                          e.target.value = "";
-                        }}
-                      />
-                    </label>
-                    {productImages && productImages.length > 0 && (
-                      <button
-                        type="button"
-                        disabled={isSlotUploading || applyingToAll}
-                        onClick={() => setGalleryPickerTarget({ variantId: variant.id, slot })}
-                        className="inline-flex items-center justify-center gap-1 py-2.5 px-3 rounded-xl bg-white border border-slate-200 hover:border-indigo-300 hover:bg-indigo-50/30 text-xs font-semibold text-slate-700 hover:text-indigo-600 transition shadow-2xs cursor-pointer"
-                        title="Pick an existing photo from the product's gallery"
-                      >
-                        <ImageIcon className="h-3.5 w-3.5 text-slate-500" />
-                        <span>Gallery</span>
-                      </button>
-                    )}
+                  <div className="flex-1 flex flex-col justify-center">
+                    <div className="flex items-stretch gap-2">
+                      <label className="flex-1 cursor-pointer border-2 border-dashed border-slate-200 hover:border-indigo-400 bg-white hover:bg-indigo-50/25 rounded-xl py-5 px-3 transition-all duration-200 flex flex-col items-center justify-center text-center gap-1.5 group">
+                        <div className="p-2 rounded-xl bg-slate-100 group-hover:bg-indigo-600 text-slate-500 group-hover:text-white transition-all shadow-2xs group-hover:scale-105">
+                          <Upload className="h-4 w-4" />
+                        </div>
+                        <span className="text-xs font-bold text-slate-700 group-hover:text-indigo-700 transition-colors">
+                          {slot === "primary" ? "Upload 1st Image *" : "Upload 2nd Image"}
+                        </span>
+                        <span className="text-[10px] text-slate-400">
+                          PNG, JPG, WEBP
+                        </span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          disabled={isSlotUploading || applyingToAll}
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) handleImageUpload(variant.id, slot, file);
+                            e.target.value = "";
+                          }}
+                        />
+                      </label>
+                      {productImages && productImages.length > 0 && (
+                        <button
+                          type="button"
+                          disabled={isSlotUploading || applyingToAll}
+                          onClick={() => setGalleryPickerTarget({ variantId: variant.id, slot })}
+                          className="flex flex-col items-center justify-center gap-1.5 px-3 rounded-xl bg-white border border-slate-200 hover:border-indigo-300 hover:bg-indigo-50/30 text-xs font-semibold text-slate-700 hover:text-indigo-600 transition shadow-2xs cursor-pointer"
+                          title="Pick an existing photo from the product's gallery"
+                        >
+                          <div className="p-1.5 rounded-lg bg-slate-100 text-slate-500">
+                            <ImageIcon className="h-3.5 w-3.5" />
+                          </div>
+                          <span className="text-[11px] font-medium">Gallery</span>
+                        </button>
+                      )}
+                    </div>
                   </div>
 
                   {isSlotUploading && (
-                    <div className="absolute inset-0 rounded-xl bg-white/90 backdrop-blur-xs flex items-center justify-center gap-1.5 text-xs font-semibold text-indigo-600 z-10">
+                    <div className="absolute inset-0 rounded-2xl bg-white/90 backdrop-blur-xs flex items-center justify-center gap-1.5 text-xs font-semibold text-indigo-600 z-10">
                       <RefreshCw className="h-4 w-4 animate-spin" />
                       Uploading…
                     </div>

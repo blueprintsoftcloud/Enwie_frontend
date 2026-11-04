@@ -14,6 +14,7 @@ import toast from "react-hot-toast";
 import { DocumentTextIcon, PlusIcon, TrashIcon, ArrowTopRightOnSquareIcon } from "@heroicons/react/24/outline";
 import api from "../utils/api";
 import { useStaffPermissions } from "../context/StaffPermissionContext";
+import { writeStaticPagesCache } from "../utils/staticPagesCache";
 
 interface TextPageContent {
   title: string;
@@ -40,6 +41,7 @@ export default function StaticPagesManager() {
   const [loading, setLoading] = useState(true);
   const [about, setAbout] = useState<TextPageContent>(emptyText);
   const [terms, setTerms] = useState<TextPageContent>(emptyText);
+  const [privacy, setPrivacy] = useState<TextPageContent>(emptyText);
   const [help, setHelp] = useState<HelpContent>(emptyHelp);
   const [savingPage, setSavingPage] = useState<string | null>(null);
 
@@ -48,13 +50,14 @@ export default function StaticPagesManager() {
       .then(({ data }) => {
         setAbout(data.about ?? emptyText);
         setTerms(data.terms ?? emptyText);
+        setPrivacy(data.privacy ?? emptyText);
         setHelp(data.help ?? emptyHelp);
       })
       .catch(() => toast.error("Failed to load content pages"))
       .finally(() => setLoading(false));
   }, []);
 
-  const savePage = async (page: "about" | "terms" | "help", content: object) => {
+  const savePage = async (page: "about" | "terms" | "privacy" | "help", content: object) => {
     if (!canEdit) {
       toast.error(NO_PERMISSION_MSG);
       return;
@@ -62,6 +65,7 @@ export default function StaticPagesManager() {
     try {
       setSavingPage(page);
       await api.put(`/pages/${page}`, content);
+      writeStaticPagesCache({ [page]: content });
       toast.success("Page saved");
     } catch {
       toast.error("Failed to save page");
@@ -91,7 +95,7 @@ export default function StaticPagesManager() {
     <div className="max-w-4xl mx-auto p-6 space-y-6">
       <div>
         <h1 className="text-xl font-black text-slate-900 tracking-tight">Content Pages</h1>
-        <p className="text-sm text-slate-500 mt-1">Edit the storefront's About Us, Terms &amp; Conditions, and Help Center pages — these are what your footer's "Company"/"Support" links point to.</p>
+        <p className="text-sm text-slate-500 mt-1">Edit the storefront's About Us, Terms &amp; Conditions, Privacy Policy, and Help Center pages — these are what your footer links point to.</p>
       </div>
 
       {/* About Us */}
@@ -142,6 +146,32 @@ export default function StaticPagesManager() {
           </div>
           <button onClick={() => savePage("terms", terms)} disabled={savingPage === "terms"} className="flex items-center gap-2 px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl transition-all active:scale-95 disabled:opacity-50">
             {savingPage === "terms" ? "Saving…" : "Save Terms & Conditions"}
+          </button>
+        </div>
+      </div>
+
+      {/* Privacy Policy */}
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-xs overflow-hidden">
+        <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-slate-900 rounded-xl"><DocumentTextIcon className="w-3.5 h-3.5 text-white" /></div>
+            <h2 className="font-black text-slate-900 text-sm tracking-tight">Privacy Policy</h2>
+          </div>
+          <Link to="/privacy" target="_blank" className="text-xs font-bold text-slate-400 hover:text-slate-900 flex items-center gap-1 transition-colors">
+            View page <ArrowTopRightOnSquareIcon className="w-3.5 h-3.5" />
+          </Link>
+        </div>
+        <div className="p-6 space-y-4">
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block">Page Title</label>
+            <input className={inputCls} value={privacy.title} onChange={(e) => setPrivacy((p) => ({ ...p, title: e.target.value }))} placeholder="Privacy Policy" />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block">Body</label>
+            <textarea className={`${inputCls} resize-none`} rows={10} value={privacy.body} onChange={(e) => setPrivacy((p) => ({ ...p, body: e.target.value }))} placeholder="Data protection, cookies, privacy practices, etc. Leave a blank line between paragraphs." />
+          </div>
+          <button onClick={() => savePage("privacy", privacy)} disabled={savingPage === "privacy"} className="flex items-center gap-2 px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl transition-all active:scale-95 disabled:opacity-50">
+            {savingPage === "privacy" ? "Saving…" : "Save Privacy Policy"}
           </button>
         </div>
       </div>

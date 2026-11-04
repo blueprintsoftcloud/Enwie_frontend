@@ -1,5 +1,5 @@
 // src/store/cartStore.ts
-// Zustand store for cart UI state (optimistic updates, local count, loading flags).
+// Zustand store for cart UI state (optimistic updates, local count, loading flags, drawer state).
 // Actual server-sync is handled by TanStack Query in CartContext.
 
 import { create } from "zustand";
@@ -24,8 +24,13 @@ interface CartState {
   items: CartItem[];
   total: string;
   loading: boolean;
+  isDrawerOpen: boolean;
   setItems: (items: CartItem[], total: string) => void;
   setLoading: (loading: boolean) => void;
+  setIsDrawerOpen: (open: boolean) => void;
+  openDrawer: () => void;
+  closeDrawer: () => void;
+  toggleDrawer: () => void;
   clear: () => void;
 }
 
@@ -33,8 +38,13 @@ export const useCartStore = create<CartState>((set) => ({
   items: [],
   total: "0.00",
   loading: false,
+  isDrawerOpen: false,
 
   setItems: (items, total) => set({ items, total }),
   setLoading: (loading) => set({ loading }),
+  setIsDrawerOpen: (isDrawerOpen) => set({ isDrawerOpen }),
+  openDrawer: () => set({ isDrawerOpen: true }),
+  closeDrawer: () => set({ isDrawerOpen: false }),
+  toggleDrawer: () => set((state) => ({ isDrawerOpen: !state.isDrawerOpen })),
   clear: () => set({ items: [], total: "0.00" }),
 }));

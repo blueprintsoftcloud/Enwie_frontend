@@ -1,6 +1,7 @@
 import React from "react";
 import api from "../utils/api";
 import toast from "react-hot-toast";
+import { fetchPincodeDetails } from "../utils/pincodeLookup";
 
 interface Address {
   name: string;
@@ -10,6 +11,7 @@ interface Address {
   city: string;
   state: string;
   pincode: string;
+  locality?: string;
   lat?: number;
   lng?: number;
   shippingCharge?: number;
@@ -32,20 +34,18 @@ const AddressForm = ({ address, setAddress }: AddressFormProps) => {
 
       if (cleanPincode.length === 6) {
         try {
-          const res = await fetch(`https://api.postalpincode.in/pincode/${cleanPincode}`);
-          if (res.ok) {
-            const data = await res.json();
-            if (data && data[0] && data[0].Status === "Success") {
-              const postOffice = data[0].PostOffice[0];
-              const fetchedState = postOffice.State;
-              const fetchedCity = postOffice.District || postOffice.Block || postOffice.Name;
-              setAddress((prev) => ({
-                ...prev,
-                state: fetchedState || prev.state,
-                city: fetchedCity || prev.city,
-              }));
-              toast.success(`Pincode resolved to ${fetchedCity}, ${fetchedState}`);
-            }
+          const result = await fetchPincodeDetails(cleanPincode);
+          if (result.success) {
+            const autoLocality = result.localities.length === 1 ? result.localities[0] : "";
+            setAddress((prev) => ({
+              ...prev,
+              state: result.state || prev.state,
+              city: result.city || prev.city,
+              locality: autoLocality || prev.locality,
+            }));
+            toast.success(`Resolved to ${result.city}, ${result.state}`);
+          } else {
+            toast.error(result.error || "Pincode not found");
           }
         } catch (err) {
           console.error("Failed to fetch state/city from pincode", err);

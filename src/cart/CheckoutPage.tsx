@@ -4,6 +4,7 @@ import { createPortal } from "react-dom";
 import { Popover, Transition } from "@headlessui/react";
 import {
   ChevronUpIcon,
+  ChevronDownIcon,
   MapPinIcon,
   TruckIcon,
   CreditCardIcon,
@@ -13,8 +14,11 @@ import {
   LockClosedIcon,
   ArrowPathIcon,
 } from "@heroicons/react/24/outline";
-import { ArrowLeft, CheckCircle, Package, QrCode, UploadCloud, Copy, Trash2, X, Sparkles, AlertCircle } from "lucide-react";
+import { ArrowLeft, CheckCircle, Package, QrCode, UploadCloud, Copy, Trash2, X, Sparkles, AlertCircle, Smartphone, ExternalLink } from "lucide-react";
 import QRCode from "qrcode";
+import { BeatLoader } from "react-spinners";
+import { fetchPincodeDetails } from "../utils/pincodeLookup";
+import CouponCarousel from "../components/CouponCarousel";
 
 const validateTransactionId = (val: string) => {
   const cleaned = val.trim().replace(/[\s-]/g, "");
@@ -88,6 +92,7 @@ interface AddressState {
   city: string;
   state: string;
   pincode: string;
+  locality?: string;
   lat: number | null;
   lng: number | null;
 }
@@ -161,6 +166,7 @@ const CheckoutPage = () => {
       city: string;
       state: string;
       zipCode: string;
+      locality?: string;
       lat: number | null;
       lng: number | null;
       isGpsLocked?: boolean;
@@ -194,9 +200,15 @@ const CheckoutPage = () => {
     city: prefill?.addressPrefill?.city ?? "",
     state: prefill?.addressPrefill?.state ?? "",
     pincode: prefill?.addressPrefill?.zipCode ?? "",
+    locality: prefill?.addressPrefill?.locality ?? "",
     lat: prefill?.addressPrefill?.lat ?? null,
     lng: prefill?.addressPrefill?.lng ?? null,
   });
+
+  const [availableLocalities, setAvailableLocalities] = useState<string[]>([]);
+  const [isLocalityDropdownOpen, setIsLocalityDropdownOpen] = useState(false);
+  const [pincodeLoading, setPincodeLoading] = useState(false);
+  const [pincodeError, setPincodeError] = useState<string | null>(null);
 
   const [detectedArea, setDetectedArea] = useState<string>(
     prefill?.addressPrefill?.detectedArea ?? ""
@@ -268,6 +280,7 @@ const CheckoutPage = () => {
   }>({ enabled: false, qrCode: "" });
   const [showQrModal, setShowQrModal] = useState(false);
   const [qrModalStep, setQrModalStep] = useState<"SCAN" | "SUBMIT">("SCAN");
+  const [qrViewMode, setQrViewMode] = useState<"APP" | "QR">("APP");
   useBodyScrollLock(showQrModal);
   const [dynamicQrUrl, setDynamicQrUrl] = useState<string | null>(null);
   const [qrTransactionId, setQrTransactionId] = useState("");
@@ -319,6 +332,7 @@ const CheckoutPage = () => {
               city: addr.city || "",
               state: addr.state || "",
               pincode: addr.zipCode || "",
+              locality: addr.locality || "",
               lat: addr.latitude ?? null,
               lng: addr.longitude ?? null,
             });
@@ -331,6 +345,27 @@ const CheckoutPage = () => {
         .catch(() => {});
     }
   }, [user?.isAuthenticated, prefill?.addressPrefill]);
+
+  // Auto-resolve localities whenever a valid 6-digit pincode is present and localities aren't loaded yet
+  useEffect(() => {
+    const cleanPin = (address.pincode || "").replace(/\D/g, "").slice(0, 6);
+    if (cleanPin.length === 6 && availableLocalities.length === 0) {
+      setPincodeLoading(true);
+      fetchPincodeDetails(cleanPin)
+        .then((result) => {
+          if (result.success && result.localities.length > 0) {
+            setAvailableLocalities(result.localities);
+            setPincodeError(null);
+            // If single locality and none selected yet, auto-select it
+            if (result.localities.length === 1 && !address.locality) {
+              setAddress((prev) => ({ ...prev, locality: result.localities[0] }));
+            }
+          }
+        })
+        .catch(() => {})
+        .finally(() => setPincodeLoading(false));
+    }
+  }, [address.pincode, availableLocalities.length]);
 
   // Fetch shipping toggles so checkout knows if COD, Online, or QR have free shipping configured
   useEffect(() => {
@@ -349,11 +384,14 @@ const CheckoutPage = () => {
       });
   }, []);
 
-  // Protect route: Redirect to cart if there are no items to checkout
+  // Protect route: Redirect to home and open cart drawer if there are no items to checkout
   useEffect(() => {
     if (!showSuccessModal) {
       if (!buyNowProductId && (!cartItems || cartItems.length === 0)) {
-        navigate("/cart", { replace: true });
+        navigate("/", { replace: true });
+        setTimeout(() => {
+          window.dispatchEvent(new CustomEvent("open-cart-drawer"));
+        }, 150);
       }
     }
   }, [cartItems, buyNowProductId, showSuccessModal, navigate]);
@@ -484,12 +522,13 @@ const CheckoutPage = () => {
   };
 
   // --- COUPON APPLY ---
-  const handleApplyCoupon = async () => {
-    if (!couponCode.trim()) return;
+  const handleApplyCoupon = async (overrideCode?: string) => {
+    const code = (typeof overrideCode === "string" ? overrideCode : couponCode).trim();
+    if (!code) return;
     setCouponLoading(true);
     try {
       const res = await api.post("/coupon/validate", {
-        code: couponCode.trim(),
+        code,
         orderAmount: Number(checkoutSubtotal),
       });
       setAppliedCoupon(res.data);
@@ -811,17 +850,18 @@ const CheckoutPage = () => {
 
   const getFinalShippingAddress = () => {
     const enteredStreet = address.house.trim();
-    const area = detectedArea.trim();
+    const area = (address.locality || detectedArea || "").trim();
     let finalFullAddress = enteredStreet;
     if (area && !enteredStreet.toLowerCase().includes(area.toLowerCase())) {
       finalFullAddress = `${enteredStreet}, ${area}`;
     }
     return {
       fullAddress: finalFullAddress,
-      city: address.city.trim(),
+      city: address.city.trim() || area,
       state: address.state.trim(),
       zipCode: address.pincode.trim(),
       country: "India",
+      locality: address.locality || undefined,
       lat: address.lat ?? undefined,
       lng: address.lng ?? undefined,
     };
@@ -831,12 +871,20 @@ const CheckoutPage = () => {
   const handlePlaceOrder = async () => {
     if (checkoutItems.length === 0 || Number(checkoutSubtotal) <= 0) {
       toast.error("Your cart is empty. Please add products to continue.", { id: "checkout-empty" });
-      navigate("/cart", { replace: true });
+      navigate("/", { replace: true });
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent("open-cart-drawer"));
+      }, 150);
       return;
     }
 
     if (!address.house.trim()) {
       toast.error("Please enter your street address.", { id: "checkout-validate" });
+      return;
+    }
+    if (availableLocalities.length > 1 && !address.locality?.trim()) {
+      setIsLocalityDropdownOpen(true);
+      toast.error("Please select your Post Office / Locality.", { id: "checkout-validate" });
       return;
     }
     if (!address.city.trim()) {
@@ -865,6 +913,7 @@ const CheckoutPage = () => {
         city: shippingAddressPayload.city,
         state: shippingAddressPayload.state,
         zipCode: shippingAddressPayload.zipCode,
+        locality: address.locality || undefined,
         latitude: shippingAddressPayload.lat,
         longitude: shippingAddressPayload.lng,
       });
@@ -914,6 +963,10 @@ const CheckoutPage = () => {
       }
     } else if (paymentMethod === "QR") {
       setQrModalStep("SCAN");
+      const isMobile =
+        typeof window !== "undefined" &&
+        (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || window.innerWidth < 640);
+      setQrViewMode(isMobile ? "APP" : "QR");
       setShowQrModal(true);
     } else {
       await startOnlinePayment();
@@ -924,13 +977,9 @@ const CheckoutPage = () => {
     const cleanTxId = qrTransactionId.trim().replace(/[\s-]/g, "");
     const txValidation = validateTransactionId(qrTransactionId);
 
+    // If customer entered a Transaction ID, validate format
     if (qrTransactionId.trim() && !txValidation.isValid) {
       toast.error(txValidation.message);
-      return;
-    }
-
-    if (!cleanTxId && !qrScreenshotFile) {
-      toast.error("Please enter a valid 12-digit UTR or upload a payment screenshot.");
       return;
     }
 
@@ -1026,6 +1075,93 @@ const CheckoutPage = () => {
     }
   }, [qrConfig.upiId, qrConfig.accountName, totalAmount]);
 
+  // Handle direct 1-tap redirect to mobile UPI apps (GPay, PhonePe, Paytm, or Any UPI app)
+  const handleUpiAppRedirect = (app: "gpay" | "phonepe" | "paytm" | "any") => {
+    if (!qrConfig.upiId) {
+      toast.error("UPI details are not configured for this store");
+      return;
+    }
+
+    const payeeName = qrConfig.accountName?.trim() || "Store";
+    const pa = qrConfig.upiId.trim();
+    const pn = payeeName;
+    const am = String(totalAmount);
+    const tn = `Order Payment - ${payeeName}`;
+    const cu = "INR";
+
+    const upiQuery = `pa=${encodeURIComponent(pa)}&pn=${encodeURIComponent(pn)}&am=${encodeURIComponent(
+      am
+    )}&cu=${cu}&tn=${encodeURIComponent(tn)}`;
+    const genericUpiUri = `upi://pay?${upiQuery}`;
+
+    const userAgent = typeof navigator !== "undefined" ? navigator.userAgent || "" : "";
+    const isAndroid = /Android/i.test(userAgent);
+    const isIOS = /iPhone|iPad|iPod/i.test(userAgent);
+
+    let targetUrl = genericUpiUri;
+
+    if (app === "gpay") {
+      if (isAndroid) {
+        targetUrl = `intent://pay?${upiQuery}#Intent;scheme=upi;package=com.google.android.apps.nbu.paisa.user;S.browser_fallback_url=${encodeURIComponent(
+          "https://play.google.com/store/apps/details?id=com.google.android.apps.nbu.paisa.user"
+        )};end;`;
+      } else if (isIOS) {
+        targetUrl = `gpay://upi/pay?${upiQuery}`;
+      } else {
+        targetUrl = genericUpiUri;
+      }
+    } else if (app === "phonepe") {
+      if (isAndroid) {
+        targetUrl = `intent://pay?${upiQuery}#Intent;scheme=upi;package=com.phonepe.app;S.browser_fallback_url=${encodeURIComponent(
+          "https://play.google.com/store/apps/details?id=com.phonepe.app"
+        )};end;`;
+      } else if (isIOS) {
+        targetUrl = `phonepe://pay?${upiQuery}`;
+      } else {
+        targetUrl = genericUpiUri;
+      }
+    } else if (app === "paytm") {
+      if (isAndroid) {
+        targetUrl = `intent://pay?${upiQuery}#Intent;scheme=upi;package=net.one97.paytm;S.browser_fallback_url=${encodeURIComponent(
+          "https://play.google.com/store/apps/details?id=net.one97.paytm"
+        )};end;`;
+      } else if (isIOS) {
+        targetUrl = `paytmmp://pay?${upiQuery}`;
+      } else {
+        targetUrl = genericUpiUri;
+      }
+    }
+
+    const appTitle =
+      app === "gpay"
+        ? "Google Pay"
+        : app === "phonepe"
+        ? "PhonePe"
+        : app === "paytm"
+        ? "Paytm"
+        : "UPI App";
+
+    // Auto-copy UPI ID to clipboard so the customer has it handy
+    try {
+      if (navigator.clipboard?.writeText) {
+        navigator.clipboard.writeText(qrConfig.upiId);
+      }
+    } catch (_) {}
+
+    toast.success(`Opening ${appTitle}... Complete payment and enter the 12-digit UTR!`, {
+      icon: "📱",
+      duration: 4000,
+    });
+
+    // Advance to Step 2 so upon return the user lands directly on UTR verification
+    setTimeout(() => {
+      setQrModalStep("SUBMIT");
+    }, 1200);
+
+    // Launch app deep link
+    window.location.href = targetUrl;
+  };
+
 
   return (
     <div className="min-h-screen bg-gray-50 font-sans text-gray-900 pt-24 pb-24 md:pb-12 relative overflow-x-hidden">
@@ -1104,8 +1240,9 @@ const CheckoutPage = () => {
 
                 <div className="grid grid-cols-1 gap-y-5 sm:grid-cols-2 sm:gap-x-4">
                   <div className="sm:col-span-2">
-                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">
-                      Pincode
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5 flex items-center justify-between w-full sm:w-1/2">
+                      <span>Pincode</span>
+                      {pincodeLoading && <span className="text-[11px] normal-case font-normal text-indigo-600">Detecting post offices...</span>}
                     </label>
                     <div className="relative w-full sm:w-1/2">
                       <input
@@ -1116,31 +1253,52 @@ const CheckoutPage = () => {
                           const val = e.target.value;
                           const cleanPincode = val.replace(/\D/g, "").slice(0, 6);
                           setAddress((prev) => ({ ...prev, pincode: cleanPincode }));
+                          setPincodeError(null);
+
+                          if (cleanPincode.length < 6) {
+                            setAvailableLocalities([]);
+                            setAddress((prev) => ({ ...prev, locality: "" }));
+                            return;
+                          }
 
                           if (cleanPincode.length === 6) {
+                            setPincodeLoading(true);
                             try {
-                              const res = await fetch(`https://api.postalpincode.in/pincode/${cleanPincode}`);
-                              if (res.ok) {
-                                const data = await res.json();
-                                if (data && data[0] && data[0].Status === "Success") {
-                                  const postOffice = data[0].PostOffice[0];
-                                  const fetchedState = postOffice.State;
-                                  const fetchedCity = postOffice.District || postOffice.Block || postOffice.Name;
-                                  setAddress((prev) => ({
-                                    ...prev,
-                                    state: fetchedState || prev.state,
-                                    city: fetchedCity || prev.city,
-                                  }));
-                                  toast.success(`Pincode resolved to ${fetchedCity}, ${fetchedState}`);
+                              const result = await fetchPincodeDetails(cleanPincode);
+                              if (result.success) {
+                                const autoLocality = result.localities.length === 1 ? result.localities[0] : "";
+                                setAddress((prev) => ({
+                                  ...prev,
+                                  state: result.state || prev.state,
+                                  city: result.city || prev.city,
+                                  locality: autoLocality,
+                                }));
+                                setAvailableLocalities(result.localities);
+                                setPincodeError(null);
+                                if (result.localities.length === 1) {
+                                  setIsLocalityDropdownOpen(false);
+                                  toast.success(`Resolved: ${result.localities[0]}, ${result.city}, ${result.state}`);
+                                } else {
+                                  setIsLocalityDropdownOpen(true);
+                                  toast.success(`Resolved: ${result.city}, ${result.state}. Select your post office.`);
                                 }
+                              } else {
+                                setAvailableLocalities([]);
+                                setIsLocalityDropdownOpen(false);
+                                setPincodeError(result.error || "Pincode not found");
+                                toast.error(result.error || "Pincode not found. Please enter details manually.");
                               }
                             } catch (err) {
                               console.error("Failed to fetch state/city from pincode", err);
+                              setPincodeError("Unable to verify pincode. Please enter your address details manually.");
+                            } finally {
+                              setPincodeLoading(false);
                             }
                           }
                         }}
                         readOnly={isGpsLocked}
                         placeholder="Enter 6-digit Pincode"
+                        maxLength={6}
                         className={`block w-full rounded-xl border px-4 py-2.5 shadow-sm sm:text-sm transition focus:outline-none pr-10 ${
                           isGpsLocked
                             ? "bg-slate-50 border-slate-200 text-slate-400 cursor-not-allowed select-none"
@@ -1150,8 +1308,105 @@ const CheckoutPage = () => {
                       {isGpsLocked && (
                         <LockClosedIcon className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-300" />
                       )}
+                      {pincodeLoading && (
+                        <div className="absolute right-3.5 top-1/2 -translate-y-1/2">
+                          <BeatLoader size={5} color="#4f46e5" />
+                        </div>
+                      )}
                     </div>
+                    {pincodeError && (
+                      <p className="text-[11px] font-medium text-amber-800 bg-amber-50 border border-amber-200/80 rounded-xl px-3 py-2 mt-2 w-full sm:w-1/2 flex items-center gap-1.5">
+                        <span>⚠️</span>
+                        <span>{pincodeError} — You can fill city and state manually below.</span>
+                      </p>
+                    )}
                   </div>
+
+                  {/* Multiple Localities / Post Offices Custom Dropdown */}
+                  {availableLocalities.length > 1 && (
+                    <div className="sm:col-span-2 relative">
+                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5 flex items-center justify-between w-full sm:w-1/2">
+                        <span>Locality / Post Office <span className="text-rose-500">*</span></span>
+                        <span className="text-[11px] font-normal normal-case text-indigo-600">Select exact area</span>
+                      </label>
+                      <div className="w-full sm:w-1/2 relative">
+                        <button
+                          type="button"
+                          onClick={() => setIsLocalityDropdownOpen((prev) => !prev)}
+                          className={`w-full rounded-xl border px-4 py-2.5 text-sm flex items-center justify-between transition-all shadow-xs cursor-pointer text-left ${
+                            isLocalityDropdownOpen
+                              ? "border-black ring-2 ring-black/10 bg-white"
+                              : "border-slate-200 bg-white hover:border-slate-400"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <MapPinIcon className="h-4 w-4 text-indigo-600 shrink-0" />
+                            <span className={`truncate ${address.locality ? "text-slate-900 font-medium" : "text-slate-400"}`}>
+                              {address.locality || "-- Choose Post Office / Area --"}
+                            </span>
+                          </div>
+                          <ChevronDownIcon
+                            className={`h-4 w-4 text-slate-400 shrink-0 transition-transform duration-200 ${
+                              isLocalityDropdownOpen ? "rotate-180 text-black" : ""
+                            }`}
+                          />
+                        </button>
+
+                        {isLocalityDropdownOpen && (
+                          <>
+                            <div
+                              className="fixed inset-0 z-20"
+                              onClick={() => setIsLocalityDropdownOpen(false)}
+                            />
+                            <div className="absolute left-0 right-0 mt-1.5 z-30 max-h-56 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl">
+                              {address.locality && !availableLocalities.includes(address.locality) && (
+                                <div className="px-3 py-1.5 text-xs bg-slate-50 border-b border-slate-100 rounded-lg mb-1 text-slate-700 font-medium flex items-center justify-between">
+                                  <span>Current: <strong>{address.locality}</strong></span>
+                                  <CheckCircle className="h-3.5 w-3.5 text-indigo-600" />
+                                </div>
+                              )}
+                              {availableLocalities.map((loc) => {
+                                const isSelected = address.locality === loc;
+                                return (
+                                  <button
+                                    key={loc}
+                                    type="button"
+                                    onClick={() => {
+                                      setAddress((prev) => ({ ...prev, locality: loc }));
+                                      setIsLocalityDropdownOpen(false);
+                                    }}
+                                    className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-lg text-sm transition-all cursor-pointer text-left ${
+                                      isSelected
+                                        ? "bg-indigo-50 text-indigo-700 font-bold"
+                                        : "text-slate-700 hover:bg-slate-50 hover:text-black"
+                                    }`}
+                                  >
+                                    <div className="flex items-center gap-2.5 truncate">
+                                      <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${isSelected ? "bg-indigo-600" : "bg-slate-300"}`} />
+                                      <span className="truncate">{loc}</span>
+                                    </div>
+                                    {isSelected && (
+                                      <CheckCircle className="h-4 w-4 text-indigo-600 shrink-0" />
+                                    )}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Single Locality Badge or Preloaded Locality Display */}
+                  {address.locality && availableLocalities.length <= 1 && (
+                    <div className="sm:col-span-2">
+                      <div className="inline-flex items-center gap-2 bg-indigo-50 border border-indigo-200 rounded-xl px-3.5 py-2 text-xs font-semibold text-indigo-700">
+                        <CheckCircle className="w-4 h-4 shrink-0 text-indigo-600" />
+                        <span>Post Office: <strong>{address.locality}</strong></span>
+                      </div>
+                    </div>
+                  )}
 
                   <div className="sm:col-span-2 relative">
                     <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">
@@ -1499,7 +1754,8 @@ const CheckoutPage = () => {
                 {/* Coupon Module Wrapper */}
                 <div className="pt-2">
                   {!appliedCoupon ? (
-                    <div className="flex gap-2">
+                    <>
+                      <div className="flex gap-2">
                       <div className="relative flex-1">
                         <TagIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                         <input
@@ -1527,6 +1783,12 @@ const CheckoutPage = () => {
                         {couponLoading ? "..." : "Apply"}
                       </button>
                     </div>
+                    <CouponCarousel
+                      variant="compact"
+                      onApplyCoupon={(code) => handleApplyCoupon(code)}
+                      className="mt-2.5"
+                    />
+                  </>
                   ) : (
                     <div className="flex items-center justify-between bg-green-50 border border-green-200 rounded-xl px-3 py-2">
                       <div className="flex items-center gap-2">
@@ -1582,34 +1844,41 @@ const CheckoutPage = () => {
           {/* Coupon Input — Mobile (Always Visible) */}
           <div className="mb-4 pt-1">
             {!appliedCoupon ? (
-              <div className="flex gap-2">
-                <div className="relative flex-1">
-                  <TagIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <input
-                    type="text"
-                    value={couponCode}
-                    onChange={(e) =>
-                      setCouponCode(e.target.value.toUpperCase())
-                    }
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        handleApplyCoupon();
+              <>
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <TagIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <input
+                      type="text"
+                      value={couponCode}
+                      onChange={(e) =>
+                        setCouponCode(e.target.value.toUpperCase())
                       }
-                    }}
-                    placeholder="Coupon code"
-                    className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-gray-200 text-sm bg-gray-50 focus:outline-none focus:border-black transition"
-                  />
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          handleApplyCoupon();
+                        }
+                      }}
+                      placeholder="Coupon code"
+                      className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-gray-200 text-sm bg-gray-50 focus:outline-none focus:border-black transition"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleApplyCoupon}
+                    disabled={couponLoading || !couponCode.trim()}
+                    className="px-4 py-2.5 rounded-xl bg-[var(--theme-primary)] text-[var(--theme-primary-ink)] text-xs font-bold uppercase tracking-wider disabled:opacity-50 hover:bg-[var(--theme-primary-hover)] transition"
+                  >
+                    {couponLoading ? "..." : "Apply"}
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={handleApplyCoupon}
-                  disabled={couponLoading || !couponCode.trim()}
-                  className="px-4 py-2.5 rounded-xl bg-[var(--theme-primary)] text-[var(--theme-primary-ink)] text-xs font-bold uppercase tracking-wider disabled:opacity-50 hover:bg-[var(--theme-primary-hover)] transition"
-                >
-                  {couponLoading ? "..." : "Apply"}
-                </button>
-              </div>
+                <CouponCarousel
+                  variant="compact"
+                  onApplyCoupon={(code) => handleApplyCoupon(code)}
+                  className="mt-2.5"
+                />
+              </>
             ) : (
               <div className="flex items-center justify-between bg-green-50 border border-green-200 rounded-xl px-3 py-2">
                 <div className="flex items-center gap-2">
@@ -1811,12 +2080,18 @@ const CheckoutPage = () => {
                     )}
                     <div>
                       <h3 className="text-base font-black text-gray-900 tracking-tight">
-                        {qrModalStep === "SCAN" ? "Scan QR to Pay" : "Verify Payment"}
+                        {qrModalStep === "SUBMIT"
+                          ? "Verify Payment"
+                          : qrViewMode === "APP"
+                          ? "Pay via UPI App"
+                          : "Scan QR to Pay"}
                       </h3>
                       <p className="text-[11px] text-gray-500 font-medium">
-                        {qrModalStep === "SCAN"
-                          ? "Step 1: Scan with any UPI app"
-                          : "Step 2: Enter transaction proof"}
+                        {qrModalStep === "SUBMIT"
+                          ? "Step 2: Enter transaction proof"
+                          : qrViewMode === "APP"
+                          ? "Step 1: Choose GPay, PhonePe, or Paytm"
+                          : "Step 1: Scan with any UPI app"}
                       </p>
                     </div>
                   </div>
@@ -1844,89 +2119,255 @@ const CheckoutPage = () => {
                   </span>
                 </div>
 
-                {/* STEP 1: SCANNER IN THE CENTER */}
+                {/* Mobile / QR View Mode Switcher */}
                 {qrModalStep === "SCAN" && (
-                  <div className="mt-4 flex flex-col items-center">
-                    {/* Centered QR Frame with decorative scanner corner accents */}
-                    <div className="relative p-2.5 bg-white rounded-2xl border border-purple-100 shadow-sm my-1">
-                      <span className="absolute top-1 left-1 w-4 h-4 border-t-2 border-l-2 border-purple-600 rounded-tl-md pointer-events-none" />
-                      <span className="absolute top-1 right-1 w-4 h-4 border-t-2 border-r-2 border-purple-600 rounded-tr-md pointer-events-none" />
-                      <span className="absolute bottom-1 left-1 w-4 h-4 border-b-2 border-l-2 border-purple-600 rounded-bl-md pointer-events-none" />
-                      <span className="absolute bottom-1 right-1 w-4 h-4 border-b-2 border-r-2 border-purple-600 rounded-br-md pointer-events-none" />
+                  <div className="grid grid-cols-2 p-1 bg-slate-100 rounded-2xl mt-3.5 mb-1 border border-slate-200/70">
+                    <button
+                      type="button"
+                      onClick={() => setQrViewMode("APP")}
+                      className={`py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                        qrViewMode === "APP"
+                          ? "bg-white text-purple-700 shadow-sm"
+                          : "text-slate-500 hover:text-slate-900"
+                      }`}
+                    >
+                      <Smartphone className="w-4 h-4 text-purple-600" />
+                      <span>Pay via UPI App</span>
+                      <span className="text-[9px] font-bold text-emerald-700 bg-emerald-100/90 px-1.5 py-0.5 rounded-full border border-emerald-200/60 leading-none">
+                        Fast
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setQrViewMode("QR")}
+                      className={`py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                        qrViewMode === "QR"
+                          ? "bg-white text-purple-700 shadow-sm"
+                          : "text-slate-500 hover:text-slate-900"
+                      }`}
+                    >
+                      <QrCode className="w-4 h-4 text-purple-600" />
+                      <span>Scan QR Code</span>
+                    </button>
+                  </div>
+                )}
 
-                      <img
-                        src={dynamicQrUrl || qrConfig.qrCode}
-                        alt="Payment QR Code"
-                        className="w-52 h-52 object-contain rounded-xl"
-                      />
-                    </div>
+                {/* STEP 1: SCAN OR DIRECT APP REDIRECT */}
+                {qrModalStep === "SCAN" && (
+                  <>
+                    {/* OPTION A: MOBILE 1-TAP REDIRECT TO GPAY, PHONEPE, PAYTM */}
+                    {qrViewMode === "APP" && (
+                      <div className="mt-3 w-full flex flex-col items-center">
+                        <div className="w-full text-center mb-3">
+                          <p className="text-xs font-bold text-slate-800">Tap your installed UPI app to pay</p>
+                          <p className="text-[11px] text-slate-500 mt-0.5">
+                            Amount ₹{totalAmount} and payee are automatically pre-filled.
+                          </p>
+                        </div>
 
-                    {/* Pre-filled amount pill */}
-                    {dynamicQrUrl && (
-                      <div className="mt-2 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-[11px] font-bold border border-emerald-200 shadow-2xs">
-                        <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
-                        Exact amount ₹{totalAmount} pre-filled in QR
-                      </div>
-                    )}
+                        {/* 3 Main Redirect App Cards: GPay, PhonePe, Paytm */}
+                        <div className="grid grid-cols-3 gap-2.5 w-full">
+                          {/* Google Pay */}
+                          <button
+                            type="button"
+                            onClick={() => handleUpiAppRedirect("gpay")}
+                            className="group relative flex flex-col items-center justify-center p-3 rounded-2xl border-2 border-slate-200 bg-white hover:border-blue-500 hover:bg-blue-50/20 active:scale-95 transition-all shadow-xs cursor-pointer"
+                          >
+                            <div className="w-11 h-11 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-center group-hover:scale-105 transition-transform shadow-xs">
+                              <svg viewBox="0 0 24 24" className="w-6 h-6">
+                                <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.8-2.4 3.65v3.03h3.88c2.27-2.09 3.665-5.17 3.665-9.12z"/>
+                                <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.03c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.13C3.26 21.36 7.33 24 12 24z"/>
+                                <path fill="#FBBC05" d="M5.28 14.29c-.25-.72-.38-1.49-.38-2.29s.13-1.57.38-2.29V6.57H1.25C.45 8.15 0 9.99 0 12s.45 3.85 1.25 5.43l4.03-3.14z"/>
+                                <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.25 6.57l4.03 3.14c.95-2.83 3.6-4.96 6.72-4.96z"/>
+                              </svg>
+                            </div>
+                            <span className="mt-2 text-xs font-bold text-slate-800 tracking-tight">GPay</span>
+                            <span className="text-[10px] text-slate-400 font-medium leading-none mt-0.5">Google Pay</span>
+                          </button>
 
-                    {qrConfig.accountName && (
-                      <p className="mt-2 text-xs font-bold text-gray-800">
-                        Payee: <span className="text-purple-700">{qrConfig.accountName}</span>
-                      </p>
-                    )}
+                          {/* PhonePe */}
+                          <button
+                            type="button"
+                            onClick={() => handleUpiAppRedirect("phonepe")}
+                            className="group relative flex flex-col items-center justify-center p-3 rounded-2xl border-2 border-slate-200 bg-white hover:border-[#5f259f] hover:bg-purple-50/20 active:scale-95 transition-all shadow-xs cursor-pointer"
+                          >
+                            <div className="w-11 h-11 rounded-2xl bg-[#5f259f] flex items-center justify-center group-hover:scale-105 transition-transform shadow-xs">
+                              <span className="text-white font-black text-xl leading-none">पे</span>
+                            </div>
+                            <span className="mt-2 text-xs font-bold text-[#5f259f] tracking-tight">PhonePe</span>
+                            <span className="text-[10px] text-slate-400 font-medium leading-none mt-0.5">UPI App</span>
+                          </button>
 
-                    {qrConfig.upiId && (
-                      <div className="mt-2 flex items-center gap-2 bg-gray-50 px-3 py-1.5 rounded-xl border border-gray-200">
-                        <span className="text-xs font-mono font-semibold text-gray-700">{qrConfig.upiId}</span>
+                          {/* Paytm */}
+                          <button
+                            type="button"
+                            onClick={() => handleUpiAppRedirect("paytm")}
+                            className="group relative flex flex-col items-center justify-center p-3 rounded-2xl border-2 border-slate-200 bg-white hover:border-[#00BAF2] hover:bg-sky-50/20 active:scale-95 transition-all shadow-xs cursor-pointer"
+                          >
+                            <div className="w-11 h-11 rounded-2xl bg-[#002E6E] flex items-center justify-center group-hover:scale-105 transition-transform shadow-xs px-1">
+                              <span className="text-white font-black text-xs">Pay<span className="text-[#00BAF2]">tm</span></span>
+                            </div>
+                            <span className="mt-2 text-xs font-bold text-[#002E6E] tracking-tight">Paytm</span>
+                            <span className="text-[10px] text-slate-400 font-medium leading-none mt-0.5">UPI Wallet</span>
+                          </button>
+                        </div>
+
+                        {/* Any Other UPI App */}
                         <button
                           type="button"
-                          onClick={() => {
-                            navigator.clipboard.writeText(qrConfig.upiId!);
-                            toast.success("UPI ID copied!");
-                          }}
-                          className="text-purple-600 hover:text-purple-800 transition-colors p-0.5"
-                          title="Copy UPI ID"
+                          onClick={() => handleUpiAppRedirect("any")}
+                          className="mt-2.5 w-full py-2.5 px-3 rounded-2xl border border-slate-200 bg-slate-50/80 hover:bg-slate-100 text-slate-700 text-xs font-bold flex items-center justify-center gap-2 active:scale-98 transition-all cursor-pointer"
                         >
-                          <Copy className="w-3.5 h-3.5" />
+                          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                          <span>Pay with Other UPI App (CRED, BHIM, Amazon Pay)</span>
+                          <ExternalLink className="w-3.5 h-3.5 text-slate-400" />
+                        </button>
+
+                        {/* Payee Info & Copy UPI ID */}
+                        <div className="mt-3.5 w-full p-3 rounded-2xl bg-purple-50/50 border border-purple-100 flex items-center justify-between">
+                          <div className="min-w-0 pr-2">
+                            <p className="text-[10px] font-bold text-purple-600 uppercase tracking-wider">Payee Account</p>
+                            <p className="text-xs font-bold text-slate-800 truncate">{qrConfig.accountName || "Merchant Store"}</p>
+                            <p className="text-[11px] font-mono text-slate-600 truncate">{qrConfig.upiId}</p>
+                          </div>
+                          {qrConfig.upiId && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                navigator.clipboard.writeText(qrConfig.upiId!);
+                                toast.success("UPI ID copied!");
+                              }}
+                              className="shrink-0 px-2.5 py-1.5 rounded-xl bg-white border border-purple-200 text-purple-700 hover:bg-purple-50 text-[11px] font-bold flex items-center gap-1 transition-colors cursor-pointer"
+                            >
+                              <Copy className="w-3 h-3" />
+                              <span>Copy</span>
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Advance to Step 2 */}
+                        <button
+                          type="button"
+                          onClick={() => setQrModalStep("SUBMIT")}
+                          className="mt-4 w-full py-3.5 px-5 rounded-2xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold uppercase tracking-wider shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-98"
+                        >
+                          <span>I Have Completed Payment</span>
+                          <span>→</span>
                         </button>
                       </div>
                     )}
 
-                    <p className="mt-2 text-[11px] text-gray-500 text-center max-w-xs">
-                      {dynamicQrUrl
-                        ? `Scan with GPay, PhonePe, or Paytm — ₹${totalAmount} is automatically locked in.`
-                        : qrConfig.instructions || "Scan with any UPI app (GPay, PhonePe, Paytm) and complete payment."}
-                    </p>
+                    {/* OPTION B: SCAN QR CODE WITH PHONE CAMERA / 2ND DEVICE */}
+                    {qrViewMode === "QR" && (
+                      <div className="mt-3 flex flex-col items-center">
+                        {/* Centered QR Frame with decorative scanner corner accents */}
+                        <div className="relative p-2.5 bg-white rounded-2xl border border-purple-100 shadow-sm my-1">
+                          <span className="absolute top-1 left-1 w-4 h-4 border-t-2 border-l-2 border-purple-600 rounded-tl-md pointer-events-none" />
+                          <span className="absolute top-1 right-1 w-4 h-4 border-t-2 border-r-2 border-purple-600 rounded-tr-md pointer-events-none" />
+                          <span className="absolute bottom-1 left-1 w-4 h-4 border-b-2 border-l-2 border-purple-600 rounded-bl-md pointer-events-none" />
+                          <span className="absolute bottom-1 right-1 w-4 h-4 border-b-2 border-r-2 border-purple-600 rounded-br-md pointer-events-none" />
 
-                    {/* Button to advance to Step 2 */}
-                    <button
-                      type="button"
-                      onClick={() => setQrModalStep("SUBMIT")}
-                      className="mt-5 w-full py-3.5 px-5 rounded-2xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold uppercase tracking-wider shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-98"
-                    >
-                      <span>I Have Scanned &amp; Paid</span>
-                      <span>→</span>
-                    </button>
-                  </div>
+                          <img
+                            src={dynamicQrUrl || qrConfig.qrCode}
+                            alt="Payment QR Code"
+                            className="w-48 h-48 sm:w-52 sm:h-52 object-contain rounded-xl"
+                          />
+                        </div>
+
+                        {qrConfig.accountName && (
+                          <p className="mt-2 text-xs font-bold text-gray-800">
+                            Payee: <span className="text-purple-700">{qrConfig.accountName}</span>
+                          </p>
+                        )}
+
+                        {qrConfig.upiId && (
+                          <div className="mt-2 flex items-center gap-2 bg-gray-50 px-3 py-1.5 rounded-xl border border-gray-200">
+                            <span className="text-xs font-mono font-semibold text-gray-700">{qrConfig.upiId}</span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                navigator.clipboard.writeText(qrConfig.upiId!);
+                                toast.success("UPI ID copied!");
+                              }}
+                              className="text-purple-600 hover:text-purple-800 transition-colors p-0.5 cursor-pointer"
+                              title="Copy UPI ID"
+                            >
+                              <Copy className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        )}
+
+                        {/* Quick 1-tap redirect pills inside QR view as well */}
+                        <div className="mt-3 w-full pt-2.5 border-t border-slate-100 flex flex-col items-center">
+                          <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
+                            Paying on this phone? 1-Tap Redirect:
+                          </p>
+                          <div className="flex items-center gap-2 mt-1.5">
+                            <button
+                              type="button"
+                              onClick={() => handleUpiAppRedirect("gpay")}
+                              className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-blue-50 hover:text-blue-600 border border-slate-200 text-slate-700 text-[11px] font-bold flex items-center gap-1 transition-colors cursor-pointer"
+                            >
+                              <span>GPay</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleUpiAppRedirect("phonepe")}
+                              className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-purple-50 hover:text-purple-700 border border-slate-200 text-slate-700 text-[11px] font-bold flex items-center gap-1 transition-colors cursor-pointer"
+                            >
+                              <span>PhonePe</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleUpiAppRedirect("paytm")}
+                              className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-sky-50 hover:text-sky-700 border border-slate-200 text-slate-700 text-[11px] font-bold flex items-center gap-1 transition-colors cursor-pointer"
+                            >
+                              <span>Paytm</span>
+                            </button>
+                          </div>
+                        </div>
+
+                        <p className="mt-2 text-[11px] text-gray-500 text-center max-w-xs">
+                          {dynamicQrUrl
+                            ? `Scan with GPay, PhonePe, or Paytm — ₹${totalAmount} is automatically locked in.`
+                            : qrConfig.instructions || "Scan with any UPI app (GPay, PhonePe, Paytm) and complete payment."}
+                        </p>
+
+                        {/* Button to advance to Step 2 */}
+                        <button
+                          type="button"
+                          onClick={() => setQrModalStep("SUBMIT")}
+                          className="mt-4 w-full py-3.5 px-5 rounded-2xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold uppercase tracking-wider shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-98"
+                        >
+                          <span>I Have Scanned &amp; Paid</span>
+                          <span>→</span>
+                        </button>
+                      </div>
+                    )}
+                  </>
                 )}
 
                 {/* STEP 2: ENTER TRANSACTION ID OR UPLOAD SCREENSHOT */}
                 {qrModalStep === "SUBMIT" && (() => {
                   const txStatus = validateTransactionId(qrTransactionId);
                   const isTxIdProvided = qrTransactionId.trim().length > 0;
-                  const canSubmitQr = (isTxIdProvided && txStatus.isValid) || (!isTxIdProvided && !!qrScreenshotFile) || (isTxIdProvided && txStatus.isValid && !!qrScreenshotFile);
+                  // Both fields are optional — only block submission if the customer typed an invalid UTR
+                  const canSubmitQr = !isTxIdProvided || txStatus.isValid;
 
                   return (
                     <div className="mt-4 space-y-4">
                       <p className="text-xs text-gray-500 font-medium">
-                        Enter your UPI Transaction ID (UTR) or attach the payment screenshot:
+                        Enter your UPI Transaction ID (UTR) or attach payment screenshot (Optional):
                       </p>
 
                       {/* Transaction ID input */}
                       <div className="space-y-1.5">
-                        <label className="text-xs font-bold uppercase tracking-wider text-gray-700 block">
-                          Transaction ID / UTR Number
-                        </label>
+                        <div className="flex items-center justify-between">
+                          <label className="text-xs font-bold uppercase tracking-wider text-gray-700 block">
+                            Transaction ID / UTR Number
+                          </label>
+                          <span className="text-[11px] font-semibold text-gray-400 lowercase">(optional)</span>
+                        </div>
 
                         <div className="relative">
                           <input
@@ -1967,7 +2408,7 @@ const CheckoutPage = () => {
                           </p>
                         ) : (
                           <p className="text-[10px] text-gray-400">
-                            Standard UPI UTR is 12 digits (found on GPay, PhonePe, Paytm, or bank receipt).
+                            Standard UPI UTR is 12 digits (found on GPay, PhonePe, Paytm, or bank receipt). Optional, helps faster verification.
                           </p>
                         )}
                       </div>
@@ -1980,9 +2421,12 @@ const CheckoutPage = () => {
 
                       {/* Screenshot upload */}
                       <div className="space-y-1.5">
-                        <label className="text-xs font-bold uppercase tracking-wider text-gray-700 block">
-                          Payment Screenshot
-                        </label>
+                        <div className="flex items-center justify-between">
+                          <label className="text-xs font-bold uppercase tracking-wider text-gray-700 block">
+                            Payment Screenshot
+                          </label>
+                          <span className="text-[11px] font-semibold text-gray-400 lowercase">(optional)</span>
+                        </div>
                         {qrScreenshotPreview ? (
                           <div className="relative rounded-2xl border border-gray-200 bg-gray-50 p-3 flex items-center gap-3">
                             <img
@@ -2013,7 +2457,7 @@ const CheckoutPage = () => {
                         ) : (
                           <label className="flex flex-col items-center justify-center p-4 border-2 border-dashed border-gray-200 rounded-2xl cursor-pointer hover:border-purple-400 hover:bg-purple-50/20 transition-all">
                             <UploadCloud className="w-7 h-7 text-purple-400 mb-1" />
-                            <span className="text-xs font-bold text-gray-700">Upload payment screenshot</span>
+                            <span className="text-xs font-bold text-gray-700">Upload payment screenshot (optional)</span>
                             <span className="text-[10px] text-gray-400 mt-0.5">PNG, JPG or WebP (Max 5MB)</span>
                             <input
                               type="file"
@@ -2116,7 +2560,10 @@ const CheckoutPage = () => {
             feedbackTriggerSource === "CHECKOUT_EXIT" ||
             feedbackTriggerSource === "COD_CHECKOUT_EXIT"
           ) {
-            navigate("/cart", { replace: true });
+            navigate("/", { replace: true });
+            setTimeout(() => {
+              window.dispatchEvent(new CustomEvent("open-cart-drawer"));
+            }, 150);
           }
         }}
         customerName={userProfile?.username || (address.house ? address.house : "")}
@@ -2141,7 +2588,10 @@ const CheckoutPage = () => {
             feedbackTriggerSource === "CHECKOUT_EXIT" ||
             feedbackTriggerSource === "COD_CHECKOUT_EXIT"
           ) {
-            navigate("/cart", { replace: true });
+            navigate("/", { replace: true });
+            setTimeout(() => {
+              window.dispatchEvent(new CustomEvent("open-cart-drawer"));
+            }, 150);
           }
         }}
       />

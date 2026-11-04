@@ -11,18 +11,21 @@ import {
   Bars3Icon,
   MagnifyingGlassIcon,
 } from "@heroicons/react/24/outline";
-import { ArrowRight, Check, ArrowLeft, RotateCcw } from "lucide-react";
+import { ArrowRight, Check, ArrowLeft, RotateCcw, Heart } from "lucide-react";
+import { toast } from "react-hot-toast";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import Navbar from "../components/Navbar";
 import api from "../utils/api";
 import { useAuth } from "../context/AuthContext";
+import { useWishlist } from "../context/WishlistContext";
 import { domainUrl } from "../utils/constant";
 import FooterSection from "../components/FooterSection";
 import { normalizeProduct, calculateDiscountedPrice } from "../utils/product";
 import { useBodyScrollLock } from "../hooks/useBodyScrollLock";
 import PageSeo from "./seo/PageSeo";
 import { useSeoSettings } from "../context/SeoContext";
+import AutoAlignPopoverPanel from "./AutoAlignPopoverPanel";
 
 
 interface AllProduct {
@@ -78,90 +81,118 @@ function classNames(...c: (string | false | undefined | null)[]) {
   return c.filter(Boolean).join(" ");
 }
 
-// --- MODERN CARD COMPONENT ---
-// Wishlist/add-to-cart both require a specific variant selection (size/color/etc), so
-// they live only on the product detail page's variant picker — this listing card is
-// just a "browse and open" surface, one card per product (see paginateListingRows'
-// per-product collapse on the backend).
+// --- MODERN CARD COMPONENT MATCHING REFERRAL IMAGE ---
 const ModernProductCard = React.memo(function ModernProductCard({ product }: { product: AllProduct }) {
   const navigate = useNavigate();
+  const { isProductInWishlist, toggleWishlist } = useWishlist();
+  const { user } = useAuth();
+  const [isWishlistLoading, setIsWishlistLoading] = useState(false);
+  const isWishlisted = isProductInWishlist(product.id);
 
-  const primaryUrl = product.image || "https://placehold.co/600x800?text=No+Image";
+  const primaryUrl = product.image || "https://placehold.co/600x600?text=No+Image";
   const secondaryUrl = product.secondaryImage || (product.images && product.images.length > 1 ? product.images[1] : null);
 
   const handleCardClick = () => {
     navigate(`/products/${product.id}`);
+    window.scrollTo(0, 0);
   };
 
-  const categoryName = typeof product.category === 'object'
-    ? product.category?.name
-    : product.category;
+  const handleToggleWishlist = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (isWishlistLoading) return;
+
+    if (!user.isAuthenticated) {
+      toast.error("Please login to add product to wishlist", { id: "login-to-wishlist" });
+      window.dispatchEvent(new CustomEvent("openCustomerAuth"));
+      return;
+    }
+
+    setIsWishlistLoading(true);
+    try {
+      const success = await toggleWishlist(product.id);
+      if (success) {
+        toast.success(isWishlisted ? "Removed from favourites" : "Added to favourites", {
+          id: "wishlist-toggle-allproducts-card",
+        });
+      }
+    } catch {
+      toast.error("Could not update wishlist");
+    } finally {
+      setIsWishlistLoading(false);
+    }
+  };
+
+  const hasDiscount = Boolean(product.discount && product.discount > 0);
+  const finalPrice = hasDiscount
+    ? Math.round(calculateDiscountedPrice(product.price, product.discount!))
+    : Math.round(Number(product.price));
+  const originalPrice = Math.round(Number(product.price));
 
   return (
     <div 
       onClick={handleCardClick}
-      className="group relative aspect-[5/7] w-full cursor-pointer overflow-hidden rounded-3xl bg-gray-50 border border-gray-200/80 shadow-xs transition-shadow duration-300 hover:shadow-xl"
+      className="group flex flex-col w-full cursor-pointer select-none transition-transform duration-300"
     >
-      {/* Background Primary Image */}
-      <img
-        src={primaryUrl}
-        alt={product.name}
-        loading="lazy"
-        decoding="async"
-        className={`h-full w-full object-cover transition-opacity duration-500 ${
-          secondaryUrl ? "group-hover:opacity-0" : ""
-        }`}
-      />
-
-      {/* Secondary Angle / Detail Image (Cross-fade on hover) */}
-      {secondaryUrl && (
+      {/* 1. Square Image with Rounded Corners */}
+      <div className="relative aspect-square w-full overflow-hidden rounded-2xl bg-stone-50 shadow-xs border border-gray-100">
         <img
-          src={secondaryUrl}
-          alt={`${product.name} alternate view`}
+          src={primaryUrl}
+          alt={product.name}
           loading="lazy"
           decoding="async"
-          className="absolute inset-0 h-full w-full object-cover opacity-0 transition-opacity duration-500 group-hover:opacity-100"
+          className={`h-full w-full object-cover transition-all duration-500 ease-out group-hover:scale-105 ${
+            secondaryUrl ? "group-hover:opacity-0" : ""
+          }`}
         />
-      )}
 
-      {/* Bottom Floating Info Card */}
-      <div className="absolute bottom-4 left-4 right-4">
-        <div className="flex items-center justify-between min-h-[76px] rounded-2xl bg-white p-3.5 shadow-md border border-gray-200 transition-all duration-300 group-hover:border-gray-300 group-hover:shadow-lg">
-          <div className="flex flex-col justify-center truncate pr-2 min-w-0">
-            <h3 className="truncate text-sm font-bold text-gray-900">
-              {product.name}
-            </h3>
-            {product.variantOptions && Object.keys(product.variantOptions).length > 0 && (
-              <span className="truncate text-[10px] font-medium text-gray-500">
-                {Object.entries(product.variantOptions)
-                  .map(([axis, value]) => `${axis}: ${value}`)
-                  .join(" · ")}
-              </span>
+        {secondaryUrl && (
+          <img
+            src={secondaryUrl}
+            alt={`${product.name} alternate view`}
+            loading="lazy"
+            decoding="async"
+            className="absolute inset-0 h-full w-full object-cover opacity-0 transition-all duration-500 ease-out group-hover:opacity-100 group-hover:scale-105"
+          />
+        )}
+
+        {/* 2. Floating Circular Wishlist Button */}
+        <button
+          type="button"
+          aria-label="Save to wishlist"
+          onClick={handleToggleWishlist}
+          disabled={isWishlistLoading}
+          className="absolute right-2.5 top-2.5 sm:right-3 sm:top-3 z-10 flex h-8 w-8 sm:h-8.5 sm:w-8.5 items-center justify-center rounded-full bg-white/90 text-gray-700 shadow-2xs backdrop-blur-xs transition-all duration-200 hover:scale-110 hover:bg-white active:scale-90 border border-gray-200/60 disabled:opacity-60 cursor-pointer"
+        >
+          <Heart
+            className={classNames(
+              "h-4 w-4 transition-colors",
+              isWishlisted ? "fill-red-500 text-red-500 stroke-red-500" : "text-gray-700 stroke-[1.75]"
             )}
-            <div className="mt-0.5 flex flex-wrap items-baseline gap-1.5">
-              {product.discount && product.discount > 0 ? (
-                <>
-                  <span className="text-sm font-black text-emerald-700 tracking-tight">
-                    ₹{Math.round(calculateDiscountedPrice(product.price, product.discount)).toLocaleString("en-IN")}
-                  </span>
-                  <span className="text-[10px] text-gray-400 line-through font-normal">
-                    ₹{Math.round(Number(product.price)).toLocaleString("en-IN")}
-                  </span>
-                  <span className="text-[9px] text-emerald-700 font-bold bg-emerald-50 border border-emerald-200/60 px-1.5 py-0.5 rounded-md leading-none shadow-2xs">
-                    {Math.round(Number(product.discount))}% OFF
-                  </span>
-                </>
-              ) : (
-                <span className="text-sm font-black text-emerald-700 tracking-tight">
-                  ₹{Math.round(Number(product.price)).toLocaleString("en-IN")}
-                </span>
-              )}
-            </div>
-          </div>
-          
-          <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-gray-100 text-gray-900 group-hover:bg-[var(--theme-primary)] group-hover:text-[var(--theme-primary-ink)] transition-colors duration-300">
-            <ArrowRight className="h-4 w-4" />
-          </div>
+          />
+        </button>
+      </div>
+
+      {/* 3. Product Info Left-Aligned Below Image */}
+      <div className="mt-2.5 sm:mt-3 flex flex-col items-start text-left px-0.5 font-sans">
+        <h3 className="w-full text-xs sm:text-[13px] font-normal text-gray-800 leading-snug line-clamp-1 group-hover:text-black transition-colors text-left">
+          {product.name}
+        </h3>
+
+        <div className="mt-1 flex items-center justify-start gap-2 text-xs sm:text-[13px] flex-wrap">
+          {hasDiscount ? (
+            <>
+              <span className="text-gray-400 line-through font-normal text-[11px] sm:text-xs">
+                ₹ {originalPrice.toLocaleString("en-IN")}
+              </span>
+              <span className="text-gray-950 font-medium">
+                From ₹ {finalPrice.toLocaleString("en-IN")}
+              </span>
+            </>
+          ) : (
+            <span className="text-gray-950 font-medium">
+              ₹ {originalPrice.toLocaleString("en-IN")}
+            </span>
+          )}
         </div>
       </div>
     </div>
@@ -171,9 +202,8 @@ const ModernProductCard = React.memo(function ModernProductCard({ product }: { p
 // Skeleton loader
 function SkeletonCard() {
   return (
-    <div className="relative aspect-[5/7] w-full overflow-hidden rounded-3xl bg-gray-100 animate-pulse border border-gray-200/80">
-      <div className="absolute top-4 right-4 h-10 w-10 rounded-full bg-gray-200" />
-      <div className="absolute bottom-4 left-4 right-4 h-20 rounded-2xl bg-gray-200" />
+    <div className="relative aspect-square w-full overflow-hidden rounded-2xl bg-stone-100 animate-pulse border border-gray-100">
+      <div className="absolute top-3 right-3 h-8 w-8 rounded-full bg-stone-200" />
     </div>
   );
 }
@@ -468,7 +498,7 @@ export default function AllProducts() {
         </div>
       </Dialog>
 
-      <main className="max-w-7xl mx-auto px-4 py-8 mt-(--app-header-h)">
+      <main className="w-full px-4 sm:px-6 md:px-8 lg:px-10 xl:px-12 py-8 mt-[var(--app-header-h,5rem)]">
         <button
           onClick={() => navigate(-1)}
           className="group flex items-center gap-1.5 text-xs font-bold uppercase tracking-widest text-gray-400 hover:text-gray-900 transition-colors mb-6"
@@ -477,152 +507,231 @@ export default function AllProducts() {
           <span>Go Back</span>
         </button>
 
-        {/* --- HEADER & CONTROLS ALIGNED IN ONE ROW --- */}
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 mb-8">
-          {/* Header Title */}
-          <motion.h2
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="text-3xl font-bold tracking-tight sm:text-4xl font-sans text-gray-900"
-          >
-            {filters.category || "All Products"}
-          </motion.h2>
+        {/* --- TITLE MATCHING REFERRAL IMAGE --- */}
+        <div className="mb-4 pt-1">
+          <h1 className="text-2xl sm:text-3xl lg:text-3xl font-medium tracking-wide uppercase text-gray-950 font-sans">
+            {filters.category ? filters.category : "All Products"}
+          </h1>
+        </div>
 
-          {/* Controls Bar */}
-          <div className="flex flex-col sm:flex-row items-center gap-3 w-full lg:w-auto">
-            {/* Search Input matched with referral image */}
-            <div className="relative w-full sm:w-64 md:w-72">
+        {/* --- HORIZONTAL FILTER & SORT BAR MATCHING REFERRAL IMAGE --- */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 py-3 border-t border-b border-gray-200/90 mb-6 font-sans">
+          {/* Left: Filter triggers */}
+          <div className="flex items-center gap-x-3.5 sm:gap-x-6 gap-y-2.5 flex-wrap text-xs text-gray-800">
+            <span className="text-gray-500 font-normal text-xs sm:text-[13px] tracking-wide">
+              Filter:
+            </span>
+
+            {/* Category Filter Dropdown */}
+            <Popover className="relative">
+              {({ open }) => (
+                <>
+                  <Popover.Button className="inline-flex items-center gap-1 text-xs sm:text-[13px] text-gray-800 hover:text-black font-normal focus:outline-none cursor-pointer transition-colors py-1.5 px-0.5 sm:px-0 sm:py-1">
+                    <span>{filters.category ? `Category: ${filters.category}` : "Category"}</span>
+                    <ChevronDownIcon
+                      className={`h-3 w-3 text-gray-500 transition-transform duration-200 ${
+                        open ? "rotate-180" : ""
+                      }`}
+                    />
+                  </Popover.Button>
+                  <AutoAlignPopoverPanel className="left-0 mt-2 w-56 max-h-72 overflow-y-auto bg-white rounded-xl shadow-xl border border-gray-200 p-2 ring-1 ring-black/5 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden animate-in fade-in zoom-in-95 duration-150">
+                    {({ close }) => (
+                      <div className="flex flex-col gap-0.5">
+                        <button
+                          type="button"
+                          className={classNames(
+                            !filters.category
+                              ? "bg-stone-100 text-gray-900 font-medium"
+                              : "text-gray-700 hover:bg-stone-50",
+                            "flex items-center justify-between w-full px-3 py-1.5 text-left text-xs rounded-lg transition-colors cursor-pointer"
+                          )}
+                          onClick={() => {
+                            updateFilter({ category: "" });
+                            close();
+                          }}
+                        >
+                          <span>All Categories</span>
+                          {!filters.category && <Check className="h-3.5 w-3.5 text-gray-900" />}
+                        </button>
+                        {hierarchicalCategories.map(({ cat: c, depth }) => {
+                          const name = c.name || c.title || "";
+                          const isSelected = filters.category === name;
+                          return (
+                            <button
+                              key={c._id || c.id}
+                              type="button"
+                              style={{ paddingLeft: `${depth * 12 + 12}px` }}
+                              className={classNames(
+                                isSelected
+                                  ? "bg-stone-100 text-gray-900 font-medium"
+                                  : "text-gray-700 hover:bg-stone-50",
+                                "flex items-center justify-between w-full py-1.5 pr-3 text-left text-xs rounded-lg transition-colors cursor-pointer"
+                              )}
+                              onClick={() => {
+                                updateFilter({ category: name });
+                                close();
+                              }}
+                            >
+                              <span className="truncate">{name}</span>
+                              {isSelected && <Check className="h-3.5 w-3.5 text-gray-900 shrink-0" />}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </AutoAlignPopoverPanel>
+                </>
+              )}
+            </Popover>
+
+            {/* Price Filter Dropdown */}
+            <Popover className="relative">
+              {({ open }) => (
+                <>
+                  <Popover.Button className="inline-flex items-center gap-1 text-xs sm:text-[13px] text-gray-800 hover:text-black font-normal focus:outline-none cursor-pointer transition-colors py-1.5 px-0.5 sm:px-0 sm:py-1">
+                    <span>Price</span>
+                    {(filters.minPrice !== "" || filters.maxPrice !== "") && (
+                      <span className="h-1.5 w-1.5 rounded-full bg-black ml-0.5" />
+                    )}
+                    <ChevronDownIcon
+                      className={`h-3 w-3 text-gray-500 transition-transform duration-200 ${
+                        open ? "rotate-180" : ""
+                      }`}
+                    />
+                  </Popover.Button>
+                  <AutoAlignPopoverPanel className="-left-14 sm:left-0 mt-2 w-64 max-w-[calc(100vw-32px)] bg-white rounded-xl shadow-xl border border-gray-200 p-4 ring-1 ring-black/5 animate-in fade-in zoom-in-95 duration-150">
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between text-xs font-medium text-gray-900">
+                        <span>Price Range (₹)</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          placeholder="Min"
+                          value={filters.minPrice}
+                          onChange={(e) =>
+                            setFilters((prev) => ({
+                              ...prev,
+                              minPrice: e.target.value === "" ? "" : Number(e.target.value),
+                              page: 1,
+                            }))
+                          }
+                          className="w-full px-2.5 py-1.5 border border-gray-200 rounded-lg text-xs"
+                        />
+                        <span className="text-gray-400 text-xs">–</span>
+                        <input
+                          type="number"
+                          placeholder="Max"
+                          value={filters.maxPrice}
+                          onChange={(e) =>
+                            setFilters((prev) => ({
+                              ...prev,
+                              maxPrice: e.target.value === "" ? "" : Number(e.target.value),
+                              page: 1,
+                            }))
+                          }
+                          className="w-full px-2.5 py-1.5 border border-gray-200 rounded-lg text-xs"
+                        />
+                      </div>
+                      <div className="flex items-center justify-between pt-1 border-t border-gray-100">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setFilters((prev) => ({ ...prev, minPrice: "", maxPrice: "", page: 1 }));
+                          }}
+                          className="text-[11px] text-gray-500 hover:text-black underline cursor-pointer"
+                        >
+                          Reset
+                        </button>
+                      </div>
+                    </div>
+                  </AutoAlignPopoverPanel>
+                </>
+              )}
+            </Popover>
+
+            {/* Search Input inline */}
+            <div className="relative w-44 sm:w-56">
               <input
                 type="text"
-                placeholder="Search products & categories.."
+                placeholder="Search products..."
                 value={filters.q}
                 onChange={(e) => setFilters((prev) => ({ ...prev, q: e.target.value, page: 1 }))}
-                className="w-full pl-9 pr-8 py-2 bg-[#f0f4f8] focus:bg-[#e8eef4] rounded-[20px] text-xs text-gray-700 placeholder:text-slate-400 focus:outline-none transition-all"
+                className="w-full pl-7 pr-6 py-1 bg-stone-50 hover:bg-stone-100 focus:bg-white border border-gray-200 rounded-full text-xs text-gray-800 placeholder:text-gray-400 focus:outline-none transition-all"
               />
-              <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+              <MagnifyingGlassIcon className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
               {filters.q && (
                 <button
                   type="button"
                   onClick={() => setFilters((prev) => ({ ...prev, q: "", page: 1 }))}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 rounded-full hover:bg-slate-200 text-slate-400 hover:text-slate-600 transition-colors"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 rounded-full hover:bg-gray-200 text-gray-400 hover:text-gray-600 transition-colors"
                 >
-                  <XMarkIcon className="h-3.5 w-3.5" />
+                  <XMarkIcon className="h-3 w-3" />
                 </button>
               )}
             </div>
+          </div>
 
-            {/* Smaller Category Filter Popover Dropdown */}
-            <Popover className="relative w-full sm:w-auto">
-              <Popover.Button className="w-full sm:w-auto inline-flex items-center justify-between sm:justify-start gap-1 px-3 py-1.5 bg-white border border-gray-200 hover:border-gray-300 rounded-full text-xs font-medium text-gray-700 focus:outline-none cursor-pointer transition-colors">
-                <span className="truncate">
-                  {filters.category ? `Category: ${filters.category}` : "All Categories"}
-                </span>
-                <ChevronDownIcon className="h-3 w-3 text-gray-400 shrink-0" />
-              </Popover.Button>
-              <Popover.Panel className="absolute left-0 sm:right-0 mt-2 w-56 max-h-72 overflow-y-auto bg-white border border-gray-100 rounded-2xl shadow-xl p-1.5 z-30 ring-1 ring-black/5 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden animate-in fade-in zoom-in-95 duration-150">
-                {({ close }) => (
-                  <div className="flex flex-col gap-0.5">
-                    <button
-                      type="button"
-                      className={classNames(
-                        !filters.category
-                          ? "bg-slate-100 text-gray-900 font-bold"
-                          : "text-gray-700 hover:bg-gray-50",
-                        "flex items-center justify-between w-full px-3 py-1.5 text-left text-xs rounded-xl transition-colors"
-                      )}
-                      onClick={() => {
-                        updateFilter({ category: "" });
-                        close();
-                      }}
-                    >
-                      <span>All Categories</span>
-                      {!filters.category && <Check className="h-3.5 w-3.5 text-gray-900" />}
-                    </button>
-                    {hierarchicalCategories.map(({ cat: c, depth }) => {
-                      const name = c.name || c.title || "";
-                      const isSelected = filters.category === name;
-                      return (
-                        <button
-                          key={c._id || c.id}
-                          type="button"
-                          style={{ paddingLeft: `${depth * 14 + 12}px` }}
-                          className={classNames(
-                            isSelected
-                              ? "bg-slate-100 text-gray-900 font-bold"
-                              : depth === 0
-                                ? "text-gray-900 font-semibold hover:bg-gray-50"
-                                : "text-gray-600 hover:bg-gray-50",
-                            "flex items-center justify-between w-full py-1.5 pr-3 text-left text-xs rounded-xl transition-colors"
-                          )}
-                          onClick={() => {
-                            updateFilter({ category: name });
-                            close();
-                          }}
-                        >
-                          <span className="truncate">{name}</span>
-                          {isSelected && <Check className="h-3.5 w-3.5 text-gray-900 shrink-0" />}
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </Popover.Panel>
+          {/* Right: Sort by & Product count */}
+          <div className="flex items-center gap-4 sm:gap-6 shrink-0 justify-between sm:justify-end">
+            <Popover className="relative">
+              {({ open }) => (
+                <>
+                  <Popover.Button className="inline-flex items-center gap-1.5 text-xs sm:text-[13px] text-gray-800 hover:text-black font-normal focus:outline-none cursor-pointer transition-colors py-1.5 px-0.5 sm:px-0 sm:py-1">
+                    <span className="text-gray-500 font-normal">Sort by:</span>
+                    <span className="font-medium text-gray-900">
+                      {filters.sort === "relevance"
+                        ? "Date, new to old"
+                        : filters.sort === "newest"
+                        ? "Date, new to old"
+                        : filters.sort === "price-asc"
+                        ? "Price: Low to High"
+                        : filters.sort === "price-desc"
+                        ? "Price: High to Low"
+                        : "Sort By"}
+                    </span>
+                    <ChevronDownIcon
+                      className={`h-3 w-3 text-gray-500 transition-transform duration-200 ${
+                        open ? "rotate-180" : ""
+                      }`}
+                    />
+                  </Popover.Button>
+                  <AutoAlignPopoverPanel className="left-0 sm:left-auto sm:right-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-gray-200 py-1.5 ring-1 ring-black/5 animate-in fade-in zoom-in-95 duration-150">
+                    {({ close }) => (
+                      <div className="flex flex-col">
+                        {[
+                          { name: "Date, new to old", value: "newest" },
+                          { name: "Relevance", value: "relevance" },
+                          { name: "Price: Low to High", value: "price-asc" },
+                          { name: "Price: High to Low", value: "price-desc" },
+                        ].map((option) => (
+                          <button
+                            key={option.value}
+                            type="button"
+                            className={classNames(
+                              filters.sort === option.value
+                                ? "bg-stone-100 text-black font-medium"
+                                : "text-gray-700 hover:bg-stone-50",
+                              "block w-full px-4 py-2 text-left text-xs transition-colors cursor-pointer"
+                            )}
+                            onClick={() => {
+                              updateFilter({ sort: option.value });
+                              close();
+                            }}
+                          >
+                            {option.name}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </AutoAlignPopoverPanel>
+                </>
+              )}
             </Popover>
 
-            {/* Smaller Sort By Dropdown */}
-            <Popover className="relative w-full sm:w-auto">
-              <Popover.Button className="w-full sm:w-auto inline-flex items-center justify-between sm:justify-start gap-1 px-3 py-1.5 bg-white border border-gray-200 hover:border-gray-300 rounded-full text-xs font-medium text-gray-700 focus:outline-none cursor-pointer transition-colors">
-                <span className="truncate">
-                  {filters.sort === "relevance"
-                    ? "Sort By: Default"
-                    : filters.sort === "newest"
-                    ? "Sort By: Newest"
-                    : filters.sort === "price-asc"
-                    ? "Price: Low to High"
-                    : filters.sort === "price-desc"
-                    ? "Price: High to Low"
-                    : "Sort By"}
-                </span>
-                <ChevronDownIcon className="h-3 w-3 text-gray-400 shrink-0" />
-              </Popover.Button>
-              <Popover.Panel className="absolute right-0 mt-2 w-48 bg-white border border-gray-100 rounded-2xl shadow-xl p-1.5 z-30 ring-1 ring-black/5">
-                {({ close }) => (
-                  <div className="flex flex-col gap-0.5">
-                    {[
-                      { name: "Relevance", value: "relevance" },
-                      { name: "Newest", value: "newest" },
-                      { name: "Price: Low to High", value: "price-asc" },
-                      { name: "Price: High to Low", value: "price-desc" },
-                    ].map((option) => (
-                      <button
-                        key={option.value}
-                        type="button"
-                        className={classNames(
-                          filters.sort === option.value
-                            ? "bg-slate-100 text-gray-900 font-bold"
-                            : "text-gray-700 hover:bg-gray-50",
-                          "block w-full px-3 py-1.5 text-left text-xs rounded-xl transition-colors"
-                        )}
-                        onClick={() => {
-                          updateFilter({ sort: option.value });
-                          close();
-                        }}
-                      >
-                        {option.name}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </Popover.Panel>
-            </Popover>
-
-            {/* Mobile Filters Button */}
-            <button
-              onClick={() => setMobileFiltersOpen(true)}
-              className="sm:hidden w-full inline-flex items-center justify-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 rounded-full text-xs font-medium text-gray-700 hover:bg-gray-50"
-            >
-              <Bars3Icon className="h-3.5 w-3.5" /> Filters
-            </button>
+            <span className="text-xs sm:text-[13px] text-gray-500 font-normal">
+              {total} {total === 1 ? "product" : "products"}
+            </span>
           </div>
         </div>
 
@@ -665,8 +774,8 @@ export default function AllProducts() {
           </div>
         )}
 
-        {/* PRODUCT GRID LAYOUT */}
-        <div className="pt-6 grid grid-cols-1 gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-4 xl:gap-x-8">
+        {/* PRODUCT GRID LAYOUT MATCHING REFERRAL IMAGE */}
+        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-8 sm:gap-x-6 sm:gap-y-10 lg:gap-x-8">
           {loading && items.length === 0
             ? Array.from({ length: 8 }).map((_, i) => (
                 <SkeletonCard key={i} />
