@@ -1334,6 +1334,7 @@ export default function HomepageManager() {
         template: 1,
       });
     }
+    const previousSlots = [...currentSlots];
     currentSlots[slotIdx] = { ...currentSlots[slotIdx], template: templateNum };
     const cleanSlots: FeaturedCategorySlot[] = currentSlots.slice(0, 2).map((s, idx) => ({
       id: s.id || `slot-${idx + 1}`,
@@ -1348,13 +1349,16 @@ export default function HomepageManager() {
     setFeaturedCatConfig(payload);
     try {
       await api.put("/admin/homepage-config/featured-categories", payload);
-      setPreviewRefreshKey((k) => k + 1);
+      refreshPreview();
       toast.success(
         `Featured Section ${slotIdx + 2} layout updated to ${FEATURED_TEMPLATE_LABELS[String(templateNum)]?.name || "Template " + templateNum}`,
         { id: `feat-slot-${slotIdx}-template` }
       );
-    } catch {
-      toast.error("Failed to update layout", { id: `feat-slot-${slotIdx}-template-err` });
+    } catch (err: any) {
+      console.error("handleSlotTemplateSelect error:", err);
+      const msg = err?.response?.data?.message || "Failed to update layout";
+      toast.error(msg, { id: `feat-slot-${slotIdx}-template-err` });
+      setFeaturedCatConfig({ slots: previousSlots });
     }
   };
 
@@ -1956,6 +1960,7 @@ export default function HomepageManager() {
           customSubtitle: "",
           limit: 8,
           isActive: true,
+          template: 1,
         });
       }
       currentSlots[index] = { ...currentSlots[index], ...patch };
@@ -7331,6 +7336,7 @@ export default function HomepageManager() {
                 customSubtitle: "",
                 limit: 8,
                 isActive: true,
+                template: 1,
               };
 
               const isActive = slot.isActive !== false;

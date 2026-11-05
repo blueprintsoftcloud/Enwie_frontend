@@ -239,6 +239,7 @@ export default function AlternatingShowcase({
           {allSections[i] && (
             <div className="w-full">
               <FeaturedProducts
+                key={`${allSections[i].key}-${allSections[i].template || 1}`}
                 featuredProducts={allSections[i].products}
                 productsLoading={allSections[i].loading}
                 productsError={allSections[i].error}
