@@ -39,7 +39,11 @@ import {
   PencilSquareIcon,
   TrashIcon,
   Squares2X2Icon,
+  QrCodeIcon,
+  ArrowPathIcon,
 } from "@heroicons/react/24/outline";
+import { BarcodeDownloadModal } from "./BarcodeDownloadModal";
+import { BarcodeRegenerateModal } from "./BarcodeRegenerateModal";
 import api from "../utils/api";
 import {
   Upload,
@@ -141,6 +145,7 @@ interface ListProduct {
   _id?: string;
   name: string;
   code?: string;
+  barcode?: string;
   brand?: string;
   description?: string;
   metaTitle?: string;
@@ -248,23 +253,32 @@ const ActionModel = ({
   onEdit,
   onDelete,
   onManageVariants,
+  onPrintBarcode,
   canEdit = true,
   canDelete = true,
 }: {
   onEdit: () => void;
   onDelete: () => void;
   onManageVariants: () => void;
+  onPrintBarcode: () => void;
   canEdit?: boolean;
   canDelete?: boolean;
 }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [openUp, setOpenUp] = useState(false);
   const [menuPos, setMenuPos] = useState({ top: 0, right: 0 });
   const triggerRef = useRef<HTMLButtonElement>(null);
 
   const openMenu = () => {
     const rect = triggerRef.current?.getBoundingClientRect();
     if (rect) {
-      setMenuPos({ top: rect.bottom + 6, right: window.innerWidth - rect.right });
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const shouldOpenUp = spaceBelow < 220;
+      setOpenUp(shouldOpenUp);
+      setMenuPos({
+        top: shouldOpenUp ? Math.max(10, rect.top - 6) : Math.min(rect.bottom + 6, window.innerHeight - 220),
+        right: Math.max(10, window.innerWidth - rect.right),
+      });
     }
     setIsOpen(true);
   };
@@ -308,8 +322,13 @@ const ActionModel = ({
       {isOpen &&
         createPortal(
           <div
-            style={{ position: "fixed", top: menuPos.top, right: menuPos.right }}
-            className="action-model-menu w-48 bg-white border border-gray-200 rounded-lg shadow-xl z-50 origin-top-right animate-fadeIn ring-1 ring-gray-100 overflow-hidden"
+            style={{
+              position: "fixed",
+              top: menuPos.top,
+              right: menuPos.right,
+              transform: openUp ? "translateY(-100%)" : "none",
+            }}
+            className="action-model-menu w-48 bg-white border border-gray-200 rounded-xl shadow-2xl z-50 animate-fadeIn ring-1 ring-gray-100 overflow-hidden"
           >
             <button
               onClick={(e) => {
@@ -350,6 +369,18 @@ const ActionModel = ({
                 className={`w-4 h-4 mr-3 ${canEdit ? "text-indigo-600" : "text-gray-300"}`}
               />
               <span className="font-medium">Manage Variants</span>
+            </button>
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onPrintBarcode();
+                setIsOpen(false);
+              }}
+              className="w-full text-left flex items-center px-4 py-3 text-sm transition-all duration-200 border-b border-gray-100 text-gray-700 hover:bg-gray-50 cursor-pointer"
+            >
+              <QrCodeIcon className="w-4 h-4 mr-3 text-emerald-600" />
+              <span className="font-medium">Print Barcodes</span>
             </button>
             <button
               onClick={(e) => {
@@ -402,6 +433,7 @@ const DashboardProductCard = ({
   handleViewProduct,
   handleToggleStatus,
   handleManageVariants,
+  handlePrintBarcode,
   canEdit = true,
   canDelete = true,
 }: {
@@ -411,6 +443,7 @@ const DashboardProductCard = ({
   handleViewProduct: (p: ListProduct) => void;
   handleToggleStatus: (p: ListProduct) => void;
   handleManageVariants: (p: ListProduct) => void;
+  handlePrintBarcode: (p: ListProduct) => void;
   canEdit?: boolean;
   canDelete?: boolean;
 }) => {
@@ -569,6 +602,7 @@ const DashboardProductCard = ({
               onEdit={() => handleEditClick(product)}
               onDelete={() => handleDeleteClick(product)}
               onManageVariants={() => handleManageVariants(product)}
+              onPrintBarcode={() => handlePrintBarcode(product)}
               canEdit={canEdit}
               canDelete={canDelete}
             />
@@ -704,6 +738,17 @@ const Listproducts = ({
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [variantsModalProduct, setVariantsModalProduct] = useState<ListProduct | null>(null);
+  const [barcodeDownloadProduct, setBarcodeDownloadProduct] = useState<{
+    id?: string;
+    _id?: string;
+    code: string;
+    barcode?: string;
+    name: string;
+    price: number;
+    categoryName?: string;
+    variants?: any[];
+  } | null>(null);
+  const [regenerateModalProduct, setRegenerateModalProduct] = useState<ListProduct | null>(null);
   // Whether the product currently open in the edit form has any active variants — if
   // so, its Stock field is derived (see backend's syncProductStock) and the form shows
   // a read-only total instead of an editable input. Null while that check is loading.
@@ -2187,6 +2232,16 @@ const Listproducts = ({
                             handleViewProduct={handleViewProduct}
                             handleToggleStatus={handleToggleStatus}
                             handleManageVariants={setVariantsModalProduct}
+                            handlePrintBarcode={(p) =>
+                              setBarcodeDownloadProduct({
+                                id: (p._id || p.id) as string,
+                                code: p.code || "",
+                                barcode: p.barcode || p.code,
+                                name: p.name,
+                                price: p.price || 0,
+                                variants: (p as any).variants || [],
+                              })
+                            }
                             canEdit={canEdit}
                             canDelete={canDelete}
                           />
@@ -2290,6 +2345,16 @@ const Listproducts = ({
                                         onEdit={() => handleEditClick(prod)}
                                         onDelete={() => handleDeleteClick(prod)}
                                         onManageVariants={() => setVariantsModalProduct(prod)}
+                                        onPrintBarcode={() =>
+                                          setBarcodeDownloadProduct({
+                                            id: (prod._id || prod.id) as string,
+                                            code: prod.code || "",
+                                            barcode: prod.barcode || prod.code,
+                                            name: prod.name,
+                                            price: prod.price || 0,
+                                            variants: (prod as any).variants || [],
+                                          })
+                                        }
                                         canEdit={canEdit}
                                         canDelete={canDelete}
                                       />
@@ -2457,6 +2522,60 @@ const Listproducts = ({
                       className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50/50"
                       required
                     />
+                  </div>
+
+                  {/* Barcode & POS Actions */}
+                  <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/70 space-y-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide">
+                          Barcode (POS Identifier)
+                        </label>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="font-mono text-sm font-bold bg-white px-2.5 py-1 rounded-lg border border-slate-200 text-slate-800 shadow-2xs">
+                            {(selectedProduct as any)?.barcode || formData.productCode || "NO BARCODE"}
+                          </span>
+                          <span className="text-[11px] text-slate-500">
+                            Scannable at POS counter
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (selectedProduct) {
+                              setBarcodeDownloadProduct({
+                                id: (selectedProduct._id || selectedProduct.id) as string,
+                                code: selectedProduct.code || formData.productCode,
+                                barcode: (selectedProduct as any).barcode || selectedProduct.code || formData.productCode,
+                                name: selectedProduct.name || formData.productName,
+                                price: selectedProduct.price || Number(formData.price) || 0,
+                                variants: (selectedProduct as any).variants || [],
+                              });
+                            }
+                          }}
+                          className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                        >
+                          <QrCodeIcon className="w-3.5 h-3.5" />
+                          <span>Print Labels</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (selectedProduct) {
+                              setRegenerateModalProduct(selectedProduct);
+                            }
+                          }}
+                          className="px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                        >
+                          <ArrowPathIcon className="w-3.5 h-3.5" />
+                          <span>Regenerate Barcode</span>
+                        </button>
+                      </div>
+                    </div>
                   </div>
 
                   {/* Product Name */}
@@ -3724,6 +3843,36 @@ const Listproducts = ({
             </div>
           </div>,
           document.body
+        )}
+
+        {/* Barcode Download / Print Modal */}
+        {barcodeDownloadProduct && (
+          <BarcodeDownloadModal
+            isOpen={!!barcodeDownloadProduct}
+            onClose={() => setBarcodeDownloadProduct(null)}
+            product={barcodeDownloadProduct}
+          />
+        )}
+
+        {/* Barcode Regenerate Confirmation Modal */}
+        {regenerateModalProduct && (
+          <BarcodeRegenerateModal
+            isOpen={!!regenerateModalProduct}
+            onClose={() => setRegenerateModalProduct(null)}
+            productId={(regenerateModalProduct._id || regenerateModalProduct.id) as string}
+            productName={regenerateModalProduct.name}
+            currentBarcode={(regenerateModalProduct as any).barcode || regenerateModalProduct.code || "NO CODE"}
+            onSuccess={(newBarcode) => {
+              setSelectedProduct((prev) => (prev ? { ...prev, barcode: newBarcode } : null));
+              setProducts((prev) =>
+                prev.map((p) =>
+                  (p._id || p.id) === (regenerateModalProduct._id || regenerateModalProduct.id)
+                    ? { ...p, barcode: newBarcode }
+                    : p
+                )
+              );
+            }}
+          />
         )}
       </div>
 

@@ -33,7 +33,9 @@ import {
   InformationCircleIcon,
   Squares2X2Icon,
   ListBulletIcon,
+  QrCodeIcon,
 } from "@heroicons/react/24/outline";
+import { BarcodeDownloadModal } from "../products/BarcodeDownloadModal";
 
 const BACKEND_BASE_URL = domainUrl.replace(/\/api\/?$/, "");
 
@@ -176,6 +178,16 @@ export default function AdminProductStockManagement() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailData, setDetailData] = useState<ProductDetailResponse | null>(null);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const [barcodeDownloadProduct, setBarcodeDownloadProduct] = useState<{
+    id?: string;
+    _id?: string;
+    code: string;
+    barcode?: string;
+    name: string;
+    price: number;
+    categoryName?: string;
+    variants?: any[];
+  } | null>(null);
 
   // Sales date filter states for drawer
   const [salesDateFilter, setSalesDateFilter] = useState<
@@ -316,6 +328,32 @@ export default function AdminProductStockManagement() {
   const handleRefresh = async () => {
     setRefreshing(true);
     await Promise.all([fetchSummary(), fetchProducts()]);
+  };
+
+  // ── Open Barcode Download Modal ───────────────────────────────────────────
+  const openBarcodeModal = async (p: ProductItem, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    let variants: any[] = (p as any).variants || [];
+    if (!variants.length) {
+      try {
+        const res = await api.get(`/product/${p.id}/variants`);
+        if (res.data?.variants && Array.isArray(res.data.variants)) {
+          variants = res.data.variants;
+        }
+      } catch (err) {
+        console.warn("Could not fetch variants for barcode modal", err);
+      }
+    }
+
+    setBarcodeDownloadProduct({
+      id: p.id,
+      code: p.code || "",
+      barcode: (p as any).barcode || p.code || "",
+      name: p.name,
+      price: Number(p.salePrice || p.price || 0),
+      categoryName: p.category?.name,
+      variants,
+    });
   };
 
   // ── Load Product Detail (Drawer) ───────────────────────────────────────────
@@ -1087,7 +1125,7 @@ export default function AdminProductStockManagement() {
                     <button
                       type="button"
                       onClick={(e) => openQuickStockModal(p, e)}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-100 hover:text-indigo-600 hover:border-slate-300 transition-colors shadow-2xs"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-100 hover:text-indigo-600 hover:border-slate-300 transition-colors shadow-2xs cursor-pointer"
                       title="Quick Stock Adjustment"
                     >
                       <PencilSquareIcon className="w-3.5 h-3.5 text-slate-400" />
@@ -1096,8 +1134,18 @@ export default function AdminProductStockManagement() {
 
                     <button
                       type="button"
+                      onClick={(e) => openBarcodeModal(p, e)}
+                      className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200 transition-colors shadow-2xs cursor-pointer"
+                      title="Print Barcode Labels"
+                    >
+                      <QrCodeIcon className="w-3.5 h-3.5 text-indigo-600" />
+                      <span className="hidden sm:inline">Barcode</span>
+                    </button>
+
+                    <button
+                      type="button"
                       onClick={() => openProductDetail(p.id)}
-                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-200/80 rounded-xl hover:bg-indigo-600 hover:text-white transition-all shadow-2xs"
+                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-200/80 rounded-xl hover:bg-indigo-600 hover:text-white transition-all shadow-2xs cursor-pointer"
                       title="Open Sidebar Details"
                     >
                       <EyeIcon className="w-3.5 h-3.5" />
@@ -1206,6 +1254,15 @@ export default function AdminProductStockManagement() {
                       {/* Actions */}
                       <td className="py-3.5 px-4 text-right whitespace-nowrap">
                         <div className="flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
+                          <button
+                            type="button"
+                            onClick={(e) => openBarcodeModal(p, e)}
+                            className="p-1.5 text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors border border-transparent hover:border-indigo-100 cursor-pointer"
+                            title="Print Barcode Labels"
+                          >
+                            <QrCodeIcon className="w-4 h-4" />
+                          </button>
+
                           <button
                             onClick={(e) => openQuickStockModal(p, e)}
                             className="p-1.5 text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors border border-transparent hover:border-indigo-100"
@@ -1443,6 +1500,12 @@ export default function AdminProductStockManagement() {
                               <div>
                                 <span className="text-slate-400">Brand:</span>{" "}
                                 <span className="font-semibold text-slate-800">{detailData.product.brand || "N/A"}</span>
+                              </div>
+                              <div>
+                                <span className="text-slate-400">Barcode:</span>{" "}
+                                <span className="font-mono font-bold text-slate-800 bg-white px-1.5 py-0.5 rounded border border-slate-200">
+                                  {(detailData.product as any).barcode || detailData.product.code || "N/A"}
+                                </span>
                               </div>
                               {(() => {
                                 const rawPrice = Number(detailData.product.price || 0);
@@ -1947,6 +2010,31 @@ export default function AdminProductStockManagement() {
                     return (
                       <div className="flex items-center gap-2">
                         {prod && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (detailData?.variants?.length) {
+                                setBarcodeDownloadProduct({
+                                  id: targetProdId,
+                                  code: prod.code || "",
+                                  barcode: (prod as any).barcode || prod.code || "",
+                                  name: prod.name,
+                                  price: Number(prod.price || prod.salePrice || 0),
+                                  categoryName: prod.category?.name,
+                                  variants: detailData.variants,
+                                });
+                              } else {
+                                openBarcodeModal(prod);
+                              }
+                            }}
+                            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 transition-colors shadow-2xs cursor-pointer"
+                          >
+                            <QrCodeIcon className="w-3.5 h-3.5 text-indigo-600" />
+                            <span>Print Barcodes</span>
+                          </button>
+                        )}
+
+                        {prod && (
                           <Link
                             to={editUrl}
                             onClick={() => setDetailDrawerOpen(false)}
@@ -2152,6 +2240,15 @@ export default function AdminProductStockManagement() {
           </div>
         )}
       </AnimatePresence>
+
+      {/* Barcode Download Modal */}
+      {barcodeDownloadProduct && (
+        <BarcodeDownloadModal
+          isOpen={!!barcodeDownloadProduct}
+          onClose={() => setBarcodeDownloadProduct(null)}
+          product={barcodeDownloadProduct}
+        />
+      )}
     </div>
   );
 }

@@ -36,10 +36,15 @@ import {
   BuildingStorefrontIcon,
   ClockIcon,
   ArrowDownTrayIcon,
+  QrCodeIcon,
+  VideoCameraIcon,
 } from "@heroicons/react/24/outline";
 import { CheckCircleIcon as CheckCircleSolid } from "@heroicons/react/24/solid";
 import ShipOrderModal, { ShipOrderPayload } from "./ShipOrderModal";
 import BulkInvoiceModal from "./BulkInvoiceModal";
+import { playSuccessBeep, playErrorBeep } from "../utils/barcodeGenerator";
+import { CameraBarcodeScannerModal } from "../components/CameraBarcodeScannerModal";
+import { VariantPickerModal } from "../components/VariantPickerModal";
 
 interface RecentOrderInfo {
   id: string;
@@ -67,6 +72,7 @@ interface Customer {
 
 interface ProductVariant {
   id: string;
+  _id?: string;
   options: Record<string, string>;
   stock: number;
   priceOverride: number | null;
@@ -74,6 +80,8 @@ interface ProductVariant {
   image?: string | null;
   secondaryImage?: string | null;
   images?: string[];
+  barcode?: string;
+  sku?: string;
 }
 
 interface Product {
@@ -192,146 +200,12 @@ const INDIAN_STATES = [
   "Uttarakhand", "West Bengal"
 ];
 
-// ─── Custom Product Variant Dropdown ────────────────────────────────────────
-interface ProductVariantDropdownProps {
-  variants: ProductVariant[];
-  basePrice: number;
-  selectedVariantId: string;
-  onSelect: (variantId: string) => void;
-}
-
-function ProductVariantDropdown({
-  variants,
-  basePrice,
-  selectedVariantId,
-  onSelect,
-}: ProductVariantDropdownProps) {
-  const [isOpen, setIsOpen] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  const selectedVariant = variants.find(v => v.id === selectedVariantId);
-
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
-      }
-    }
-    if (isOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
-      return () => document.removeEventListener("mousedown", handleClickOutside);
-    }
-  }, [isOpen]);
-
-  const formatVariantLabel = (options: Record<string, string>) => {
-    const entries = Object.entries(options);
-    if (entries.length === 0) return "Default Option";
-    return entries.map(([k, val]) => `${k}: ${val}`).join(" / ");
-  };
-
-  return (
-    <div className="relative mt-1 max-w-sm" ref={containerRef}>
-      {/* Trigger Button */}
-      <button
-        type="button"
-        onClick={() => setIsOpen(prev => !prev)}
-        className={`w-full flex items-center justify-between gap-2 px-3 py-1.5 rounded-xl border text-xs font-medium transition-all duration-200 text-left ${
-          isOpen
-            ? "border-indigo-500 bg-white ring-4 ring-indigo-500/15 shadow-sm"
-            : "bg-gray-50/70 hover:bg-white hover:border-gray-300 border-gray-200 shadow-2xs"
-        }`}
-      >
-        <div className="flex items-center gap-2 min-w-0 flex-1">
-          {selectedVariant ? (
-            <>
-              <span className="font-semibold text-gray-800 truncate">
-                {formatVariantLabel(selectedVariant.options)}
-              </span>
-              <span className="text-indigo-600 font-bold shrink-0">
-                ₹{(selectedVariant.priceOverride ?? basePrice).toLocaleString("en-IN")}
-              </span>
-              <span
-                className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-semibold shrink-0 ${
-                  selectedVariant.stock > 0
-                    ? "bg-emerald-50 text-emerald-700 border border-emerald-200/60"
-                    : "bg-rose-50 text-rose-600 border border-rose-200/60"
-                }`}
-              >
-                {selectedVariant.stock > 0 ? `${selectedVariant.stock} in stock` : "out of stock"}
-              </span>
-            </>
-          ) : (
-            <span className="text-gray-400 font-normal">Select option…</span>
-          )}
-        </div>
-        <ChevronDownIcon
-          className={`w-3.5 h-3.5 text-gray-400 shrink-0 transition-transform duration-200 ${
-            isOpen ? "rotate-180 text-indigo-600" : ""
-          }`}
-        />
-      </button>
-
-      {/* Popover Menu */}
-      {isOpen && (
-        <div className="absolute left-0 top-full mt-1.5 z-40 w-full min-w-[280px] bg-white border border-gray-100 rounded-2xl shadow-xl shadow-indigo-950/10 p-1.5 space-y-1 animate-fadeIn">
-          <div className="max-h-56 overflow-y-auto space-y-1 pr-0.5">
-            {variants.map(v => {
-              const isSelected = v.id === selectedVariantId;
-              const isOutOfStock = v.stock <= 0;
-              const price = v.priceOverride ?? basePrice;
-
-              return (
-                <button
-                  key={v.id}
-                  type="button"
-                  disabled={isOutOfStock}
-                  onClick={() => {
-                    onSelect(v.id);
-                    setIsOpen(false);
-                  }}
-                  className={`w-full flex items-center justify-between gap-2.5 px-3 py-2 rounded-xl text-xs transition-all text-left group ${
-                    isSelected
-                      ? "bg-indigo-50/80 text-indigo-950 font-semibold border border-indigo-200/80 shadow-2xs"
-                      : isOutOfStock
-                      ? "opacity-45 cursor-not-allowed bg-gray-50/40 text-gray-400 border border-transparent"
-                      : "text-gray-700 hover:bg-gray-50/80 hover:text-indigo-600 border border-transparent"
-                  }`}
-                >
-                  <div className="flex items-center gap-2 min-w-0 flex-1">
-                    <div
-                      className={`w-4 h-4 rounded-full flex items-center justify-center shrink-0 transition-colors ${
-                        isSelected
-                          ? "bg-indigo-600 text-white"
-                          : "border border-gray-300 group-hover:border-indigo-400 bg-white"
-                      }`}
-                    >
-                      {isSelected && <CheckIcon className="w-2.5 h-2.5 stroke-[3]" />}
-                    </div>
-                    <span className="truncate">{formatVariantLabel(v.options)}</span>
-                  </div>
-
-                  <div className="flex items-center gap-2 shrink-0">
-                    <span className={`font-bold ${isSelected ? "text-indigo-700" : "text-gray-900"}`}>
-                      ₹{price.toLocaleString("en-IN")}
-                    </span>
-                    <span
-                      className={`px-1.5 py-0.5 rounded-md text-[10px] font-semibold shrink-0 ${
-                        v.stock > 0
-                          ? "bg-emerald-50 text-emerald-700 border border-emerald-200/60"
-                          : "bg-rose-50 text-rose-600 border border-rose-200/60"
-                      }`}
-                    >
-                      {v.stock > 0 ? `${v.stock} in stock` : "out of stock"}
-                    </span>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
-    </div>
-  );
+// ─── Variant Label Formatter ──────────────────────────────────────────────────
+function formatVariantLabel(options?: Record<string, string>): string {
+  if (!options) return "Default Option";
+  const entries = Object.entries(options);
+  if (entries.length === 0) return "Default Option";
+  return entries.map(([k, val]) => `${k}: ${val}`).join(" / ");
 }
 
 // ─── Main Component ─────────────────────────────────────────────────────────
@@ -377,6 +251,13 @@ export default function AdminOrderPage() {
   // in the picker, separate from what's actually in the cart (see CartItem above).
   const [selectedVariantByProduct, setSelectedVariantByProduct] = useState<Record<string, string>>({});
   const productSearchDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // ── POS Barcode Scanner state ──
+  const [barcodeInput, setBarcodeInput] = useState("");
+  const [barcodeLoading, setBarcodeLoading] = useState(false);
+  const [cameraScannerOpen, setCameraScannerOpen] = useState(false);
+  const [variantPickerProduct, setVariantPickerProduct] = useState<Product | null>(null);
+  const barcodeInputRef = useRef<HTMLInputElement | null>(null);
 
   // ── Coupon state ──
   const [couponCode, setCouponCode] = useState("");
@@ -714,7 +595,16 @@ export default function AdminOrderPage() {
     setProductsLoading(true);
     try {
       const { data } = await api.get("/order/admin-order/products", { params: { search, page, limit: 10 } });
-      setProducts(data.products ?? []);
+      const rawProducts: any[] = data.products ?? [];
+      const normalizedProducts: Product[] = rawProducts.map((p) => ({
+        ...p,
+        id: String(p.id || p._id),
+        variants: (p.variants || []).map((v: any) => ({
+          ...v,
+          id: String(v.id || v._id),
+        })),
+      }));
+      setProducts(normalizedProducts);
       setProductTotalPages(data.pagination?.totalPages ?? 1);
     } catch {
       toast.error("Failed to load products");
@@ -741,44 +631,85 @@ export default function AdminOrderPage() {
   // the same product (e.g. 128GB vs 256GB) are separate lines, not merged into one,
   // same rule the storefront cart already follows (CartContext.tsx).
   const findCartLine = (productId: string, variantId?: string | null) =>
-    cart.find(c => c.product.id === productId && String(c.variantId ?? "") === String(variantId ?? ""));
+    cart.find(c => String(c.product.id) === String(productId) && String(c.variantId ?? "") === String(variantId ?? ""));
 
-  const addToCart = (product: Product, variantId?: string | null) => {
+  const addToCart = (product: Product, variantId?: string | null): boolean => {
     const hasVariants = (product.variants?.length ?? 0) > 0;
-    const variant = variantId ? product.variants?.find(v => v.id === variantId) : undefined;
-    if (hasVariants && !variant) {
-      toast.error(`Select an option for "${product.name}" first`, { id: "admin-order-pick-variant" });
-      return;
+    let targetVariant = variantId
+      ? product.variants?.find(v => String(v.id || (v as any)._id) === String(variantId))
+      : undefined;
+
+    // If product has variants but no variantId was supplied (e.g. parent product scanned/typed):
+    // Auto-select the first in-stock variant so POS billing continues seamlessly!
+    if (hasVariants && !targetVariant) {
+      targetVariant = product.variants?.find(v => v.stock > 0) || product.variants?.[0];
     }
-    const unitPrice = variant?.priceOverride ?? product.price;
-    const maxStock = variant ? variant.stock : product.stock;
+
+    if (hasVariants && !targetVariant) {
+      toast.error(`"${product.name}" has no available options or stock.`, { id: "admin-order-pick-variant" });
+      return false;
+    }
+
+    const resolvedVariantId = targetVariant ? String(targetVariant.id || (targetVariant as any)._id) : null;
+    const unitPrice = targetVariant?.priceOverride ?? product.price;
+    const maxStock = targetVariant ? targetVariant.stock : product.stock;
+
+    if (maxStock <= 0) {
+      toast.error(`"${product.name}" is out of stock!`);
+      return false;
+    }
+
+    // Auto-select this variant in the dropdown so the UI shows it picked
+    if (resolvedVariantId) {
+      setSelectedVariantByProduct(prev => ({ ...prev, [product.id]: resolvedVariantId }));
+    }
+
     setCart(prev => {
-      const existing = prev.find(c => c.product.id === product.id && String(c.variantId ?? "") === String(variantId ?? ""));
+      const existing = prev.find(
+        c => String(c.product.id) === String(product.id) && String(c.variantId ?? "") === String(resolvedVariantId ?? "")
+      );
       if (existing) {
+        if (existing.quantity >= maxStock) {
+          toast.error(`Cannot add more "${product.name}". Maximum stock (${maxStock}) reached.`);
+          return prev;
+        }
         return prev.map(c =>
           c === existing ? { ...c, quantity: Math.min(c.quantity + 1, maxStock) } : c,
         );
       }
       return [
         ...prev,
-        { product, variantId: variant?.id ?? null, variantOptions: variant?.options ?? null, unitPrice, maxStock, quantity: 1 },
+        {
+          product,
+          variantId: resolvedVariantId,
+          variantOptions: targetVariant?.options ?? null,
+          unitPrice,
+          maxStock,
+          quantity: 1,
+        },
       ];
     });
+
+    return true;
   };
 
   const updateQty = (productId: string, variantId: string | null | undefined, qty: number, maxStock: number) => {
     if (qty < 1) { removeFromCart(productId, variantId); return; }
+    const validQty = Math.min(qty, maxStock);
+    if (qty > maxStock) {
+      toast.error(`Maximum available stock is ${maxStock}`);
+    }
     setCart(prev =>
       prev.map(c =>
-        c.product.id === productId && String(c.variantId ?? "") === String(variantId ?? "")
-          ? { ...c, quantity: Math.min(qty, maxStock) }
+        String(c.product.id) === String(productId) && String(c.variantId ?? "") === String(variantId ?? "")
+          ? { ...c, quantity: validQty }
           : c,
       ),
     );
   };
 
   const removeFromCart = (productId: string, variantId?: string | null) => {
-    setCart(prev => prev.filter(c => !(c.product.id === productId && String(c.variantId ?? "") === String(variantId ?? ""))));
+    setCart(prev => prev.filter(c => !(String(c.product.id) === String(productId) && String(c.variantId ?? "") === String(variantId ?? ""))));
     setSelectedVariantByProduct(prev => {
       if (prev[productId]) {
         const next = { ...prev };
@@ -789,8 +720,300 @@ export default function AdminOrderPage() {
     });
   };
 
+  const switchCartItemVariant = (
+    productId: string,
+    oldVariantId: string | null | undefined,
+    newVariantId: string
+  ) => {
+    setCart((prev) => {
+      const currentItem = prev.find(
+        (c) =>
+          String(c.product.id) === String(productId) &&
+          String(c.variantId ?? "") === String(oldVariantId ?? "")
+      );
+      if (!currentItem) return prev;
+
+      const targetVariant = (currentItem.product.variants || []).find(
+        (v) => String(v.id || (v as any)._id) === String(newVariantId)
+      );
+      if (!targetVariant) return prev;
+
+      const targetUnitPrice = targetVariant.priceOverride ?? currentItem.product.price;
+      const targetMaxStock = targetVariant.stock;
+
+      if (targetMaxStock <= 0) {
+        toast.error(`"${formatVariantLabel(targetVariant.options)}" is out of stock.`);
+        return prev;
+      }
+
+      // Check if target variant is already in cart
+      const existingTarget = prev.find(
+        (c) =>
+          String(c.product.id) === String(productId) &&
+          String(c.variantId ?? "") === String(newVariantId)
+      );
+
+      if (existingTarget) {
+        const mergedQty = Math.min(existingTarget.quantity + currentItem.quantity, targetMaxStock);
+        toast.success(`Merged variant to ${formatVariantLabel(targetVariant.options)}`);
+        return prev
+          .filter((c) => c !== currentItem)
+          .map((c) => (c === existingTarget ? { ...c, quantity: mergedQty } : c));
+      } else {
+        const newQty = Math.min(currentItem.quantity, targetMaxStock);
+        toast.success(`Selected variant: ${formatVariantLabel(targetVariant.options)}`);
+        return prev.map((c) =>
+          c === currentItem
+            ? {
+                ...c,
+                variantId: newVariantId,
+                variantOptions: targetVariant.options ?? null,
+                unitPrice: targetUnitPrice,
+                maxStock: targetMaxStock,
+                quantity: newQty,
+              }
+            : c
+        );
+      }
+    });
+
+    setSelectedVariantByProduct((prev) => ({
+      ...prev,
+      [productId]: newVariantId,
+    }));
+  };
+
   const cartTotal = cart.reduce((sum, c) => sum + c.unitPrice * c.quantity, 0);
   const orderTotal = Math.max(cartTotal - (appliedCoupon?.discountAmount ?? 0), 0);
+
+  // Auto-focus barcode input when moving into products step
+  useEffect(() => {
+    if (currentStep === "products") {
+      const t = setTimeout(() => {
+        barcodeInputRef.current?.focus();
+      }, 250);
+      return () => clearTimeout(t);
+    }
+  }, [currentStep]);
+
+  // ── Global Hardware POS Barcode Scanner Listener ──
+  // Hardware scanners type characters in rapid bursts followed by Enter, Tab, or end-of-scan delay.
+  // This captures scans anywhere on the Products page even if user lost input focus or gun sends no Enter key.
+  useEffect(() => {
+    if (currentStep !== "products") return;
+
+    let scanBuffer = "";
+    let lastKeyTime = 0;
+    let autoSubmitTimer: any = null;
+
+    const flushBuffer = () => {
+      if (scanBuffer.trim().length >= 2) {
+        const code = scanBuffer.trim();
+        scanBuffer = "";
+        handleBarcodeScanSubmit(code);
+      } else {
+        scanBuffer = "";
+      }
+    };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const activeEl = document.activeElement;
+      const isInput =
+        activeEl instanceof HTMLInputElement ||
+        activeEl instanceof HTMLTextAreaElement ||
+        (activeEl as any)?.isContentEditable;
+
+      const now = Date.now();
+      const timeDiff = now - lastKeyTime;
+      lastKeyTime = now;
+
+      // Enter or Tab triggers immediate barcode submission
+      if (e.key === "Enter" || e.key === "Tab") {
+        if (autoSubmitTimer) clearTimeout(autoSubmitTimer);
+        if (scanBuffer.trim().length >= 2) {
+          e.preventDefault();
+          flushBuffer();
+          return;
+        } else if (activeEl === barcodeInputRef.current && barcodeInput.trim().length >= 1) {
+          e.preventDefault();
+          handleBarcodeScanSubmit();
+          return;
+        }
+      }
+
+      // If user is actively typing in a standard search box at human speed (> 70ms), don't intercept
+      if (isInput && activeEl !== barcodeInputRef.current && timeDiff > 70) {
+        scanBuffer = "";
+        return;
+      }
+
+      // Printable single character
+      if (e.key.length === 1 && !e.ctrlKey && !e.altKey && !e.metaKey) {
+        // If gap between characters was large (> 120ms), start a new buffer
+        if (timeDiff > 120) {
+          scanBuffer = "";
+        }
+        scanBuffer += e.key;
+
+        // Auto-submit after 180ms of silence in case scanner gun sends NO Enter or Tab suffix
+        if (autoSubmitTimer) clearTimeout(autoSubmitTimer);
+        if (scanBuffer.trim().length >= 3) {
+          autoSubmitTimer = setTimeout(() => {
+            flushBuffer();
+          }, 180);
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      if (autoSubmitTimer) clearTimeout(autoSubmitTimer);
+    };
+  }, [currentStep, products, cart, barcodeInput]);
+
+  // ── POS Scanner Add-to-cart & live auto price calculation ──
+  const handleBarcodeScanSubmit = async (codeOverride?: string) => {
+    const raw = (codeOverride || barcodeInput).trim();
+    if (!raw) return;
+
+    setBarcodeLoading(true);
+    try {
+      const cleanRaw = raw.toLowerCase();
+      const cleanDash = cleanRaw.replace(/\s+/g, "-");
+      const cleanSpace = cleanRaw.replace(/-/g, " ");
+      const cleanNoSep = cleanRaw.replace(/[\s\-_]+/g, "");
+
+      const matchesKey = (val?: string | null) => {
+        if (!val) return false;
+        const low = String(val).toLowerCase();
+        if (low === cleanRaw || low === cleanDash || low === cleanSpace) return true;
+        if (low.replace(/[\s\-_]+/g, "") === cleanNoSep) return true;
+        return false;
+      };
+
+      // 1. Try finding in loaded products list (by barcode, code, or exact product name)
+      let matchedProd = products.find(
+        (p) =>
+          matchesKey((p as any).barcode) ||
+          matchesKey(p.code) ||
+          matchesKey(p.name)
+      );
+      let matchedVariantId: string | null = null;
+
+      if (!matchedProd) {
+        for (const p of products) {
+          if (p.variants && p.variants.length > 0) {
+            const v = p.variants.find(
+              (v) =>
+                matchesKey((v as any).barcode) ||
+                matchesKey(v.sku)
+            );
+            if (v) {
+              matchedProd = p;
+              matchedVariantId = String(v.id || (v as any)._id);
+              break;
+            }
+          }
+        }
+      }
+
+      // 2. Query backend POS endpoint if not in current pagination page
+      if (!matchedProd) {
+        const res = await api.get(`/product/barcode/${encodeURIComponent(raw)}`);
+        const data = res.data;
+        if (data.product) {
+          const rawP = data.product;
+          matchedProd = {
+            id: String(rawP.id || rawP._id),
+            code: rawP.code,
+            barcode: rawP.barcode,
+            name: rawP.name,
+            price: rawP.price,
+            stock: rawP.stock,
+            image: rawP.image,
+            description: rawP.description,
+            variants: (data.variants || []).map((v: any) => ({
+              ...v,
+              id: String(v.id || v._id),
+            })),
+          } as Product;
+
+          if (data.matchedType === "variant" && data.variant) {
+            matchedVariantId = String(data.variant.id || data.variant._id);
+          }
+        }
+      }
+
+      if (!matchedProd) {
+        playErrorBeep();
+        toast.error(`No product found with barcode or code "${raw}"`);
+        setBarcodeInput("");
+        return;
+      }
+
+      const hasVariants = (matchedProd.variants?.length ?? 0) > 0;
+      let targetVariantId = matchedVariantId;
+
+      // If user scanned/typed product code or parent barcode and there are multiple options with different prices:
+      // Open the VariantPickerModal so the cashier chooses the exact variant and accurate price!
+      if (hasVariants && (matchedProd.variants?.length ?? 0) > 1 && !targetVariantId) {
+        setVariantPickerProduct(matchedProd);
+        setBarcodeInput("");
+        return;
+      }
+
+      if (hasVariants && !targetVariantId) {
+        const availableVariant = matchedProd.variants!.find((v) => v.stock > 0) || matchedProd.variants![0];
+        targetVariantId = availableVariant ? String(availableVariant.id || (availableVariant as any)._id) : null;
+      }
+
+      const variant = hasVariants
+        ? matchedProd.variants!.find((v) => String(v.id || (v as any)._id) === String(targetVariantId))
+        : undefined;
+      const effectiveStock = variant ? variant.stock : matchedProd.stock;
+
+      if (effectiveStock <= 0) {
+        playErrorBeep();
+        toast.error(`"${matchedProd.name}" is out of stock!`);
+        setBarcodeInput("");
+        return;
+      }
+
+      const existingInCart = cart.find(
+        (c) => String(c.product.id) === String(matchedProd!.id) && String(c.variantId ?? "") === String(targetVariantId ?? "")
+      );
+
+      if (existingInCart && existingInCart.quantity >= effectiveStock) {
+        playErrorBeep();
+        toast.error(`Cannot add more "${matchedProd.name}". Maximum stock (${effectiveStock}) reached.`);
+        setBarcodeInput("");
+        return;
+      }
+
+      const added = addToCart(matchedProd, targetVariantId);
+      if (added) {
+        playSuccessBeep();
+        const unitPrice = variant?.priceOverride ?? matchedProd.price;
+        const variantSuffix = variant?.options && Object.keys(variant.options).length > 0
+          ? ` (${Object.values(variant.options).join("/")})`
+          : "";
+        toast.success(`✓ Added: ${matchedProd.name}${variantSuffix} (₹${unitPrice.toLocaleString("en-IN")})`, { id: "pos-scan" });
+      } else {
+        playErrorBeep();
+      }
+
+      setBarcodeInput("");
+      setTimeout(() => barcodeInputRef.current?.focus(), 50);
+    } catch (err: any) {
+      playErrorBeep();
+      const msg = err?.response?.data?.message || `Barcode "${raw}" not recognized or inactive.`;
+      toast.error(msg, { id: "barcode-err" });
+      setBarcodeInput("");
+    } finally {
+      setBarcodeLoading(false);
+    }
+  };
 
   // A coupon's discount was computed against the subtotal at the moment it was applied —
   // if the cart changes afterwards that preview is stale, so drop it and make the admin
@@ -1144,14 +1367,14 @@ export default function AdminOrderPage() {
   return (
     <div className="min-h-[calc(100vh-4rem)] bg-gray-50 flex flex-col justify-between">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-4 sm:px-8 py-5 tracking-tight shrink-0">
-        <h1 className="text-3xl font-bold text-gray-900">Place Order on Behalf of Customer</h1>
-        <p className="text-sm text-gray-500 mt-0.5">Walk-in / cash counter order entry</p>
+      <div className="bg-white border-b border-gray-200 px-3.5 sm:px-8 py-3.5 sm:py-5 tracking-tight shrink-0">
+        <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Place Order on Behalf of Customer</h1>
+        <p className="text-xs sm:text-sm text-gray-500 mt-0.5">Walk-in / cash counter order entry</p>
       </div>
 
       {/* Step indicator */}
-      <div className="bg-white border-b border-gray-100 px-4 sm:px-8 py-4 shrink-0">
-        <ol className="flex items-center gap-0 overflow-x-auto">
+      <div className="bg-white border-b border-gray-100 px-3 sm:px-8 py-2.5 sm:py-3.5 shrink-0">
+        <ol className="flex items-center gap-0 overflow-x-auto no-scrollbar">
           {STEPS.map((step, i) => {
             const done = STEP_ORDER.indexOf(step.id) < stepIndex;
             const active = step.id === currentStep;
@@ -1163,17 +1386,17 @@ export default function AdminOrderPage() {
                     if (done) setCurrentStep(step.id);
                   }}
                   disabled={!done && !active}
-                  className={`flex flex-col sm:flex-row items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors
+                  className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg text-xs font-semibold transition-colors
                     ${active ? "text-indigo-700 bg-indigo-50" : done ? "text-green-700 cursor-pointer hover:bg-green-50" : "text-gray-400 cursor-default"}`}
                 >
                   {done ? (
-                    <CheckCircleSolid className="w-5 h-5 text-green-500 shrink-0" />
+                    <CheckCircleSolid className="w-4 h-4 sm:w-5 sm:h-5 text-green-500 shrink-0" />
                   ) : (
-                    <step.icon className={`w-5 h-5 shrink-0 ${active ? "text-indigo-600" : "text-gray-400"}`} />
+                    <step.icon className={`w-4 h-4 sm:w-5 sm:h-5 shrink-0 ${active ? "text-indigo-600" : "text-gray-400"}`} />
                   )}
-                  {step.label}
+                  <span>{step.label}</span>
                 </button>
-                {i < STEPS.length - 1 && <ChevronRightIcon className="w-4 h-4 text-gray-300 mx-1 shrink-0" />}
+                {i < STEPS.length - 1 && <ChevronRightIcon className="w-3.5 h-3.5 text-gray-300 mx-0.5 sm:mx-1 shrink-0" />}
               </li>
             );
           })}
@@ -1181,7 +1404,7 @@ export default function AdminOrderPage() {
       </div>
 
       {/* Body */}
-      <div className="flex-1 w-full px-4 sm:px-8 py-8 space-y-6">
+      <div className="flex-1 w-full px-3 sm:px-8 py-4 sm:py-8 space-y-4 sm:space-y-6">
 
         {/* ── STEP 1: Customer ── */}
         {currentStep === "customer" && (
@@ -1375,18 +1598,78 @@ export default function AdminOrderPage() {
 
         {/* ── STEP 2: Products ── */}
         {currentStep === "products" && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="space-y-3.5 sm:space-y-4">
+            {/* ── POS Barcode Scanner Bar ── */}
+            <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-2xl p-3 sm:p-4 shadow-sm text-white border border-indigo-900/40">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 sm:gap-3">
+                <div className="flex items-center gap-2 sm:gap-2.5">
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-indigo-500/20 border border-indigo-400/30 flex items-center justify-center text-indigo-300 shrink-0">
+                    <QrCodeIcon className="w-4 h-4 sm:w-6 sm:h-6" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                      <h3 className="text-xs sm:text-sm font-bold tracking-tight text-white">POS Barcode Scanner</h3>
+                      <span className="inline-flex items-center px-1.5 sm:px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                        ⚡ Auto-Billing
+                      </span>
+                    </div>
+                    <p className="text-[10px] sm:text-[11px] text-slate-400">
+                      Scan or type barcode to add to bill
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 flex-1 sm:max-w-md">
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      handleBarcodeScanSubmit();
+                    }}
+                    className="relative flex-1 min-w-0"
+                  >
+                    <input
+                      ref={barcodeInputRef}
+                      type="text"
+                      value={barcodeInput}
+                      onChange={(e) => setBarcodeInput(e.target.value)}
+                      placeholder="Scan or type barcode…"
+                      disabled={barcodeLoading}
+                      className="w-full h-9 sm:h-10 pl-3 pr-12 sm:pr-14 rounded-xl bg-slate-800/90 border border-slate-700 text-xs sm:text-sm font-mono text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 transition"
+                    />
+                    <button
+                      type="submit"
+                      disabled={barcodeLoading || !barcodeInput.trim()}
+                      className="absolute right-1 top-1/2 -translate-y-1/2 px-2 sm:px-2.5 py-1 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer"
+                    >
+                      {barcodeLoading ? "…" : "Add"}
+                    </button>
+                  </form>
+
+                  <button
+                    type="button"
+                    onClick={() => setCameraScannerOpen(true)}
+                    className="h-9 sm:h-10 px-2.5 sm:px-3.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1 sm:gap-1.5 shrink-0 cursor-pointer"
+                    title="Scan using Mobile / Tablet camera"
+                  >
+                    <VideoCameraIcon className="w-4 h-4" />
+                    <span className="hidden sm:inline">Camera</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
             {/* Product picker */}
-            <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-4">
-              <h2 className="text-lg font-bold text-gray-800">Add Products</h2>
+            <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-gray-100 p-3.5 sm:p-6 space-y-3 sm:space-y-4">
+              <h2 className="text-base sm:text-lg font-bold text-gray-800">Add Products</h2>
               <div className="relative flex items-center bg-gray-50/60 hover:bg-gray-50/20 focus-within:bg-white border border-gray-200 hover:border-gray-300 focus-within:border-indigo-500 rounded-xl shadow-xs focus-within:shadow-md focus-within:ring-4 focus-within:ring-indigo-500/15 transition-all duration-200 group">
-                <MagnifyingGlassIcon className="w-4 h-4 ml-3.5 text-gray-400 group-focus-within:text-indigo-600 transition-colors pointer-events-none shrink-0" />
+                <MagnifyingGlassIcon className="w-4 h-4 ml-3 text-gray-400 group-focus-within:text-indigo-600 transition-colors pointer-events-none shrink-0" />
                 <input
                   type="text"
                   placeholder="Search products by title, SKU, or category…"
                   value={productSearch}
                   onChange={e => handleProductSearch(e.target.value)}
-                  className="w-full pl-3 pr-9 h-11 text-sm font-medium text-gray-900 placeholder:text-gray-400 placeholder:font-normal bg-transparent focus:outline-none"
+                  className="w-full pl-2.5 pr-8 sm:pr-9 h-10 sm:h-11 text-xs sm:text-sm font-medium text-gray-900 placeholder:text-gray-400 placeholder:font-normal bg-transparent focus:outline-none"
                 />
                 {productSearch && (
                   <button
@@ -1409,23 +1692,25 @@ export default function AdminOrderPage() {
                   {products.map(p => {
                     const hasVariants = (p.variants?.length ?? 0) > 0;
                     const selectedVid = selectedVariantByProduct[p.id] ?? "";
-                    const selectedVariant = hasVariants ? p.variants!.find(v => v.id === selectedVid) : undefined;
+                    const selectedVariant = hasVariants ? p.variants!.find(v => String(v.id || (v as any)._id) === String(selectedVid)) : undefined;
                     const inCart = hasVariants
-                      ? (selectedVariant ? findCartLine(p.id, selectedVariant.id) : undefined)
+                      ? (selectedVariant ? findCartLine(p.id, selectedVariant.id || (selectedVariant as any)._id) : undefined)
                       : findCartLine(p.id, null);
                     const rowMaxStock = selectedVariant ? selectedVariant.stock : p.stock;
                     const displayImg = selectedVariant?.image || p.image;
-                    const isRowClickable = !hasVariants && !inCart && p.stock > 0;
+                    const isRowClickable = (!hasVariants && !inCart && p.stock > 0) || hasVariants;
 
                     return (
                       <li
                         key={p.id}
                         onClick={() => {
-                          if (isRowClickable) {
+                          if (hasVariants) {
+                            setVariantPickerProduct(p);
+                          } else if (isRowClickable) {
                             addToCart(p, null);
                           }
                         }}
-                        className={`group flex items-center gap-3 py-3 px-3 rounded-xl transition-all duration-150 border ${
+                        className={`group flex items-center gap-2.5 sm:gap-3 py-2.5 sm:py-3 px-2 sm:px-3 rounded-xl transition-all duration-150 border ${
                           inCart
                             ? "bg-indigo-50/50 border-indigo-200/80 shadow-2xs"
                             : isRowClickable
@@ -1434,40 +1719,39 @@ export default function AdminOrderPage() {
                         }`}
                       >
                         {displayImg ? (
-                          <img src={displayImg} alt={p.name} className="w-12 h-12 rounded-lg object-cover shrink-0 border border-slate-100" />
+                          <img src={displayImg} alt={p.name} className="w-11 h-11 sm:w-12 sm:h-12 rounded-lg object-cover shrink-0 border border-slate-100" />
                         ) : (
-                          <div className="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center shrink-0">
+                          <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-lg bg-gray-100 flex items-center justify-center shrink-0">
                             <ShoppingCartIcon className="w-5 h-5 text-gray-400" />
                           </div>
                         )}
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <p className="text-sm font-semibold text-gray-800 truncate">{p.name}</p>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <p className="text-xs sm:text-sm font-semibold text-gray-800 line-clamp-2 leading-tight break-words">{p.name}</p>
                             {inCart && (
-                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-100 text-indigo-700 shrink-0">
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] sm:text-[10px] font-bold bg-indigo-100 text-indigo-700 shrink-0">
                                 In Cart ({inCart.quantity})
                               </span>
                             )}
                           </div>
                           {p.description && stripHtml(p.description) && (
-                            <p className="text-[11px] text-gray-500 line-clamp-1 mt-0.5" title={stripHtml(p.description)}>
+                            <p className="text-[10px] sm:text-[11px] text-gray-500 line-clamp-1 mt-0.5" title={stripHtml(p.description)}>
                               {stripHtml(p.description)}
                             </p>
                           )}
                           {hasVariants ? (
-                            <div className="mt-1" onClick={e => e.stopPropagation()}>
-                              <ProductVariantDropdown
-                                variants={p.variants!}
-                                basePrice={p.price}
-                                selectedVariantId={selectedVid}
-                                onSelect={vid => {
-                                  setSelectedVariantByProduct(prev => ({ ...prev, [p.id]: vid }));
-                                  const existing = findCartLine(p.id, vid);
-                                  if (!existing) {
-                                    addToCart(p, vid);
-                                  }
-                                }}
-                              />
+                            <div className="mt-1 flex items-center gap-1.5 flex-wrap text-xs">
+                              <span className="font-extrabold text-indigo-600">
+                                ₹{(selectedVariant?.priceOverride ?? p.price).toLocaleString("en-IN")}
+                              </span>
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200/60">
+                                {p.variants!.length} options
+                              </span>
+                              {selectedVariant && (
+                                <span className="text-[10px] sm:text-[11px] text-slate-500 truncate max-w-[130px] sm:max-w-[200px]">
+                                  · {formatVariantLabel(selectedVariant.options)}
+                                </span>
+                              )}
                             </div>
                           ) : (
                             <p className="text-xs text-gray-500 mt-1">
@@ -1477,33 +1761,66 @@ export default function AdminOrderPage() {
                           )}
                         </div>
                         {inCart ? (
-                          <div className="flex items-center gap-1.5 shrink-0 bg-white px-2 py-1 rounded-xl border border-indigo-200 shadow-2xs" onClick={e => e.stopPropagation()}>
-                            <button
-                              type="button"
-                              onClick={() => updateQty(p.id, inCart.variantId, inCart.quantity - 1, rowMaxStock)}
-                              className="w-6 h-6 flex items-center justify-center rounded-lg bg-indigo-50 text-indigo-700 hover:bg-indigo-100 hover:scale-105 active:scale-95 transition-all cursor-pointer"
-                              title="Decrease quantity"
-                            >
-                              <MinusIcon className="w-3 h-3" />
-                            </button>
-                            <span className="w-6 text-center text-sm font-bold text-indigo-900">{inCart.quantity}</span>
-                            <button
-                              type="button"
-                              onClick={() => updateQty(p.id, inCart.variantId, inCart.quantity + 1, rowMaxStock)}
-                              disabled={inCart.quantity >= rowMaxStock}
-                              className="w-6 h-6 flex items-center justify-center rounded-lg bg-indigo-50 text-indigo-700 hover:bg-indigo-100 hover:scale-105 active:scale-95 disabled:opacity-40 disabled:pointer-events-none transition-all cursor-pointer"
-                              title="Increase quantity"
-                            >
-                              <PlusIcon className="w-3.5 h-3.5" />
-                            </button>
+                          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0" onClick={e => e.stopPropagation()}>
+                            <div className="flex items-center gap-1 sm:gap-1.5 bg-white px-1.5 sm:px-2 py-1 rounded-xl border border-indigo-200 shadow-2xs">
+                              <button
+                                type="button"
+                                onClick={() => updateQty(p.id, inCart.variantId, inCart.quantity - 1, rowMaxStock)}
+                                className="w-6 h-6 flex items-center justify-center rounded-lg bg-indigo-50 text-indigo-700 hover:bg-indigo-100 active:scale-95 transition-all cursor-pointer"
+                                title="Decrease quantity"
+                              >
+                                <MinusIcon className="w-3 h-3" />
+                              </button>
+                              <span className="w-5 sm:w-6 text-center text-xs sm:text-sm font-bold text-indigo-900">{inCart.quantity}</span>
+                              <button
+                                type="button"
+                                onClick={() => updateQty(p.id, inCart.variantId, inCart.quantity + 1, rowMaxStock)}
+                                disabled={inCart.quantity >= rowMaxStock}
+                                className="w-6 h-6 flex items-center justify-center rounded-lg bg-indigo-50 text-indigo-700 hover:bg-indigo-100 active:scale-95 disabled:opacity-40 disabled:pointer-events-none transition-all cursor-pointer"
+                                title="Increase quantity"
+                              >
+                                <PlusIcon className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                            {hasVariants && (
+                              <button
+                                type="button"
+                                onClick={() => setVariantPickerProduct(p)}
+                                className="text-[10px] sm:text-[11px] font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-1.5 sm:px-2.5 py-1.5 rounded-lg border border-indigo-200 transition-colors cursor-pointer shrink-0"
+                                title="Add another variant of this product"
+                              >
+                                + <span className="hidden sm:inline">Option</span>
+                              </button>
+                            )}
                           </div>
-                        ) : hasVariants ? null : p.stock > 0 ? (
-                          <div className="shrink-0 flex items-center gap-1.5 text-xs font-semibold text-indigo-600 group-hover:text-indigo-700 bg-indigo-50/60 group-hover:bg-indigo-100 px-3 py-1.5 rounded-lg border border-indigo-100 transition-all pointer-events-none">
+                        ) : hasVariants ? (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setVariantPickerProduct(p);
+                            }}
+                            className="shrink-0 flex items-center justify-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 sm:py-2 text-[11px] sm:text-xs font-bold text-indigo-600 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-xl border border-indigo-200 transition-all cursor-pointer shadow-2xs active:scale-95"
+                            title="Choose variant options"
+                          >
+                            <PlusIcon className="w-3.5 h-3.5 shrink-0" />
+                            <span className="hidden sm:inline">Select Option</span>
+                            <span className="sm:hidden">Options</span>
+                          </button>
+                        ) : p.stock > 0 ? (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              addToCart(p, null);
+                            }}
+                            className="shrink-0 flex items-center justify-center gap-1 px-2.5 sm:px-3 py-1.5 sm:py-2 text-xs font-semibold text-indigo-600 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-xl border border-indigo-200 transition-all cursor-pointer shadow-2xs active:scale-95"
+                          >
                             <PlusIcon className="w-3.5 h-3.5" />
                             <span>Select</span>
-                          </div>
+                          </button>
                         ) : (
-                          <span className="text-xs font-medium text-slate-400 shrink-0">Out of Stock</span>
+                          <span className="text-[11px] sm:text-xs font-medium text-slate-400 shrink-0">Out of Stock</span>
                         )}
                       </li>
                     );
@@ -1531,30 +1848,127 @@ export default function AdminOrderPage() {
             </div>
 
             {/* Cart summary */}
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-4 h-fit">
+            <div id="admin-order-cart-section" className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-6 space-y-4 h-fit">
               <h2 className="text-base font-bold text-gray-800">Cart ({cart.length})</h2>
               {cart.length === 0 ? (
                 <p className="text-sm text-gray-400 text-center py-6">No items yet</p>
               ) : (
                 <ul className="divide-y divide-gray-100 space-y-0">
-                  {cart.map(item => (
-                    <li key={`${item.product.id}-${item.variantId ?? "base"}`} className="flex items-center gap-2 py-2.5">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-semibold text-gray-700 truncate">{item.product.name}</p>
-                        {item.variantOptions && (
-                          <p className="text-[11px] text-gray-400 truncate">
-                            {Object.entries(item.variantOptions).map(([k, v]) => `${k}: ${v}`).join(" · ")}
-                          </p>
+                  {cart.map(item => {
+                    const hasVariants = (item.product.variants?.length ?? 0) > 0;
+                    const displayImg = item.product.variants?.find(v => String(v.id || (v as any)._id) === String(item.variantId))?.image || item.product.image;
+
+                    return (
+                      <li key={`${item.product.id}-${item.variantId ?? "base"}`} className="py-3 space-y-2">
+                        {/* Header: Thumbnail + Name + Unit Price + Delete */}
+                        <div className="flex items-start gap-2.5">
+                          {displayImg ? (
+                            <img src={displayImg} alt={item.product.name} className="w-10 h-10 rounded-lg object-cover shrink-0 border border-gray-100 mt-0.5" />
+                          ) : (
+                            <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center shrink-0 mt-0.5">
+                              <ShoppingCartIcon className="w-4 h-4 text-gray-400" />
+                            </div>
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs sm:text-sm font-semibold text-gray-800 line-clamp-2 leading-snug">
+                              {item.product.name}
+                            </p>
+                            <span className="text-[11px] text-gray-500 font-medium">
+                              ₹{item.unitPrice.toLocaleString("en-IN")} each
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => removeFromCart(item.product.id, item.variantId)}
+                            className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors shrink-0 cursor-pointer"
+                            title="Remove from cart"
+                          >
+                            <TrashIcon className="w-4 h-4" />
+                          </button>
+                        </div>
+
+                        {/* Variant Selection (when product has variants) */}
+                        {hasVariants && (
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <div className="relative flex-1 min-w-[140px]">
+                              <select
+                                value={item.variantId ?? ""}
+                                onChange={(e) => switchCartItemVariant(item.product.id, item.variantId, e.target.value)}
+                                className="w-full text-xs font-semibold text-indigo-900 bg-indigo-50/70 hover:bg-indigo-50 border border-indigo-200/80 rounded-xl px-2.5 py-1.5 pr-7 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition cursor-pointer appearance-none truncate"
+                                title="Switch variant option"
+                              >
+                                {item.product.variants!.map((v, idx) => {
+                                  const vid = String(v.id || (v as any)._id || idx);
+                                  const isOutOfStock = v.stock <= 0;
+                                  const price = v.priceOverride ?? item.product.price;
+                                  return (
+                                    <option key={vid} value={vid} disabled={isOutOfStock}>
+                                      {formatVariantLabel(v.options)} · ₹{price.toLocaleString("en-IN")}{isOutOfStock ? " (Out of stock)" : ` (${v.stock} in stock)`}
+                                    </option>
+                                  );
+                                })}
+                              </select>
+                              <ChevronDownIcon className="w-3.5 h-3.5 text-indigo-500 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setVariantPickerProduct(item.product)}
+                              className="px-2 py-1.5 text-[10px] font-bold text-indigo-700 hover:text-indigo-900 bg-indigo-100/60 hover:bg-indigo-100 rounded-lg border border-indigo-200 transition-colors shrink-0 cursor-pointer"
+                              title="Open visual variant picker"
+                            >
+                              + Option
+                            </button>
+                          </div>
                         )}
-                        <p className="text-xs text-gray-500">₹{item.unitPrice.toLocaleString("en-IN")} × {item.quantity}</p>
-                      </div>
-                      <p className="text-xs font-bold text-indigo-600 shrink-0">₹{(item.unitPrice * item.quantity).toLocaleString("en-IN")}</p>
-                      <button type="button" onClick={() => removeFromCart(item.product.id, item.variantId)}
-                        className="text-red-400 hover:text-red-600 transition-colors shrink-0">
-                        <TrashIcon className="w-4 h-4" />
-                      </button>
-                    </li>
-                  ))}
+
+                        {/* Bottom Row: Quantity Stepper & Line Subtotal */}
+                        <div className="flex items-center justify-between gap-2 pt-0.5">
+                          {/* Quantity Stepper */}
+                          <div className="flex items-center gap-1 bg-gray-50 border border-gray-200 rounded-xl p-0.5 shadow-2xs">
+                            <button
+                              type="button"
+                              onClick={() => updateQty(item.product.id, item.variantId, item.quantity - 1, item.maxStock)}
+                              className="w-7 h-7 flex items-center justify-center rounded-lg bg-white text-gray-700 hover:bg-gray-100 hover:text-gray-900 border border-gray-200 shadow-2xs active:scale-95 transition-all cursor-pointer"
+                              title="Decrease quantity"
+                            >
+                              <MinusIcon className="w-3.5 h-3.5" />
+                            </button>
+                            <input
+                              type="number"
+                              min={1}
+                              max={item.maxStock}
+                              value={item.quantity}
+                              onChange={(e) => {
+                                const val = parseInt(e.target.value, 10);
+                                if (!isNaN(val)) {
+                                  updateQty(item.product.id, item.variantId, val, item.maxStock);
+                                }
+                              }}
+                              className="w-9 text-center text-xs font-bold text-gray-900 bg-transparent focus:outline-none"
+                              title="Quantity"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => updateQty(item.product.id, item.variantId, item.quantity + 1, item.maxStock)}
+                              disabled={item.quantity >= item.maxStock}
+                              className="w-7 h-7 flex items-center justify-center rounded-lg bg-white text-gray-700 hover:bg-gray-100 hover:text-gray-900 border border-gray-200 shadow-2xs active:scale-95 disabled:opacity-40 disabled:pointer-events-none transition-all cursor-pointer"
+                              title="Increase quantity"
+                            >
+                              <PlusIcon className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+
+                          {/* Line Total */}
+                          <div className="text-right">
+                            <span className="text-[10px] text-gray-400 block font-normal">Subtotal</span>
+                            <span className="text-xs sm:text-sm font-extrabold text-indigo-700">
+                              ₹{(item.unitPrice * item.quantity).toLocaleString("en-IN")}
+                            </span>
+                          </div>
+                        </div>
+                      </li>
+                    );
+                  })}
                 </ul>
               )}
               {cart.length > 0 && (
@@ -1626,6 +2040,7 @@ export default function AdminOrderPage() {
               )}
             </div>
           </div>
+        </div>
         )}
 
         {/* ── STEP 3: Address ── */}
@@ -2311,23 +2726,40 @@ export default function AdminOrderPage() {
       </div>
 
       {/* ── Sticky Bottom Navigation Bar ── */}
-      <div className="sticky bottom-0 z-30 bg-white/95 backdrop-blur-md border-t border-gray-200 px-4 sm:px-8 py-3.5 shadow-[0_-4px_16px_rgba(0,0,0,0.04)] shrink-0">
-        <div className="w-full flex items-center justify-between">
+      <div className="sticky bottom-0 z-30 bg-white/95 backdrop-blur-md border-t border-gray-200 px-3 sm:px-8 py-2.5 sm:py-3.5 shadow-[0_-4px_16px_rgba(0,0,0,0.04)] shrink-0">
+        <div className="w-full flex items-center justify-between gap-2">
           <button
             type="button"
             onClick={goBack}
             disabled={stepIndex === 0}
-            className="flex items-center gap-2 px-5 py-2.5 text-sm font-semibold text-gray-700 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
+            className="flex items-center gap-1.5 px-3.5 sm:px-5 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold text-gray-700 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
           >
             <ChevronLeftIcon className="w-4 h-4" /> Back
           </button>
+
+          {/* Cart Mini Summary on mobile when on products step */}
+          {currentStep === "products" && cart.length > 0 && (
+            <button
+              type="button"
+              onClick={() => {
+                const cartEl = document.getElementById("admin-order-cart-section");
+                if (cartEl) cartEl.scrollIntoView({ behavior: "smooth" });
+              }}
+              className="lg:hidden flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-900 text-xs font-bold cursor-pointer hover:bg-indigo-100 transition-colors shadow-2xs"
+            >
+              <span className="w-5 h-5 rounded-full bg-indigo-600 text-white flex items-center justify-center text-[10px]">
+                {cart.reduce((sum, c) => sum + c.quantity, 0)}
+              </span>
+              <span>₹{cartTotal.toLocaleString("en-IN")}</span>
+            </button>
+          )}
 
           {currentStep !== "confirm" ? (
             <button
               type="button"
               onClick={goNext}
               disabled={!canProceed()}
-              className="flex items-center gap-2 px-6 py-2.5 text-sm font-semibold text-white bg-indigo-600 rounded-xl hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
+              className="flex items-center gap-1.5 px-4 sm:px-6 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold text-white bg-indigo-600 rounded-xl hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
             >
               Next <ChevronRightIcon className="w-4 h-4" />
             </button>
@@ -2336,7 +2768,7 @@ export default function AdminOrderPage() {
               type="button"
               onClick={() => handlePlaceOrder(false)}
               disabled={placing || recentOrderChecking}
-              className="flex items-center gap-2 px-7 py-2.5 text-sm font-bold text-white bg-green-600 rounded-xl hover:bg-green-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors cursor-pointer"
+              className="flex items-center gap-1.5 px-5 sm:px-7 py-2 sm:py-2.5 text-xs sm:text-sm font-bold text-white bg-green-600 rounded-xl hover:bg-green-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors cursor-pointer"
             >
               {placing || recentOrderChecking ? (
                 <>
@@ -2625,6 +3057,42 @@ export default function AdminOrderPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* POS Mobile/Tablet Camera Scanner Modal */}
+      <CameraBarcodeScannerModal
+        isOpen={cameraScannerOpen}
+        onClose={() => setCameraScannerOpen(false)}
+        onScan={(scannedCode) => handleBarcodeScanSubmit(scannedCode)}
+      />
+
+      {/* Variant Selection Modal for products with multiple pricing/options */}
+      {variantPickerProduct && (
+        <VariantPickerModal
+          isOpen={!!variantPickerProduct}
+          onClose={() => {
+            setVariantPickerProduct(null);
+            setTimeout(() => barcodeInputRef.current?.focus(), 50);
+          }}
+          product={variantPickerProduct}
+          cartItems={cart.filter((c) => String(c.product.id) === String(variantPickerProduct.id))}
+          onSelectVariant={(selectedVar) => {
+            const vid = String(selectedVar.id || (selectedVar as any)._id);
+            const added = addToCart(variantPickerProduct, vid);
+            if (added) {
+              playSuccessBeep();
+              const unitPrice = selectedVar.priceOverride ?? variantPickerProduct.price;
+              const variantSuffix = selectedVar.options && Object.keys(selectedVar.options).length > 0
+                ? ` (${Object.values(selectedVar.options).join(" / ")})`
+                : "";
+              toast.success(`✓ Added: ${variantPickerProduct.name}${variantSuffix} (₹${unitPrice.toLocaleString("en-IN")})`, { id: "pos-scan" });
+            } else {
+              playErrorBeep();
+            }
+            setVariantPickerProduct(null);
+            setTimeout(() => barcodeInputRef.current?.focus(), 50);
+          }}
+        />
       )}
     </div>
   );

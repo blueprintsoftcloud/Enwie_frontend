@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { useSearchParams } from "react-router-dom";
 import axios from "axios";
@@ -264,17 +264,25 @@ const ListCategory = () => {
   // Drill-down folder navigation — null = root/top-level. Categories are fetched once,
   // flat, and the whole tree (children-of-X, breadcrumb, descendant counts) is built
   // client-side from `parentId` pointers, same pattern as the existing search/sort.
-  // Seeded from (and kept in sync with) a `folder` URL param below, so reloading or
-  // sharing a link lands back in the same nested folder instead of resetting to root.
+  // Drill-down folder navigation — null = root/top-level.
+  // Directly driven by the `folder` URL query parameter as the single source of truth.
+  // Avoids state-sync race conditions between local useState and useSearchParams which
+  // previously caused subcategories to flicker and immediately bounce back to the parent.
   const [searchParams, setSearchParams] = useSearchParams();
-  const [currentFolderId, setCurrentFolderId] = useState<string | null>(() => searchParams.get("folder"));
+  const currentFolderId = searchParams.get("folder") || null;
 
-  useEffect(() => {
-    const folder = searchParams.get("folder");
-    if (folder && folder !== currentFolderId) {
-      setCurrentFolderId(folder);
-    }
-  }, [searchParams, currentFolderId]);
+  const setCurrentFolderId = useCallback((folderId: string | null) => {
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        if (folderId) next.set("folder", folderId);
+        else next.delete("folder");
+        return next;
+      },
+      { replace: false },
+    );
+  }, [setSearchParams]);
+
   const [storefrontCategoryShape, setStorefrontCategoryShape] = useState<"square" | "circle">("square");
   const [savingShape, setSavingShape] = useState(false);
 
@@ -302,19 +310,6 @@ const ListCategory = () => {
       setSavingShape(false);
     }
   };
-
-  useEffect(() => {
-    setSearchParams(
-      (prev) => {
-        const next = new URLSearchParams(prev);
-        if (currentFolderId) next.set("folder", currentFolderId);
-        else next.delete("folder");
-        return next;
-      },
-      { replace: true },
-    );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentFolderId]);
 
   // A category holds direct products OR subcategories, never both (enforced server-side
   // on new writes) — this decides whether the current folder shows the subcategory grid

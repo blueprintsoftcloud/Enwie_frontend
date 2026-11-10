@@ -37,6 +37,7 @@ import { compressImage } from "../utils/compressImage";
 import { calculateDiscountDetails, calculateDiscountedPrice, calculateDiscountAmount } from "../utils/product";
 import { convertClipboardHtmlToText } from "../utils/sanitizeHtml";
 import ProductSpecificationsEditor, { ProductSpecification, ProductCustomSection } from "./ProductSpecificationsEditor";
+import { BarcodeDownloadModal } from "./BarcodeDownloadModal";
 
 interface ValidationField {
   isValid: boolean;
@@ -219,6 +220,14 @@ export default function AddProductModal({
   const [additionalPreviews, setAdditionalPreviews] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [charCount, setCharCount] = useState(0);
+  const [createdProductForBarcode, setCreatedProductForBarcode] = useState<{
+    id?: string;
+    _id?: string;
+    code: string;
+    barcode?: string;
+    name: string;
+    price: number;
+  } | null>(null);
   const descriptionTextareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Whether this product is being created as a plain single-SKU item or one with its
@@ -1119,8 +1128,20 @@ export default function AddProductModal({
         }
       }
 
-      toast.success(res.data.message || "Product added successfully!", { id: "product-added" });
-      onSuccess();
+      const newProd = res.data.product;
+      if (newProd) {
+        setCreatedProductForBarcode({
+          id: newProd.id || newProd._id,
+          code: newProd.code,
+          barcode: newProd.barcode || newProd.code,
+          name: newProd.name,
+          price: newProd.price,
+        });
+        toast.success(res.data.message || "Product added! You can now print barcode labels.", { id: "product-added" });
+      } else {
+        toast.success(res.data.message || "Product added successfully!", { id: "product-added" });
+        onSuccess();
+      }
     } catch (err) {
       const _e = err as any;
       const backendErrors = _e.response?.data?.errors;
@@ -1313,6 +1334,17 @@ export default function AddProductModal({
                   message={serverErrors.productCode || validation.productCode.message}
                   isError={isCodeError}
                 />
+
+                {/* POS Barcode Notice */}
+                <div className="mt-2.5 p-2.5 bg-slate-50 border border-slate-200/80 rounded-xl flex items-center justify-between text-xs text-slate-600">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-slate-700">POS Barcode:</span>
+                    <span className="font-mono text-slate-500">Auto-generated upon save</span>
+                  </div>
+                  <span className="text-[11px] text-indigo-600 font-semibold">
+                    Download labels prompt after adding ✓
+                  </span>
+                </div>
               </div>
 
               {/* Product Name */}
@@ -2667,6 +2699,18 @@ export default function AddProductModal({
               </div>
             </div>
           </div>
+        )}
+
+        {/* Barcode Download Prompt on successful product addition */}
+        {createdProductForBarcode && (
+          <BarcodeDownloadModal
+            isOpen={!!createdProductForBarcode}
+            onClose={() => {
+              setCreatedProductForBarcode(null);
+              onSuccess();
+            }}
+            product={createdProductForBarcode}
+          />
         )}
       </div>
     </div>
