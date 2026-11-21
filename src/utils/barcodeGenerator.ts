@@ -151,6 +151,8 @@ export interface BarcodeLabelDetails {
   barcode: string;
   name: string;
   price: number;
+  basePrice?: number;
+  discount?: number;
   sku?: string;
   categoryName?: string;
   storeName?: string;

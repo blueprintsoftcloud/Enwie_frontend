@@ -4,6 +4,7 @@ import api from "../utils/api";
 import toast from "react-hot-toast";
 import { stripHtml } from "../utils/sanitizeHtml";
 import { fetchPincodeDetails } from "../utils/pincodeLookup";
+import { calculateDiscountedPrice } from "../utils/product";
 import {
   MagnifyingGlassIcon,
   UserCircleIcon,
@@ -91,6 +92,9 @@ interface Product {
   image?: string;
   description?: string;
   price: number;
+  discount?: number;
+  salePrice?: number | null;
+  basePrice?: number | null;
   stock: number;
   category?: { id: string; name: string };
   /** Active option combinations (Storage/Color, Weight, ...) this product is sold
@@ -109,11 +113,27 @@ interface CartItem {
    * here (not recomputed from `products`) because the product list can page/search
    * away from what's already in the cart. */
   unitPrice: number;
+  basePrice?: number;
+  discountPercent?: number;
   /** Stock ceiling for the quantity stepper — the variant's own stock once one is
    * picked (Product.stock is meaningless for a variant product), else the product's. */
   maxStock: number;
   quantity: number;
 }
+
+const getEffectiveProductPrice = (product: Product, variant?: ProductVariant | null) => {
+  const basePrice = Number(variant?.priceOverride ?? product.price ?? 0);
+  const discount = Number(variant?.discountOverride ?? product.discount ?? 0);
+  const hasDiscount = discount > 0;
+  const sellingPrice = hasDiscount ? calculateDiscountedPrice(basePrice, discount) : basePrice;
+
+  return {
+    basePrice,
+    sellingPrice,
+    discountPercent: discount,
+    hasDiscount,
+  };
+};
 
 interface Address {
   fullAddress: string;
@@ -651,7 +671,8 @@ export default function AdminOrderPage() {
     }
 
     const resolvedVariantId = targetVariant ? String(targetVariant.id || (targetVariant as any)._id) : null;
-    const unitPrice = targetVariant?.priceOverride ?? product.price;
+    const { sellingPrice, basePrice, discountPercent } = getEffectiveProductPrice(product, targetVariant);
+    const unitPrice = sellingPrice;
     const maxStock = targetVariant ? targetVariant.stock : product.stock;
 
     if (maxStock <= 0) {
@@ -684,6 +705,8 @@ export default function AdminOrderPage() {
           variantId: resolvedVariantId,
           variantOptions: targetVariant?.options ?? null,
           unitPrice,
+          basePrice,
+          discountPercent,
           maxStock,
           quantity: 1,
         },
@@ -738,7 +761,8 @@ export default function AdminOrderPage() {
       );
       if (!targetVariant) return prev;
 
-      const targetUnitPrice = targetVariant.priceOverride ?? currentItem.product.price;
+      const { sellingPrice, basePrice, discountPercent } = getEffectiveProductPrice(currentItem.product, targetVariant);
+      const targetUnitPrice = sellingPrice;
       const targetMaxStock = targetVariant.stock;
 
       if (targetMaxStock <= 0) {
@@ -769,6 +793,8 @@ export default function AdminOrderPage() {
                 variantId: newVariantId,
                 variantOptions: targetVariant.options ?? null,
                 unitPrice: targetUnitPrice,
+                basePrice,
+                discountPercent,
                 maxStock: targetMaxStock,
                 quantity: newQty,
               }
@@ -1739,26 +1765,49 @@ export default function AdminOrderPage() {
                               {stripHtml(p.description)}
                             </p>
                           )}
-                          {hasVariants ? (
-                            <div className="mt-1 flex items-center gap-1.5 flex-wrap text-xs">
-                              <span className="font-extrabold text-indigo-600">
-                                ₹{(selectedVariant?.priceOverride ?? p.price).toLocaleString("en-IN")}
-                              </span>
-                              <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200/60">
-                                {p.variants!.length} options
-                              </span>
-                              {selectedVariant && (
-                                <span className="text-[10px] sm:text-[11px] text-slate-500 truncate max-w-[130px] sm:max-w-[200px]">
-                                  · {formatVariantLabel(selectedVariant.options)}
+                          {hasVariants ? (() => {
+                            const pricing = getEffectiveProductPrice(p, selectedVariant);
+                            return (
+                              <div className="mt-1 flex items-center gap-1.5 flex-wrap text-xs">
+                                <span className="font-extrabold text-indigo-600">
+                                  ₹{pricing.sellingPrice.toLocaleString("en-IN")}
                                 </span>
-                              )}
-                            </div>
-                          ) : (
-                            <p className="text-xs text-gray-500 mt-1">
-                              ₹{p.price.toLocaleString("en-IN")} · Stock: {p.stock}
-                              {p.stock <= 0 && <span className="text-rose-600 font-semibold ml-1.5">(Out of stock)</span>}
-                            </p>
-                          )}
+                                {pricing.hasDiscount && (
+                                  <>
+                                    <span className="line-through text-gray-400 text-[11px]">
+                                      ₹{pricing.basePrice.toLocaleString("en-IN")}
+                                    </span>
+                                    <span className="text-emerald-600 font-semibold text-[10px]">
+                                      ({pricing.discountPercent}% OFF)
+                                    </span>
+                                  </>
+                                )}
+                                <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200/60">
+                                  {p.variants!.length} options
+                                </span>
+                                {selectedVariant && (
+                                  <span className="text-[10px] sm:text-[11px] text-slate-500 truncate max-w-[130px] sm:max-w-[200px]">
+                                    · {formatVariantLabel(selectedVariant.options)}
+                                  </span>
+                                )}
+                              </div>
+                            );
+                          })() : (() => {
+                            const pricing = getEffectiveProductPrice(p);
+                            return (
+                              <p className="text-xs text-gray-500 mt-1 flex items-center gap-1.5 flex-wrap">
+                                <span className="font-semibold text-gray-900">₹{pricing.sellingPrice.toLocaleString("en-IN")}</span>
+                                {pricing.hasDiscount && (
+                                  <>
+                                    <span className="line-through text-gray-400">₹{pricing.basePrice.toLocaleString("en-IN")}</span>
+                                    <span className="text-emerald-600 font-medium">({pricing.discountPercent}% OFF)</span>
+                                  </>
+                                )}
+                                <span>· Stock: {p.stock}</span>
+                                {p.stock <= 0 && <span className="text-rose-600 font-semibold ml-1.5">(Out of stock)</span>}
+                              </p>
+                            );
+                          })()}
                         </div>
                         {inCart ? (
                           <div className="flex items-center gap-1.5 sm:gap-2 shrink-0" onClick={e => e.stopPropagation()}>
@@ -1873,9 +1922,19 @@ export default function AdminOrderPage() {
                             <p className="text-xs sm:text-sm font-semibold text-gray-800 line-clamp-2 leading-snug">
                               {item.product.name}
                             </p>
-                            <span className="text-[11px] text-gray-500 font-medium">
-                              ₹{item.unitPrice.toLocaleString("en-IN")} each
-                            </span>
+                            <p className="text-[11px] text-gray-500 font-medium flex items-center gap-1 flex-wrap">
+                              <span>₹{item.unitPrice.toLocaleString("en-IN")} each</span>
+                              {item.basePrice && item.basePrice > item.unitPrice && (
+                                <span className="line-through text-gray-400 text-[10px]">
+                                  ₹{item.basePrice.toLocaleString("en-IN")}
+                                </span>
+                              )}
+                              {item.discountPercent ? (
+                                <span className="text-emerald-600 font-semibold text-[10px]">
+                                  ({item.discountPercent}% OFF)
+                                </span>
+                              ) : null}
+                            </p>
                           </div>
                           <button
                             type="button"
@@ -1900,10 +1959,12 @@ export default function AdminOrderPage() {
                                 {item.product.variants!.map((v, idx) => {
                                   const vid = String(v.id || (v as any)._id || idx);
                                   const isOutOfStock = v.stock <= 0;
-                                  const price = v.priceOverride ?? item.product.price;
+                                  const vBase = Number(v.priceOverride ?? item.product.price ?? 0);
+                                  const vDisc = Number(v.discountOverride ?? item.product.discount ?? 0);
+                                  const vSelling = vDisc > 0 ? calculateDiscountedPrice(vBase, vDisc) : vBase;
                                   return (
                                     <option key={vid} value={vid} disabled={isOutOfStock}>
-                                      {formatVariantLabel(v.options)} · ₹{price.toLocaleString("en-IN")}{isOutOfStock ? " (Out of stock)" : ` (${v.stock} in stock)`}
+                                      {formatVariantLabel(v.options)} · ₹{vSelling.toLocaleString("en-IN")}{vDisc > 0 ? ` (${vDisc}% OFF)` : ""}{isOutOfStock ? " (Out of stock)" : ` (${v.stock} in stock)`}
                                     </option>
                                   );
                                 })}
@@ -2657,7 +2718,14 @@ export default function AdminOrderPage() {
                         )}
                       </td>
                       <td className="py-2 text-center text-gray-600">{item.quantity}</td>
-                      <td className="py-2 text-right font-semibold text-gray-800">₹{(item.unitPrice * item.quantity).toLocaleString("en-IN")}</td>
+                      <td className="py-2 text-right font-semibold text-gray-800">
+                        <div>₹{(item.unitPrice * item.quantity).toLocaleString("en-IN")}</div>
+                        {item.basePrice && item.basePrice > item.unitPrice && (
+                          <div className="text-xs font-normal line-through text-gray-400">
+                            ₹{(item.basePrice * item.quantity).toLocaleString("en-IN")}
+                          </div>
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>

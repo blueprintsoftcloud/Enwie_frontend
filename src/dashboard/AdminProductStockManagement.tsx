@@ -63,6 +63,7 @@ interface ProductVariant {
   options: Record<string, string>;
   sku?: string;
   priceOverride?: number;
+  discountOverride?: number | null;
   stock: number;
   isActive: boolean;
   images?: string[];
@@ -140,6 +141,64 @@ interface ProductDetailResponse {
   monthlyBreakdown?: MonthlyBreakdownItem[];
 }
 
+const getProductPricing = (p: ProductItem) => {
+  const rawPrice = Number(p.price || 0);
+  const discountVal = Number(p.discount || 0);
+
+  if (discountVal > 0) {
+    const sellingPrice = calculateDiscountedPrice(rawPrice, discountVal);
+    const minPrice = p.priceRange ? calculateDiscountedPrice(p.priceRange.min, discountVal) : sellingPrice;
+    const maxPrice = p.priceRange ? calculateDiscountedPrice(p.priceRange.max, discountVal) : sellingPrice;
+    return {
+      hasDiscount: true,
+      sellingPrice,
+      basePrice: rawPrice,
+      discountPercent: discountVal,
+      displayPrice: sellingPrice,
+      priceRange: p.priceRange ? { min: minPrice, max: maxPrice } : null,
+      basePriceRange: p.priceRange,
+    };
+  }
+
+  if (p.salePrice != null && Number(p.salePrice) < rawPrice) {
+    const sPrice = Number(p.salePrice);
+    const discountPercent = rawPrice > 0 ? Math.round(((rawPrice - sPrice) / rawPrice) * 100) : 0;
+    return {
+      hasDiscount: true,
+      sellingPrice: sPrice,
+      basePrice: rawPrice,
+      discountPercent,
+      displayPrice: sPrice,
+      priceRange: p.priceRange,
+      basePriceRange: null,
+    };
+  }
+
+  if (p.basePrice != null && Number(p.basePrice) > rawPrice) {
+    const bPrice = Number(p.basePrice);
+    const discountPercent = bPrice > 0 ? Math.round(((bPrice - rawPrice) / bPrice) * 100) : 0;
+    return {
+      hasDiscount: true,
+      sellingPrice: rawPrice,
+      basePrice: bPrice,
+      discountPercent,
+      displayPrice: rawPrice,
+      priceRange: p.priceRange,
+      basePriceRange: null,
+    };
+  }
+
+  return {
+    hasDiscount: false,
+    sellingPrice: rawPrice,
+    basePrice: rawPrice,
+    discountPercent: 0,
+    displayPrice: rawPrice,
+    priceRange: p.priceRange,
+    basePriceRange: null,
+  };
+};
+
 export default function AdminProductStockManagement() {
   const { user } = useAuth();
   const userRole = (user?.role || localStorage.getItem("userRole") || "").toUpperCase();
@@ -185,6 +244,8 @@ export default function AdminProductStockManagement() {
     barcode?: string;
     name: string;
     price: number;
+    basePrice?: number;
+    discount?: number;
     categoryName?: string;
     variants?: any[];
   } | null>(null);
@@ -345,12 +406,16 @@ export default function AdminProductStockManagement() {
       }
     }
 
+    const pricing = getProductPricing(p);
+
     setBarcodeDownloadProduct({
       id: p.id,
       code: p.code || "",
       barcode: (p as any).barcode || p.code || "",
       name: p.name,
-      price: Number(p.salePrice || p.price || 0),
+      price: pricing.sellingPrice,
+      basePrice: pricing.basePrice,
+      discount: pricing.discountPercent,
       categoryName: p.category?.name,
       variants,
     });
@@ -1011,11 +1076,7 @@ export default function AdminProductStockManagement() {
           /* ── Premium Card Grid View ───────────────────────────────────────── */
           <div className="p-3.5 sm:p-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4 sm:gap-5">
             {sortedProducts.map((p) => {
-              const displayPrice = p.salePrice || p.price;
-              const hasDiscount = p.basePrice && p.basePrice > displayPrice;
-              const discountPercent = hasDiscount
-                ? Math.round(((p.basePrice! - displayPrice) / p.basePrice!) * 100)
-                : 0;
+              const pricing = getProductPricing(p);
               const resolvedImg = resolveProductImage(p.image);
 
               return (
@@ -1075,16 +1136,18 @@ export default function AdminProductStockManagement() {
                         </span>
                         <div className="text-right">
                           <div className="font-extrabold text-slate-900 text-sm sm:text-base">
-                            {p.priceRange ? (
-                              <span>₹{p.priceRange.min} – ₹{p.priceRange.max}</span>
+                            {pricing.priceRange ? (
+                              <span>₹{pricing.priceRange.min.toLocaleString("en-IN")} – ₹{pricing.priceRange.max.toLocaleString("en-IN")}</span>
                             ) : (
-                              <span>₹{displayPrice}</span>
+                              <span>₹{pricing.sellingPrice.toLocaleString("en-IN")}</span>
                             )}
                           </div>
-                          {hasDiscount && (
+                          {pricing.hasDiscount && (
                             <div className="flex items-center justify-end gap-1 text-[10px]">
-                              <span className="line-through text-slate-400">₹{p.basePrice}</span>
-                              <span className="font-semibold text-emerald-600">({discountPercent}% OFF)</span>
+                              <span className="line-through text-slate-400">
+                                {pricing.basePriceRange ? `₹${pricing.basePriceRange.min.toLocaleString("en-IN")} – ₹${pricing.basePriceRange.max.toLocaleString("en-IN")}` : `₹${pricing.basePrice.toLocaleString("en-IN")}`}
+                              </span>
+                              <span className="font-semibold text-emerald-600">({pricing.discountPercent}% OFF)</span>
                             </div>
                           )}
                         </div>
@@ -1172,11 +1235,7 @@ export default function AdminProductStockManagement() {
               </thead>
               <tbody className="divide-y divide-slate-100 text-sm">
                 {sortedProducts.map((p) => {
-                  const displayPrice = p.salePrice || p.price;
-                  const hasDiscount = p.basePrice && p.basePrice > displayPrice;
-                  const discountPercent = hasDiscount
-                    ? Math.round(((p.basePrice! - displayPrice) / p.basePrice!) * 100)
-                    : 0;
+                  const pricing = getProductPricing(p);
                   const resolvedImg = resolveProductImage(p.image);
 
                   return (
@@ -1225,18 +1284,20 @@ export default function AdminProductStockManagement() {
                       {/* Pricing */}
                       <td className="py-3.5 px-4 whitespace-nowrap">
                         <div className="font-bold text-slate-900">
-                          {p.priceRange ? (
+                          {pricing.priceRange ? (
                             <span>
-                              ₹{p.priceRange.min} – ₹{p.priceRange.max}
+                              ₹{pricing.priceRange.min.toLocaleString("en-IN")} – ₹{pricing.priceRange.max.toLocaleString("en-IN")}
                             </span>
                           ) : (
-                            <span>₹{displayPrice}</span>
+                            <span>₹{pricing.sellingPrice.toLocaleString("en-IN")}</span>
                           )}
                         </div>
-                        {hasDiscount && (
+                        {pricing.hasDiscount && (
                           <div className="flex items-center gap-1.5 text-xs">
-                            <span className="line-through text-slate-400">₹{p.basePrice}</span>
-                            <span className="font-semibold text-emerald-600">({discountPercent}% OFF)</span>
+                            <span className="line-through text-slate-400">
+                              {pricing.basePriceRange ? `₹${pricing.basePriceRange.min.toLocaleString("en-IN")} – ₹${pricing.basePriceRange.max.toLocaleString("en-IN")}` : `₹${pricing.basePrice.toLocaleString("en-IN")}`}
+                            </span>
+                            <span className="font-semibold text-emerald-600">({pricing.discountPercent}% OFF)</span>
                           </div>
                         )}
                       </td>
@@ -1796,12 +1857,26 @@ export default function AdminProductStockManagement() {
                                       .join(", ");
                                     const currentVal = variantStockInputs[v.id] ?? v.stock;
 
+                                    const vBasePrice = Number(v.priceOverride || detailData.product.price || 0);
+                                    const vDiscount = Number(v.discountOverride ?? detailData.product.discount ?? 0);
+                                    const vSellingPrice = vDiscount > 0 ? calculateDiscountedPrice(vBasePrice, vDiscount) : vBasePrice;
+
                                     return (
                                       <tr key={v.id} className="hover:bg-slate-50/60">
                                         <td className="p-3 font-semibold text-slate-800">{optString || "Default"}</td>
                                         <td className="p-3 font-mono text-slate-500">{v.sku || "—"}</td>
                                         <td className="p-3 font-medium text-slate-700">
-                                          ₹{v.priceOverride || detailData.product.price}
+                                          <div className="font-semibold text-slate-900">
+                                            ₹{vSellingPrice.toLocaleString("en-IN")}
+                                            {vDiscount > 0 && (
+                                              <span className="ml-1 text-[10px] font-bold text-emerald-600">({vDiscount}% OFF)</span>
+                                            )}
+                                          </div>
+                                          {vDiscount > 0 && (
+                                            <div className="text-[10px] text-slate-400 line-through">
+                                              ₹{vBasePrice.toLocaleString("en-IN")}
+                                            </div>
+                                          )}
                                         </td>
                                         <td className="p-3">
                                           <div className="flex items-center justify-center gap-1.5">
@@ -2014,12 +2089,15 @@ export default function AdminProductStockManagement() {
                             type="button"
                             onClick={() => {
                               if (detailData?.variants?.length) {
+                                const pricing = getProductPricing(prod);
                                 setBarcodeDownloadProduct({
                                   id: targetProdId,
                                   code: prod.code || "",
                                   barcode: (prod as any).barcode || prod.code || "",
                                   name: prod.name,
-                                  price: Number(prod.price || prod.salePrice || 0),
+                                  price: pricing.sellingPrice,
+                                  basePrice: pricing.basePrice,
+                                  discount: pricing.discountPercent,
                                   categoryName: prod.category?.name,
                                   variants: detailData.variants,
                                 });

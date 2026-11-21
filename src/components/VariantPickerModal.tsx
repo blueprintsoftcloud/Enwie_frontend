@@ -1,6 +1,7 @@
 // src/components/VariantPickerModal.tsx
 import React, { useEffect } from "react";
 import { XMarkIcon, ShoppingBagIcon, CheckCircleIcon } from "@heroicons/react/24/outline";
+import { calculateDiscountedPrice } from "../utils/product";
 
 export interface VariantOptionItem {
   id: string;
@@ -8,6 +9,7 @@ export interface VariantOptionItem {
   options: Record<string, string>;
   stock: number;
   priceOverride: number | null;
+  discountOverride?: number | null;
   sku?: string;
   barcode?: string;
   image?: string | null;
@@ -21,6 +23,7 @@ interface VariantPickerModalProps {
     name: string;
     code: string;
     price: number;
+    discount?: number;
     image?: string;
     variants?: VariantOptionItem[];
   };
@@ -122,7 +125,9 @@ export const VariantPickerModal: React.FC<VariantPickerModalProps> = ({
             variants.map((v, idx) => {
               const vid = String(v.id || v._id || "");
               const isOutOfStock = v.stock <= 0;
-              const unitPrice = v.priceOverride ?? product.price;
+              const basePrice = Number(v.priceOverride ?? product.price ?? 0);
+              const discount = Number(v.discountOverride ?? product.discount ?? 0);
+              const unitPrice = discount > 0 ? calculateDiscountedPrice(basePrice, discount) : basePrice;
               const cartEntry = cartItems.find((c) => String(c.variantId ?? "") === vid);
               const inCartQty = cartEntry ? cartEntry.quantity : 0;
               const shortcutNumber = idx + 1 <= 9 ? idx + 1 : null;
@@ -186,11 +191,20 @@ export const VariantPickerModal: React.FC<VariantPickerModalProps> = ({
                       <span className="text-sm sm:text-base font-extrabold text-indigo-600">
                         ₹{unitPrice.toLocaleString("en-IN")}
                       </span>
-                      {v.priceOverride && v.priceOverride !== product.price && (
+                      {discount > 0 ? (
+                        <div className="flex items-center justify-end gap-1 text-[10px]">
+                          <span className="text-slate-400 line-through">
+                            ₹{basePrice.toLocaleString("en-IN")}
+                          </span>
+                          <span className="font-bold text-emerald-600">
+                            ({discount}% OFF)
+                          </span>
+                        </div>
+                      ) : v.priceOverride && v.priceOverride !== product.price ? (
                         <p className="text-[10px] text-slate-400 line-through">
                           ₹{product.price.toLocaleString("en-IN")}
                         </p>
-                      )}
+                      ) : null}
                     </div>
 
                     {!isOutOfStock && (

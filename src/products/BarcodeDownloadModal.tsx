@@ -15,6 +15,7 @@ import {
   BarcodeLayoutFormat,
   BarcodeLabelDetails,
 } from "../utils/barcodeGenerator";
+import { calculateDiscountedPrice } from "../utils/product";
 
 interface BarcodeDownloadModalProps {
   isOpen: boolean;
@@ -26,12 +27,15 @@ interface BarcodeDownloadModalProps {
     barcode?: string;
     name: string;
     price: number;
+    basePrice?: number;
+    discount?: number;
     categoryName?: string;
     variants?: Array<{
       id?: string;
       _id?: string;
       options?: Record<string, string>;
       priceOverride?: number | null;
+      discountOverride?: number | null;
       sku?: string;
       barcode?: string;
       stock?: number;
@@ -70,7 +74,31 @@ export const BarcodeDownloadModal: React.FC<BarcodeDownloadModalProps> = ({
       : product.barcode || product.code || "ENW-0000"
   ).trim();
 
-  const activePrice = selectedVariant?.priceOverride ?? product.price;
+  const getPricing = (variant?: (typeof variants)[0]) => {
+    if (variant) {
+      const vBase = Number(variant.priceOverride ?? product.basePrice ?? product.price ?? 0);
+      const vDisc = Number(variant.discountOverride ?? product.discount ?? 0);
+      const vSelling = vDisc > 0 ? calculateDiscountedPrice(vBase, vDisc) : vBase;
+      return {
+        sellingPrice: vSelling,
+        basePrice: vBase,
+        discount: vDisc,
+      };
+    }
+    const pBase = Number(product.basePrice ?? product.price ?? 0);
+    const pDisc = Number(product.discount ?? 0);
+    const pSelling = pDisc > 0 ? calculateDiscountedPrice(pBase, pDisc) : Number(product.price ?? pBase);
+    return {
+      sellingPrice: pSelling,
+      basePrice: pBase,
+      discount: pDisc,
+    };
+  };
+
+  const currentPricing = getPricing(selectedVariant);
+  const activePrice = currentPricing.sellingPrice;
+  const activeBasePrice = currentPricing.basePrice;
+  const activeDiscount = currentPricing.discount;
   const activeName = selectedVariant?.options
     ? `${product.name} (${formatVariantLabel(selectedVariant.options)})`
     : product.name;
@@ -98,6 +126,8 @@ export const BarcodeDownloadModal: React.FC<BarcodeDownloadModalProps> = ({
     barcode: activeBarcode,
     name: activeName,
     price: activePrice,
+    basePrice: activeBasePrice,
+    discount: activeDiscount,
     sku: activeSku,
     categoryName: product.categoryName,
     storeName: "ENWIE",
@@ -195,14 +225,15 @@ export const BarcodeDownloadModal: React.FC<BarcodeDownloadModalProps> = ({
                 className="w-full h-9 px-3 bg-white border border-indigo-200 rounded-lg text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
               >
                 <option value="base">
-                  Master Product (Base SKU: {product.code} · ₹{product.price.toLocaleString("en-IN")})
+                  Master Product (Base SKU: {product.code} · ₹{getPricing().sellingPrice.toLocaleString("en-IN")})
                 </option>
                 {variants.map((v, i) => {
                   const vid = String(v.id || v._id || `var-${i}`);
-                  const price = v.priceOverride ?? product.price;
+                  const vPricing = getPricing(v);
                   return (
                     <option key={vid} value={vid}>
-                      {formatVariantLabel(v.options || {})} — ₹{price.toLocaleString("en-IN")}
+                      {formatVariantLabel(v.options || {})} — ₹{vPricing.sellingPrice.toLocaleString("en-IN")}
+                      {vPricing.discount > 0 ? ` (${vPricing.discount}% OFF)` : ""}
                       {v.stock !== undefined ? ` (${v.stock} in stock)` : ""}
                     </option>
                   );
@@ -240,7 +271,14 @@ export const BarcodeDownloadModal: React.FC<BarcodeDownloadModalProps> = ({
               )}
               <div className="pt-1.5 border-t border-slate-100 flex items-center justify-between text-xs font-bold">
                 <span className="text-slate-500 font-mono text-[11px]">{activeBarcode}</span>
-                <span className="text-indigo-600 font-black">₹{activePrice.toLocaleString("en-IN")}</span>
+                <div className="flex items-center gap-1.5">
+                  {activeDiscount > 0 && activeBasePrice > activePrice && (
+                    <span className="text-slate-400 line-through font-normal text-[11px]">
+                      ₹{activeBasePrice.toLocaleString("en-IN")}
+                    </span>
+                  )}
+                  <span className="text-indigo-600 font-black">₹{activePrice.toLocaleString("en-IN")}</span>
+                </div>
               </div>
             </div>
           </div>

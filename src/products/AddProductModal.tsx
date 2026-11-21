@@ -227,6 +227,8 @@ export default function AddProductModal({
     barcode?: string;
     name: string;
     price: number;
+    basePrice?: number;
+    discount?: number;
   } | null>(null);
   const descriptionTextareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -1130,12 +1132,17 @@ export default function AddProductModal({
 
       const newProd = res.data.product;
       if (newProd) {
+        const bPrice = Number(newProd.price || 0);
+        const disc = Number(newProd.discount || 0);
+        const sPrice = disc > 0 ? calculateDiscountedPrice(bPrice, disc) : bPrice;
         setCreatedProductForBarcode({
           id: newProd.id || newProd._id,
           code: newProd.code,
           barcode: newProd.barcode || newProd.code,
           name: newProd.name,
-          price: newProd.price,
+          price: sPrice,
+          basePrice: bPrice,
+          discount: disc,
         });
         toast.success(res.data.message || "Product added! You can now print barcode labels.", { id: "product-added" });
       } else {

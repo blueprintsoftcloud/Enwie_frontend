@@ -745,6 +745,8 @@ const Listproducts = ({
     barcode?: string;
     name: string;
     price: number;
+    basePrice?: number;
+    discount?: number;
     categoryName?: string;
     variants?: any[];
   } | null>(null);
@@ -2232,16 +2234,21 @@ const Listproducts = ({
                             handleViewProduct={handleViewProduct}
                             handleToggleStatus={handleToggleStatus}
                             handleManageVariants={setVariantsModalProduct}
-                            handlePrintBarcode={(p) =>
+                            handlePrintBarcode={(p) => {
+                              const bPrice = Number(p.price || 0);
+                              const disc = Number(p.discount || 0);
+                              const sPrice = disc > 0 ? calculateDiscountedPrice(bPrice, disc) : bPrice;
                               setBarcodeDownloadProduct({
                                 id: (p._id || p.id) as string,
                                 code: p.code || "",
                                 barcode: p.barcode || p.code,
                                 name: p.name,
-                                price: p.price || 0,
+                                price: sPrice,
+                                basePrice: bPrice,
+                                discount: disc,
                                 variants: (p as any).variants || [],
-                              })
-                            }
+                              });
+                            }}
                             canEdit={canEdit}
                             canDelete={canDelete}
                           />
@@ -2345,16 +2352,21 @@ const Listproducts = ({
                                         onEdit={() => handleEditClick(prod)}
                                         onDelete={() => handleDeleteClick(prod)}
                                         onManageVariants={() => setVariantsModalProduct(prod)}
-                                        onPrintBarcode={() =>
+                                        onPrintBarcode={() => {
+                                          const bPrice = Number(prod.price || 0);
+                                          const disc = Number(prod.discount || 0);
+                                          const sPrice = disc > 0 ? calculateDiscountedPrice(bPrice, disc) : bPrice;
                                           setBarcodeDownloadProduct({
                                             id: (prod._id || prod.id) as string,
                                             code: prod.code || "",
                                             barcode: prod.barcode || prod.code,
                                             name: prod.name,
-                                            price: prod.price || 0,
+                                            price: sPrice,
+                                            basePrice: bPrice,
+                                            discount: disc,
                                             variants: (prod as any).variants || [],
-                                          })
-                                        }
+                                          });
+                                        }}
                                         canEdit={canEdit}
                                         canDelete={canDelete}
                                       />
@@ -2546,12 +2558,17 @@ const Listproducts = ({
                           type="button"
                           onClick={() => {
                             if (selectedProduct) {
+                              const bPrice = Number(selectedProduct.price || formData.price || 0);
+                              const disc = Number(selectedProduct.discount || formData.discount || 0);
+                              const sPrice = disc > 0 ? calculateDiscountedPrice(bPrice, disc) : bPrice;
                               setBarcodeDownloadProduct({
                                 id: (selectedProduct._id || selectedProduct.id) as string,
                                 code: selectedProduct.code || formData.productCode,
                                 barcode: (selectedProduct as any).barcode || selectedProduct.code || formData.productCode,
                                 name: selectedProduct.name || formData.productName,
-                                price: selectedProduct.price || Number(formData.price) || 0,
+                                price: sPrice,
+                                basePrice: bPrice,
+                                discount: disc,
                                 variants: (selectedProduct as any).variants || [],
                               });
                             }
